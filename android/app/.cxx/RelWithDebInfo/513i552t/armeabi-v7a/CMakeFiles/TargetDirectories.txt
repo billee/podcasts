@@ -1,0 +1,2 @@
+C:/Users/sanme/AndroidStudioProjects/kapwa_companion/android/app/.cxx/RelWithDebInfo/513i552t/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/sanme/AndroidStudioProjects/kapwa_companion/android/app/.cxx/RelWithDebInfo/513i552t/armeabi-v7a/CMakeFiles/rebuild_cache.dir
