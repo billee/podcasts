@@ -1,16 +1,1 @@
-{
-  "hosting": {
-    "public": "build/web",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ]
-  }
-}
+{"flutter":{"platforms":{"android":{"default":{"projectId":"kapwa-companion","appId":"1:980700289813:android:727a37b09c61ea69ff271c","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"kapwa-companion","configurations":{"android":"1:980700289813:android:727a37b09c61ea69ff271c","ios":"1:980700289813:ios:27f3b76c690a70d4ff271c","macos":"1:980700289813:ios:27f3b76c690a70d4ff271c","web":"1:980700289813:web:6ff0832e4f586da0ff271c","windows":"1:980700289813:web:3f95d7c01eaa57ecff271c"}}}}}}
