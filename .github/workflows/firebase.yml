@@ -23,6 +23,6 @@ jobs:
         run: flutter build web
 
       - name: Deploy to Firebase
-        run: firebase deploy --token "$FIREBASE_TOKEN" --project kapwa-companion
+        run: firebase deploy --token "$FIREBASE_TOKEN" --project kapwa-companion --only hosting
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
