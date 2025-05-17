@@ -1,0 +1,5 @@
+chromadb>=0.4.0
+sentence-transformers
+firebase-admin
+flask
+gunicorn

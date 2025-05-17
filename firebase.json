@@ -12,5 +12,19 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "firestore": {
+    "database": "(default)",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "python310",
+    "ignore": [
+      ".git",
+      "venv",
+      "__pycache__"
+    ]
   }
 }

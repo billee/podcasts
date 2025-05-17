@@ -1,7 +1,4 @@
-// lib/screens/chat_screen.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -10,164 +7,133 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-
-
-
 class _ChatScreenState extends State<ChatScreen> {
-  final List<ChatMessage> _messages = [];
-  final TextEditingController _textController = TextEditingController();
-  bool _isLoading = false;
-  final _scrollController = ScrollController();
-
-  // Cached responses for common OFW concerns
-  final Map<String, List<String>> _cachedResponses = {
-    'homesick': [
-      '💙 Alam kong mahirap malayo sa pamilya. Kaya mo yan, kabayan!',
-      '📞 Gusto mo bang mag-schedule ng video call sa inyong pamilya?'
-    ],
-    'oec': [
-      '📄 Para sa OEC renewal, kailangan ng: 1) Passport, 2) Kontrata, 3) OWWA membership. Pwede ko bang i-direct sa official website?',
-    ],
-    'salary': [
-      '💼 Ayon sa batas, dapat bayaran kayo ng hindi bababa sa \$450 monthly. Gusto mo ng tulong para i-report ito?',
-    ]
-  };
-
-  // Common OFW questions as suggestions
-  final List<String> _suggestions = [
-    'Paano mag-renew ng OEC?',
-    'Ano ang minimum salary sa UAE?',
-    'Pano labanan ang homesickness?'
+  final TextEditingController _messageController = TextEditingController();
+  final List<String> _messages = [];
+  final List<String> _allSuggestions = [
+    "How are you feeling?",
+    "Share your thoughts",
+    "Today's highlights?",
+    "Any challenges?",
+    "Need support?",
+    "What are you grateful for?",
+    "Recent accomplishments?",
+    "Something bothering you?",
   ];
+  List<String> _currentSuggestions = [];
 
   @override
   void initState() {
     super.initState();
-    _initializeFirebase();
+    _refreshSuggestions();
   }
 
-  Future<void> _initializeFirebase() async {
-    await Firebase.initializeApp();
-    await FirebaseAuth.instance.signInAnonymously();
+  void _refreshSuggestions() {
+    _allSuggestions.shuffle();
+    _currentSuggestions = _allSuggestions.sublist(0, 3);
   }
 
-  void _sendMessage(String text) async {
-    if (text.isEmpty) return;
+  void _sendMessage(String message) {
+    if (message.isEmpty) return;
 
-    // Add user message
+    // Separate message handling
+    _addMessages(message);
+    _clearInput();
+  }
+
+  // New method for message handling
+  void _addMessages(String userMessage) {
     setState(() {
-      _messages.add(ChatMessage(text, isUser: true));
-      _textController.clear();
-      _isLoading = true;
-    });
-
-    // Check cache first
-    final cachedResponse = _checkCache(text);
-    if (cachedResponse != null) {
-      _showCachedResponse(cachedResponse);
-    } else {
-      // Simulate slow LLM response
-      await _simulateLlamaResponse(text);
-    }
-
-    // Scroll to bottom
-    _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-  }
-
-  String? _checkCache(String query) {
-    final key = _cachedResponses.keys.firstWhere(
-          (key) => query.toLowerCase().contains(key),
-      orElse: () => '',
-    );
-    return key.isNotEmpty ? _cachedResponses[key]!.first : null;
-  }
-
-  void _showCachedResponse(String response) {
-    setState(() {
-      _messages.add(ChatMessage(response));
-      _isLoading = false;
+      _messages.add(userMessage);
+      _messages.add(_getBotResponse(userMessage));
+      _refreshSuggestions();
     });
   }
 
-  Future<void> _simulateLlamaResponse(String query) async {
-    // In real implementation, call your Llama API here
-    await Future.delayed(const Duration(seconds: 3));
-
-    setState(() {
-      _messages.add(ChatMessage(
-        '🤖 (LLM) Alam kong nahihirapan ka... ${_culturalLoadingMessages().first}',
-        isLlama: true,
-      ));
-      _isLoading = false;
-    });
+// New method for input cleanup
+  void _clearInput() {
+    _messageController.clear();
   }
 
-  List<String> _culturalLoadingMessages() => [
-    'Nag-iisip ako nang mabuti, parang paghihintay ng remittance...',
-    'Sandali lang, kapatid. Para to sa ikabubuti natin.',
-    'Kasing bilis ng padala ng pera! Konting pasensya...',
-  ];
+  String _getBotResponse(String userMessage) {
+    final responses = [
+      "That's interesting. Can you tell me more about that?",
+      "Thank you for sharing. How did that make you feel?",
+      "I appreciate you opening up about this. Let's explore that further.",
+      "That sounds important. What would you like to do next?",
+      "I'm here to listen. Please continue when you're ready.",
+    ];
+    return responses[_messages.length % responses.length];
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Kapwa Companion'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () => _showCulturalAuthDialog(),
-          )
-        ],
+        backgroundColor: Colors.black,
+        title: const Text(
+          'Kapwa Companion',
+          style: TextStyle(color: Colors.white),
+        ),
       ),
       body: Column(
         children: [
-          // Suggestion Chips
-          SizedBox(
-            height: 60,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: _suggestions.map((text) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ActionChip(
-                  label: Text(text),
-                  onPressed: () => _sendMessage(text),
-                ),
-              )).toList(),
-            ),
-          ),
-
-          // Chat Messages
           Expanded(
             child: ListView.builder(
-              controller: _scrollController,
-              itemCount: _messages.length + (_isLoading ? 1 : 0),
+              reverse: true,
+              padding: const EdgeInsets.all(8),
+              itemCount: _messages.length,
               itemBuilder: (context, index) {
-                if (index >= _messages.length) {
-                  return _buildLoadingIndicator();
-                }
-                return _messages[index];
+                final message = _messages[_messages.length - 1 - index];
+                return MessageBubble(
+                  message: message,
+                  isUser: index % 2 == 0,
+                );
               },
             ),
           ),
-
-          // Input Area
-          Padding(
-            padding: const EdgeInsets.all(8.0),
+          // Suggestions Container
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: Colors.grey[800]!),
+                bottom: BorderSide(color: Colors.grey[800]!),
+              ),
+            ),
+            child: Column(
+              children: _currentSuggestions
+                  .map((suggestion) => SuggestionItem(
+                text: suggestion,
+                onTap: () => _sendMessage(suggestion),
+              ))
+                  .toList(),
+            ),
+          ),
+          // Input Container
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            color: Colors.black,
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
-                    controller: _textController,
-                    decoration: const InputDecoration(
-                      hintText: 'Mag-type dito...',
+                    controller: _messageController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Type your message...',
+                      hintStyle: TextStyle(color: Colors.grey[600]),
+                      border: InputBorder.none,
                     ),
-                    onSubmitted: _sendMessage,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: () => _sendMessage(_textController.text),
+                  icon: const Icon(Icons.send, color: Colors.white),
+                  onPressed: () => _sendMessage(_messageController.text),
                 ),
               ],
             ),
@@ -176,69 +142,68 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
-
-  Widget _buildLoadingIndicator() {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        children: [
-          const CircularProgressIndicator(),
-          Text(
-            _culturalLoadingMessages()[DateTime.now().second % 3],
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showCulturalAuthDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Mag-sign up para sa mas mabilis na tulong!'),
-        content: const Text('Makakuha ng:'
-            '\n✅ Unlimited na sagot'
-            '\n✅ Mabilis na response'
-            '\n✅ Mga eksklusibong tips'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hindi muna'),
-          ),
-          ElevatedButton(
-            onPressed: () => _navigateToSignUp(),
-            child: const Text('Mag-sign Up'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _navigateToSignUp() {
-    // Implement your sign up flow
-  }
 }
 
-class ChatMessage extends StatelessWidget {
-  final String text;
+class MessageBubble extends StatelessWidget {
+  final String message;
   final bool isUser;
-  final bool isLlama;
 
-  const ChatMessage(this.text, {this.isUser = false, this.isLlama = false});
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.isUser,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isUser
-            ? Colors.blue[100]
-            : (isLlama ? Colors.grey[200] : Colors.green[100]),
-        borderRadius: BorderRadius.circular(12),
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isUser ? Colors.blue[800] : Colors.grey[900],
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          message,
+          style: const TextStyle(color: Colors.white),
+        ),
       ),
-      child: Text(text),
+    );
+  }
+}
+
+class SuggestionItem extends StatelessWidget {
+  final String text;
+  final VoidCallback onTap;
+
+  const SuggestionItem({
+    super.key,
+    required this.text,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[700]!),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              color: Colors.grey[300],
+              fontSize: 14),
+        ),
+      ),
     );
   }
 }
