@@ -1,0 +1,11 @@
+{
+  "question": "Ano ang pinakaligtas na paraan ng pagpapadala ng pera?",
+  "answer": "Gamitin ang mga authorized channels: 1) Bank transfers, 2) Palawan Express, 3) Western Union. Iwasan ang padala system.",
+  "metadata": {
+    "category": "financial",
+    "source": "bangko_sentral",
+    "freshness": "2024-05-15",
+    "language": "taglish",
+    "tags": ["money", "remittance", "safety"]
+  }
+}
