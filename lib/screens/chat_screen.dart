@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:kapwa_companion/services/firebase_service.dart';
+import 'package:kapwa_companion/services/rag_service.dart';
+import 'package:kapwa_companion/services/llama_service.dart';
+import 'package:kapwa_companion/constants.dart';
+import 'dart:io';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -9,7 +14,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
-  final List<String> _messages = [];
+  final List<Map<String, dynamic>> _messages = [];
   final List<String> _allSuggestions = [
     "How are you feeling?",
     "Share your thoughts",
@@ -33,37 +38,66 @@ class _ChatScreenState extends State<ChatScreen> {
     _currentSuggestions = _allSuggestions.sublist(0, 3);
   }
 
-  void _sendMessage(String message) {
+  void _sendMessage(String message) async {
     if (message.isEmpty) return;
 
-    // Separate message handling
-    _addMessages(message);
+    // Add user message
+    setState(() {
+      _messages.insert(0, {'text': message, 'isUser': true});
+    });
     _clearInput();
+
+    try {
+      _addTempMessage("Processing your message...");
+      print('Sending query: $message');
+
+      final ragResults = await RAGService.query(message);
+      print('RAG Results: $ragResults');
+
+      String botResponse;
+      try {
+        botResponse = await LlamaService.generateResponse(message, ragResults);
+      } catch (e) {
+        botResponse = ragResults.first['content']; // Use direct RAG result
+      }
+
+      print('Generated Response: $botResponse');
+
+      print('...........................');
+      exit(0);
+
+
+      _replaceTempMessage(botResponse);
+
+    } catch (e, stack) {
+      print('Error: $e\nStack: $stack'); // Detailed error logging
+      _replaceTempMessage(_getFallbackResponse(message));
+    }
   }
 
-  // New method for message handling
-  void _addMessages(String userMessage) {
+  String _getFallbackResponse(String input) {
+    if (input.toLowerCase().contains('oec')) {
+      return 'Para sa OEC renewal, bisitahin ang DMW website';
+    }
+    return 'Ay may problema, try ulit mamaya...';
+  }
+
+  void _addTempMessage(String text) {
     setState(() {
-      _messages.add(userMessage);
-      _messages.add(_getBotResponse(userMessage));
-      _refreshSuggestions();
+      _messages.insert(0, {'text': text, 'isTemp': true});
     });
   }
 
-// New method for input cleanup
-  void _clearInput() {
-    _messageController.clear();
+  void _replaceTempMessage(String newText) {
+    setState(() {
+      _messages.removeAt(0); // Remove loading message
+      _messages.insert(0, {'text': newText, 'isUser': false});
+    });
+    _refreshSuggestions();
   }
 
-  String _getBotResponse(String userMessage) {
-    final responses = [
-      "That's interesting. Can you tell me more about that?",
-      "Thank you for sharing. How did that make you feel?",
-      "I appreciate you opening up about this. Let's explore that further.",
-      "That sounds important. What would you like to do next?",
-      "I'm here to listen. Please continue when you're ready.",
-    ];
-    return responses[_messages.length % responses.length];
+  void _clearInput() {
+    _messageController.clear();
   }
 
   @override
@@ -82,18 +116,16 @@ class _ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: ListView.builder(
               reverse: true,
-              padding: const EdgeInsets.all(8),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
-                final message = _messages[_messages.length - 1 - index];
+                final message = _messages[index];
                 return MessageBubble(
-                  message: message,
-                  isUser: index % 2 == 0,
+                  message: message['text'],
+                  isUser: message['isUser'] ?? false,
                 );
               },
             ),
           ),
-          // Suggestions Container
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
@@ -104,14 +136,15 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             child: Column(
               children: _currentSuggestions
-                  .map((suggestion) => SuggestionItem(
-                text: suggestion,
-                onTap: () => _sendMessage(suggestion),
-              ))
+                  .map(
+                    (suggestion) => SuggestionItem(
+                  text: suggestion,
+                  onTap: () => _sendMessage(suggestion),
+                ),
+              )
                   .toList(),
             ),
           ),
-          // Input Container
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 16,
