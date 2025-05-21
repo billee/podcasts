@@ -1,9 +1,10 @@
+// chat_screen.dart
 import 'package:flutter/material.dart';
-import 'package:kapwa_companion/services/firebase_service.dart';
-import 'package:kapwa_companion/services/rag_service.dart';
-import 'package:kapwa_companion/services/llama_service.dart';
-import 'package:kapwa_companion/constants.dart';
-import 'dart:io';
+import 'package:kapwa_companion/services/llama_service.dart'; // Keep this import
+
+// REMOVE THIS IMPORT:
+// import 'package:kapwa_companion/services/rag_service.dart';
+
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -14,7 +15,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
-  final List<Map<String, dynamic>> _messages = [];
+  final List<Map<String, dynamic>> _messages = []; // Stores messages for display
   final List<String> _allSuggestions = [
     "How are you feeling?",
     "Share your thoughts",
@@ -27,10 +28,18 @@ class _ChatScreenState extends State<ChatScreen> {
   ];
   List<String> _currentSuggestions = [];
 
+  // Stores chat history for LLM context, including system messages
+  final List<Map<String, String>> _chatHistory = [];
+
   @override
   void initState() {
     super.initState();
     _refreshSuggestions();
+    // Add initial system message to chat history for LLM context
+    _chatHistory.add({
+      "role": "system",
+      "content": "You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English.. Your goal is to provide empathetic and informative responses based on the provided context."
+    });
   }
 
   void _refreshSuggestions() {
@@ -41,135 +50,133 @@ class _ChatScreenState extends State<ChatScreen> {
   void _sendMessage(String message) async {
     if (message.isEmpty) return;
 
-    // Add user message
+    // Add user message to display and chat history
     setState(() {
-      _messages.insert(0, {'text': message, 'isUser': true});
+      _messages.add({"role": "user", "content": message});
+      _chatHistory.add({"role": "user", "content": message});
+      _messageController.clear();
+      _refreshSuggestions(); // Refresh suggestions after sending a message
     });
-    _clearInput();
+
+    // Add a loading message to display
+    setState(() {
+      _messages.add({"role": "assistant", "content": "Generating response..."});
+    });
 
     try {
-      _addTempMessage("Processing your message...");
-      print('Sending query: $message');
+      // Print chat history before sending to RAG server for debugging
+      // const JsonEncoder encoder = JsonEncoder.withIndent('  ');
+      // print("Sending Chat History to RAG server:\n${encoder.convert(_chatHistory)}");
 
-      final ragResults = await RAGService.query(message);
-      print('RAG Results: $ragResults');
+      // Call LlamaService to get the AI response (which now handles RAG server interaction)
+      final aiResponse = await LlamaService.generateResponse(message, _chatHistory);
 
-      String botResponse;
-      try {
-        botResponse = await LlamaService.generateResponse(message, ragResults);
-      } catch (e) {
-        botResponse = ragResults.first['content']; // Use direct RAG result
-      }
-
-      print('Generated Response: $botResponse');
-
-      print('...........................');
-      exit(0);
-
-
-      _replaceTempMessage(botResponse);
-
-    } catch (e, stack) {
-      print('Error: $e\nStack: $stack'); // Detailed error logging
-      _replaceTempMessage(_getFallbackResponse(message));
+      // Remove loading message and add AI response to display and chat history
+      setState(() {
+        _messages.removeLast(); // Remove loading message
+        _messages.add({"role": "assistant", "content": aiResponse});
+        _chatHistory.add({"role": "assistant", "content": aiResponse});
+      });
+    } catch (e) {
+      print("Fatal Error in _sendMessage: $e");
+      setState(() {
+        _messages.removeLast(); // Remove loading message
+        // Display a user-friendly error message
+        _messages.add({"role": "assistant", "content": "Paumanhin, kapatid. Nagkaroon ng problema sa pagkuha ng sagot."});
+      });
     }
   }
 
-  String _getFallbackResponse(String input) {
-    if (input.toLowerCase().contains('oec')) {
-      return 'Para sa OEC renewal, bisitahin ang DMW website';
-    }
-    return 'Ay may problema, try ulit mamaya...';
-  }
-
-  void _addTempMessage(String text) {
-    setState(() {
-      _messages.insert(0, {'text': text, 'isTemp': true});
-    });
-  }
-
-  void _replaceTempMessage(String newText) {
-    setState(() {
-      _messages.removeAt(0); // Remove loading message
-      _messages.insert(0, {'text': newText, 'isUser': false});
-    });
-    _refreshSuggestions();
-  }
-
-  void _clearInput() {
-    _messageController.clear();
+  void _handleSuggestionTap(String suggestion) {
+    _sendMessage(suggestion);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: const Text(
-          'Kapwa Companion',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Kapwa Companion'),
+        backgroundColor: Colors.blue[800],
+        foregroundColor: Colors.white,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              reverse: true,
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return MessageBubble(
-                  message: message['text'],
-                  isUser: message['isUser'] ?? false,
-                );
-              },
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Colors.grey[800]!),
-                bottom: BorderSide(color: Colors.grey[800]!),
+      body: Container(
+        color: Colors.grey[850], // Dark background for the chat screen
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                itemCount: _messages.length,
+                itemBuilder: (context, index) {
+                  final message = _messages[index];
+                  return ChatBubble(
+                    message: message["content"]!,
+                    isUser: message["role"] == "user",
+                  );
+                },
               ),
             ),
-            child: Column(
-              children: _currentSuggestions
-                  .map(
-                    (suggestion) => SuggestionItem(
-                  text: suggestion,
-                  onTap: () => _sendMessage(suggestion),
+            _buildSuggestionChips(), // Display suggestions below the chat messages
+            _buildMessageInput(), // Input field at the bottom
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestionChips() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+      child: Wrap(
+        spacing: 8.0, // horizontal space between chips
+        runSpacing: 4.0, // vertical space between lines of chips
+        children: _currentSuggestions.map((suggestion) {
+          return ActionChip(
+            label: Text(
+              suggestion,
+              style: const TextStyle(color: Colors.white70),
+            ),
+            onPressed: () => _handleSuggestionTap(suggestion),
+            backgroundColor: Colors.grey[700],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: Colors.grey[600]!),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildMessageInput() {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _messageController,
+              decoration: InputDecoration(
+                hintText: 'Type a message...',
+                hintStyle: TextStyle(color: Colors.white54),
+                filled: true,
+                fillColor: Colors.grey[800],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25.0),
+                  borderSide: BorderSide.none,
                 ),
-              )
-                  .toList(),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              style: const TextStyle(color: Colors.white),
+              onSubmitted: _sendMessage, // Allow sending message on Enter key
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            color: Colors.black,
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Type your message...',
-                      hintStyle: TextStyle(color: Colors.grey[600]),
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Colors.white),
-                  onPressed: () => _sendMessage(_messageController.text),
-                ),
-              ],
-            ),
+          const SizedBox(width: 8),
+          FloatingActionButton(
+            onPressed: () => _sendMessage(_messageController.text),
+            backgroundColor: Colors.blue[800],
+            mini: true,
+            child: const Icon(Icons.send, color: Colors.white),
           ),
         ],
       ),
@@ -177,11 +184,11 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-class MessageBubble extends StatelessWidget {
+class ChatBubble extends StatelessWidget {
   final String message;
   final bool isUser;
 
-  const MessageBubble({
+  const ChatBubble({
     super.key,
     required this.message,
     required this.isUser,
@@ -231,10 +238,8 @@ class SuggestionItem extends StatelessWidget {
         ),
         child: Text(
           text,
+          style: const TextStyle(color: Colors.white70),
           textAlign: TextAlign.center,
-          style: TextStyle(
-              color: Colors.grey[300],
-              fontSize: 14),
         ),
       ),
     );
