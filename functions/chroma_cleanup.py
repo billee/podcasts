@@ -19,7 +19,7 @@ def delete_chroma_contents():
         # Delete collections
         collections = client.list_collections()
         for collection in collections:
-            print(f"🗑️ Deleting collection: {collection.name}")
+            print(f"Deleting collection: {collection.name}")
             client.delete_collection(collection.name)
 
         # Force cleanup
@@ -37,11 +37,11 @@ def delete_chroma_contents():
                     os.chmod(os.path.join(root, dir), 0o777)
             shutil.rmtree("./chroma_db", ignore_errors=True)
 
-        print("✅ ChromaDB fully reset")
+        print("ChromaDB fully reset")
 
     except Exception as e:
-        print(f"🚨 Error: {str(e)}")
-        print("🔧 Try manual deletion steps above")
+        print(f"Error: {str(e)}")
+        print("Try manual deletion steps above")
 
 if __name__ == "__main__":
     delete_chroma_contents()
