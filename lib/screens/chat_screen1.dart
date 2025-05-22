@@ -1,4 +1,4 @@
-// lib/screens/chat_screen.dart
+// chat_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
@@ -31,7 +31,6 @@ class _ChatScreenState extends State<ChatScreen> {
   // Stores chat history for LLM context, including system messages
   final List<Map<String, String>> _chatHistory = [];
 
-  // Define the RAG server URL directly in ChatScreen
   static final String _ragServerUrl = dotenv.env['LLAMA_RAG_SERVER_URL'] ?? 'http://localhost:5000/query';
 
   @override
@@ -40,7 +39,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _refreshSuggestions();
     // Add initial system message to chat history for LLM context
     final String initialSystemMessage = dotenv.env['INITIAL_SYSTEM_MESSAGE'] ??
-        "You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English. Your goal is to provide empathetic and informative responses based on the provided context.";
+        "You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English.. Your goal is to provide empathetic and informative responses based on the provided context.";
 
     _chatHistory.add({
       "role": "system",
@@ -70,29 +69,30 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages.add({"role": "assistant", "content": "Generating response..."});
     });
 
-    // FIX: Declare aiResponseContent as a local variable here
-    String aiResponseContent;
-
     try {
       print("ChatScreen: Calling RAG server at $_ragServerUrl with query: $message");
+      //go to chromadb for retrieval
       final http.Response response = await http.post(
         Uri.parse(_ragServerUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'query': message, // Use the current message as the query
-          'chat_history': _chatHistory, // Pass the entire chat history
+          'query': message,
+          'chat_history': _chatHistory,
         }),
-      ).timeout(const Duration(seconds: 120)); // Set a reasonable timeout for the entire RAG + LLM process
+      ).timeout(const Duration(seconds: 120));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
+        // The RAG server is expected to return results in the format:
+        // {"results": [{"content": "...", "score": ..., "source": "..."}]}
         final List<dynamic> results = data['results'];
 
+        // Added check for empty results list before accessing index 0
         if (results.isNotEmpty && results[0].containsKey('content')) {
           aiResponseContent = results[0]['content'];
         } else {
           print('ChatScreen: RAG server response missing expected content: $data');
-          aiResponseContent = "Sorry, bro. The RAG server didn't provide a complete answer.";
+          aiResponseContent = "Sorry, the RAG server didn't provide a complete answer.";
         }
       } else {
         print('ChatScreen: RAG Server error ${response.statusCode}: ${response.body}');
@@ -100,6 +100,7 @@ class _ChatScreenState extends State<ChatScreen> {
         String errorMessage = "Unknown server error.";
         try {
           final errorData = jsonDecode(utf8.decode(response.bodyBytes));
+          // Improved parsing for various error response formats
           if (errorData.containsKey('results') && errorData['results'] is List && errorData['results'].isNotEmpty && errorData['results'][0].containsKey('content')) {
             errorMessage = errorData['results'][0]['content'];
           } else if (errorData.containsKey('error')) {
@@ -110,8 +111,12 @@ class _ChatScreenState extends State<ChatScreen> {
         } catch (e) {
           print("ChatScreen: Could not parse RAG server error response: $e");
         }
-        aiResponseContent = "Sorry, bro. There was an error from the RAG server (${response.statusCode}): $errorMessage. Please try again.";
+        aiResponseContent = "Sorry, there was an error from the RAG server (${response.statusCode}): $errorMessage. Please try again.";
       }
+
+      print('screen display result..........');
+      print(aiResponseContent);
+
 
       // Remove loading message and add AI response to display and chat history
       setState(() {
@@ -119,18 +124,18 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages.add({"role": "assistant", "content": aiResponseContent});
         _chatHistory.add({"role": "assistant", "content": aiResponseContent});
       });
-    } on TimeoutException {
-      print("ChatScreen: Request to RAG server timed out.");
+    } on TimeoutException catch (e) { // Catch specific TimeoutException
+      print("Timeout Error in _sendMessage: $e");
       setState(() {
         _messages.removeLast();
-        _messages.add({"role": "assistant", "content": "Sorry, bro. The server took too long to respond. Please try again later."});
+        _messages.add({"role": "assistant", "content": "Sorry, the server took too long to respond."});
       });
     } catch (e) {
-      print("ChatScreen: Fatal error when generating response from RAG server: $e");
+      print("Fatal Error in _sendMessage: $e");
       setState(() {
         _messages.removeLast(); // Remove loading message
         // Display a user-friendly error message
-        _messages.add({"role": "assistant", "content": "Sorry, bro. There was a problem getting the answer. Please check your connection or server status."});
+        _messages.add({"role": "assistant", "content": "Sorry, there was a problem getting the answer."});
       });
     }
   }
