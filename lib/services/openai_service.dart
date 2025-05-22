@@ -21,29 +21,6 @@ class OpenAIService {
 
     try {
       List<Map<String, String>> messagesToSend = List.from(chatHistory);
-      //final List<Map<String, String>> messages = [];
-
-      // // Use provided systemMessage, or fallback to .env, or a default string
-      // final String effectiveSystemMessage = systemMessage.isNotEmpty
-      //     ? systemMessage
-      //     : (dotenv.env['CHAT_SYSTEM_MESSAGE'] ?? 'You are a helpful assistant.');
-      //
-      // print('effectiveSystemmessage......................');
-      // print(effectiveSystemMessage);
-
-      //messages.add({'role': 'system', 'content': effectiveSystemMessage});
-
-      // Add previous chat history to messages
-      // for (var chatItem in chatHistory) {
-      //   messages.add({'role': chatItem['role']!, 'content': chatItem['content']!});
-      // }
-
-      //messagesToSend.add({"role": "user", "content": query});
-
-
-
-      // // Add the current query
-      // messages.add({'role': 'user', 'content': query});
 
       print('messagesToSend.............................');
       print(messagesToSend);

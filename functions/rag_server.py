@@ -184,10 +184,11 @@ def handle_query():
 
             logging.info(f"Messages to be sent to Ollama: {json.dumps(messages, indent=2)}")
 
+            # use ollama for development(free) and use openai for production(paid)
             # ///////////////////////////USING LLAMA 3.1/////////////////////////////////////////////////////////////////
-            # response = generate_ollama_response(messages)
+            response = generate_ollama_response(messages)
             # ////////////////////////////////////////////////////////////////////////////////////////////////////
-            response = generate_openai_response(messages)
+            # response = generate_openai_response(messages)
             # ////////////////////////////////////////////////////////////////////////////////////////////////////
             if response['success']:
                 generated_answer = response['content']

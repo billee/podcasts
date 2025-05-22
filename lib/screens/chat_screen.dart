@@ -32,7 +32,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<Map<String, String>> _chatHistory = [];
 
   // Define the RAG server URL directly in ChatScreen
-  static final String _ragServerUrl = dotenv.env['LLAMA_RAG_SERVER_URL'] ?? 'http://localhost:5000/query';
+  static final String _ragServerUrl = 'http://localhost:5000/query';
 
   @override
   void initState() {
