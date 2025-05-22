@@ -1,5 +1,7 @@
 # openai_generator.py
 import openai
+from dotenv import load_dotenv
+load_dotenv() # This loads the variables from .env into os.environ
 import os
 import logging
 import json
