@@ -3,9 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:kapwa_companion/screens/chat_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+const String openAIApiKey = String.fromEnvironment(
+    'OPENAI_API_KEY',
+    defaultValue: ''
+);
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
+  print('OPENAI_API_KEY from environment: $openAIApiKey');
   runApp(const MyApp());
 }
 
