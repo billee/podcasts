@@ -1,9 +1,9 @@
 // chat_screen.dart
 import 'package:flutter/material.dart';
-import 'package:kapwa_companion/services/llama_service.dart'; // Keep this import
-
-// REMOVE THIS IMPORT:
-// import 'package:kapwa_companion/services/rag_service.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:async'; // Import for TimeoutException
 
 
 class ChatScreen extends StatefulWidget {
@@ -36,17 +36,23 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     _refreshSuggestions();
     // Add initial system message to chat history for LLM context
+    final String initialSystemMessage = dotenv.env['INITIAL_SYSTEM_MESSAGE'] ??
+        "You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English.. Your goal is to provide empathetic and informative responses based on the provided context.";
+
     _chatHistory.add({
       "role": "system",
-      "content": "You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English.. Your goal is to provide empathetic and informative responses based on the provided context."
+      "content": initialSystemMessage,
     });
   }
+
+  static final String _ragServerUrl = dotenv.env['LLAMA_RAG_SERVER_URL'] ?? 'http://localhost:5000/query'; // Set this for Edge
 
   void _refreshSuggestions() {
     _allSuggestions.shuffle();
     _currentSuggestions = _allSuggestions.sublist(0, 3);
   }
 
+  // sending message from the chat UI
   void _sendMessage(String message) async {
     if (message.isEmpty) return;
 
@@ -64,25 +70,41 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      // Print chat history before sending to RAG server for debugging
-      // const JsonEncoder encoder = JsonEncoder.withIndent('  ');
-      // print("Sending Chat History to RAG server:\n${encoder.convert(_chatHistory)}");
+      //go to chromadb for retrieval
+      final http.Response response = await http.post(
+        Uri.parse(_ragServerUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'query': message,
+          'chat_history': _chatHistory,
+        }),
+      ).timeout(const Duration(seconds: 120));
 
-      // Call LlamaService to get the AI response (which now handles RAG server interaction)
-      final aiResponse = await LlamaService.generateResponse(message, _chatHistory);
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final List<dynamic> results = data['results'];
+
+      print('screen display result..........');
+      print(results);
+
 
       // Remove loading message and add AI response to display and chat history
       setState(() {
         _messages.removeLast(); // Remove loading message
-        _messages.add({"role": "assistant", "content": aiResponse});
-        _chatHistory.add({"role": "assistant", "content": aiResponse});
+        _messages.add({"role": "assistant", "content": results[0]['content']});
+        _chatHistory.add({"role": "assistant", "content": results[0]['content']});
+      });
+    } on TimeoutException catch (e) { // Catch specific TimeoutException
+      print("Timeout Error in _sendMessage: $e");
+      setState(() {
+        _messages.removeLast();
+        _messages.add({"role": "assistant", "content": "Sorry, the server took too long to respond."});
       });
     } catch (e) {
       print("Fatal Error in _sendMessage: $e");
       setState(() {
         _messages.removeLast(); // Remove loading message
         // Display a user-friendly error message
-        _messages.add({"role": "assistant", "content": "Paumanhin, kapatid. Nagkaroon ng problema sa pagkuha ng sagot."});
+        _messages.add({"role": "assistant", "content": "Sorry, there was a problem getting the answer."});
       });
     }
   }
