@@ -1,17 +1,11 @@
 // main.dart
-// import 'package:firebase_core/firebase_core.dart'; // REMOVED
-// import 'firebase_options.dart'; // REMOVED
 import 'package:flutter/material.dart';
 import 'package:kapwa_companion/screens/chat_screen.dart';
-// import 'package:kapwa_companion/services/firebase_service.dart'; // REMOVED
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Removed Firebase initialization as it's no longer used for RAG core
-  // If you have other Firebase features, you'll need to keep this and relevant imports.
-  // await Firebase.initializeApp(
-  //   options: DefaultFirebaseOptions.currentPlatform,
-  // );
+  await dotenv.load(fileName: ".env");
   runApp(const MyApp());
 }
 

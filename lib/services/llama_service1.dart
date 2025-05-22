@@ -1,70 +1,65 @@
 // llama_service.dart
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async'; // Import for TimeoutException
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class LlamaService {
-  // IMPORTANT: This should be the URL of your local LLM inference server
-  // For example, if you're running Ollama, it might be 'http://localhost:11434/api/generate'
-  // Or if you have a custom server for Llama, provide that URL.
-  // Make sure this URL is accessible from your Flutter app (e.g., 10.0.2.2 for Android emulator).
-  static const String _llamaApiUrl = 'http://localhost:11434/api/generate'; // Placeholder for your actual LLM endpoint
+  // For web (Edge), desktop, or iOS simulator, use 'http://localhost:5000/query'.
+  // For Android emulator, use 'http://10.0.2.2:5000/query'.
+  // For physical Android device, use your machine's actual local IP (e.g., 'http://192.168.1.X:5000/query').
+  static final String _ragServerUrl = dotenv.env['LLAMA_RAG_SERVER_URL'] ?? 'http://localhost:5000/query'; // Set this for Edge
 
-  static Future<String> generateResponse(String query, List<dynamic> ragResults) async  {
-    final prompt = _buildPrompt(query, ragResults);
+  static Future<String> generateResponse(
+      String query,
+      List<Map<String, String>> chatHistory // Only query and chat history needed for server
+      ) async {
+    if (_ragServerUrl.isEmpty) {
+      print('Error: Llama RAG Server URL not found.');
+      return "Sorry, the Llama RAG server URL is not configured.";
+    }
     try {
       final response = await http.post(
-        Uri.parse(_llamaApiUrl),
+        Uri.parse(_ragServerUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'model': 'llama3.2:latest',
-          'prompt': prompt,
-          'stream': false, // Set to true if your LLM API supports streaming and you want to handle it
-          'temperature': 0.7,
-          'top_p': 0.9,
+          'query': query,
+          'chat_history': chatHistory,
         }),
-      );
+      ).timeout(const Duration(seconds: 120));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['response'] as String;
-      } else {
-        print('Error calling LLM API: ${response.statusCode} - ${response.body}');
-        // Fallback to a simpler response if LLM API fails
-        if (ragResults.isNotEmpty && ragResults.first['content'] != null) {
-          return ragResults.first['content'] + "\n(Paumanhin, hindi na-generate ang kumpletong sagot mula sa AI)";
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final List<dynamic> results = data['results'];
+        if (results.isNotEmpty && results[0]['content'] != null) {
+          ////////////////////// The RAG server should return the final LLM-generated answer.
+          return results[0]['content'] as String;
+        } else {
+          print('RAG server returned no content or empty results.');
+          return "Sorry, I didn't find a sufficient answer. You can try again or ask something else.";
         }
-        throw Exception('Failed to get response from LLM API: ${response.statusCode}');
+      } else {
+        print('Error calling RAG server: ${response.statusCode} - ${response.body}');
+        return "Sorry, there is a problem retrieving the answer from the server. Please try again later.";
       }
+    } on TimeoutException catch (e) {
+      print('RAG Query Error (Timeout): $e');
+      return "Sorry, the answer is taking a while to load. Try again or maybe change your question.";
     } catch (e) {
-      print('Error during LLM generation HTTP call: $e');
-      // If LLM call fails, use the first RAG result as a direct fallback
-      if (ragResults.isNotEmpty && ragResults.first['content'] != null) {
-        return ragResults.first['content'] + "\n(Paumanhin, hindi na-generate ang kumpletong sagot mula sa AI. Narito ang direktang impormasyon na nakuha.)";
-      }
-      return "Pasensya na, kapatid. May problema sa pagkuha ng sagot. Pwede mo ba ulitin ng mas malinaw?"; // Generic fallback
-    }
-  }
-
-  static String _buildPrompt(String query, List<dynamic> context) {
-    String contextText = "No relevant context found.";
-    if (context != null && context.isNotEmpty) {
-      // Join the content of all retrieved documents to form the context
-      contextText = context.map((c) => c['content']).join('\n---\n');
-
-
-      // Refined RAG prompt
-      return '''You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English.
-Your response should be based ONLY on the following context. If the context does not provide enough information to answer the question, state that you cannot answer based on the provided information and offer to search for other information.
-Do not invent information.
-User Query: $query
-Related Context:
-$contextText
-Please provide a concise and helpful response in everyday spoken English:''';
-    }else{
-      return '''You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English.
-Your response should answer the query.
-User Query: $query
-Please provide a concise and helpful response in everyday spoken English:''';
+      print('Network or parsing error with RAG server: $e');
+      return "Sorry, the service is down. Try again later.";
     }
   }
 }
+
+
+// napkin.ai
+// lovable, Rork, Grok
+// manus
+// donotpay
+// google ai studio
+//
+//
+// Relevance ai, make, n8n
+// heyGen
+// unstructured
