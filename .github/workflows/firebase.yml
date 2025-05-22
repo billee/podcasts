@@ -28,7 +28,7 @@ jobs:
           flutter build web --release \
             --dart-define=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
           # Add more --dart-define flags for other secrets from .env as needed
-          env:
+        env:
           # NODE_OPTIONS for large projects to prevent memory issues during build
           NODE_OPTIONS: "--max-old-space-size=4096"
       - name: Deploy to Firebase
