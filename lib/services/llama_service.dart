@@ -8,7 +8,7 @@ class LlamaService {
   // For web (Edge), desktop, or iOS simulator, use 'http://localhost:5000/query'.
   // For Android emulator, use 'http://10.0.2.2:5000/query'.
   // For physical Android device, use your machine's actual local IP (e.g., 'http://192.168.1.X:5000/query').
-  static final String _ragServerUrl = dotenv.env['LLAMA_RAG_SERVER_URL'] ?? 'http://localhost:5000/query'; // Set this for Edge
+  static final String _ragServerUrl = 'http://localhost:5000/query'; // Set this for Edge
 
   static Future<String> generateResponse(
       String query,
