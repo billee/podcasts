@@ -1,3 +1,9 @@
+# It deletes the whole previous records on the chromadb first.
+# Populate chromadb with all the sources in data_sources directory.
+# It uses "paraphrase-multilingual-MiniLM-L12-v2" as the embedding model.
+# After, Test the chromedb by querying. The test_query is assumed to use the same model as above.
+# Subsequent testing, you can use test_chroma.py by querying.
+
 import os
 import chromadb
 import hashlib
@@ -12,9 +18,13 @@ import re # Import regex for splitting
 import time # Import time for a small delay if needed
 
 class DataProcessor:
+
+    # EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
+    EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+
     def __init__(self):
         self.embed_fn = SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2"
+            model_name=DataProcessor.EMBEDDING_MODEL_NAME
         )
         self.supported_types = ['.txt', '.pdf', '.json']
         # Define chunking parameters for PDFs
@@ -178,7 +188,8 @@ def setup_chroma():
     print(processor)
 
     CHROMA_COLLECTION_NAME = "ofw_knowledge"
-    EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+    # EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+    EMBEDDING_MODEL_NAME =DataProcessor.EMBEDDING_MODEL_NAME
 
     # Use a persistent client to store data on disk
     client = chromadb.PersistentClient(path="./chroma_db")
@@ -205,6 +216,7 @@ def setup_chroma():
             metadata={"hnsw:space": "cosine"} # Using cosine similarity
         )
         print(f"Collection '{CHROMA_COLLECTION_NAME}' created/obtained.")
+
     except Exception as e:
         print(f"FATAL ERROR: Could not create collection '{CHROMA_COLLECTION_NAME}': {e}")
         return # Exit if collection cannot be created/obtained
@@ -237,18 +249,19 @@ def setup_chroma():
 
         # --- Post-Indexing Query Test ---
         print("\n--- Running Post-Indexing Query Test ---")
-        test_query = "Who may register as overseas voters?" # A direct question from the PDF
+        test_query = "balikbayan box pro tips?" # A direct question from the PDF
         try:
             test_results = collection.query(
                 query_texts=[test_query],
                 n_results=5, # Get top 5 results for the test
                 include=['documents', 'distances', 'metadatas']
             )
+
             print(f"Test Query: '{test_query}'")
             print("Test Query Results:")
             if test_results and test_results.get('documents') and test_results['documents'][0]:
                 for i in range(len(test_results['documents'][0])):
-                    print(f"  Result {i+1}:")
+                    print(f"  Result {i+1}:::::::::::::::::::::::::::::::::::::::::::::")
                     print(f"    Content: {test_results['documents'][0][i][:200]}...") # Print first 200 chars
                     print(f"    Score: {1 - test_results['distances'][0][i]:.4f}") # Print similarity score
                     print(f"    Metadata: {test_results['metadatas'][0][i]}")

@@ -21,10 +21,6 @@ else:
     client = None # Set client to None if API key is missing
 
 def generate_openai_response(messages: list) -> dict:
-    """
-    Makes an API call to OpenAI to generate a response based on the given messages.
-    Returns a dictionary containing the generated content, or an error message.
-    """
     if client is None:
         return {
             "content": "OpenAI API key is not configured. Please set the OPENAI_API_KEY environment variable.",
@@ -32,19 +28,20 @@ def generate_openai_response(messages: list) -> dict:
             "error_type": "api_key_missing"
         }
 
-    logging.info(f"openai_generator: Messages to be sent to OpenAI: {json.dumps(messages, indent=2)}")
+    # logging.info(f"openai_generator: Messages to be sent to OpenAI: {json.dumps(messages, indent=2)}")
 
     try:
         completion = client.chat.completions.create(
             model=OPENAI_MODEL_NAME,
             messages=messages,
-            temperature=0.2,
+            temperature=0,
             top_p=0.9,
             max_tokens=500 # Set a reasonable max_tokens to control response length
         )
 
         generated_answer = completion.choices[0].message.content
-        logging.info(f"openai_generator: OpenAI Generated Answer: {generated_answer}")
+
+        logging.info(f"\nopenai_generator: OpenAI Generated Answer: {generated_answer}")
 
         return {
             "content": generated_answer,

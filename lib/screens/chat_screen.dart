@@ -39,8 +39,7 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     _refreshSuggestions();
     // Add initial system message to chat history for LLM context
-    final String initialSystemMessage = dotenv.env['INITIAL_SYSTEM_MESSAGE'] ??
-        "You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English. Your goal is to provide empathetic and informative responses based on the provided context.";
+    final String initialSystemMessage = "You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English. Your goal is to provide empathetic and informative responses based on the provided context.";
 
     _chatHistory.add({
       "role": "system",
