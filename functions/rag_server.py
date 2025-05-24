@@ -18,6 +18,7 @@ CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST"], "allow_
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- ChromaDB Initialization ---
+# EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 CHROMA_HOST = "localhost" # Or your ChromaDB server IP
 CHROMA_PORT = 8000
@@ -52,7 +53,7 @@ def clean_text(text):
 
 # --- Ollama Configuration ---
 OLLAMA_API_URL = 'http://localhost:11434/api/chat' # Ollama's chat API endpoint
-OLLAMA_MODEL_NAME = 'llama3.2:latest' # Your desired Ollama model
+# OLLAMA_MODEL_NAME = 'llama3.2:latest' # Your desired Ollama model
 
 # Health check endpoint
 @app.route('/')
@@ -110,7 +111,7 @@ def handle_query():
             return jsonify({"error": "Query text is missing"}), 400
 
         logging.info(f"QUERY_TEXT:{query_text}")
-        logging.info(f"CHAT_HISTORY:{json.dumps(chat_history, indent=2)}") # Log history
+        # logging.info(f"\nCHAT_HISTORY:{json.dumps(chat_history)}") # Log history
 
         # /////////////////////////RETRIEVAL/////////////////////////////////////////////////////////////////////////////////////////////////////////////
         try:
@@ -125,7 +126,7 @@ def handle_query():
             logging.info(f"results count: {len(results)}")
 
             # Step 2: Filter results based on the similarity score threshold
-            MIN_SIMILARITY_SCORE = 0.6
+            MIN_SIMILARITY_SCORE = 0.4
             retrieved_contexts = []
             if results and results.get('documents') and results['documents'][0]:
                 for i in range(len(results['documents'][0])):
@@ -135,14 +136,15 @@ def handle_query():
 
                     score = 1 - distance
 
-                    if score >= MIN_SIMILARITY_SCORE:
+                    if score > MIN_SIMILARITY_SCORE:
                         retrieved_contexts.append({
                             "content": content,
                             "score": score,
                             "source": metadata.get('source', 'chromadb')
                         })
                     else:
-                        logging.info(f"Skipping result with score {score:.4f} below threshold {MIN_SIMILARITY_SCORE}")
+                        logging.info(f" ")
+                        # logging.info(f"Skipping result with score {score:.4f} below threshold {MIN_SIMILARITY_SCORE}")
 
                 retrieved_contexts.sort(key=lambda x: x['score'], reverse=True)
 
@@ -151,18 +153,18 @@ def handle_query():
                     logging.info(f"Limiting retrieved contexts from {len(retrieved_contexts)} to {MAX_CONTEXTS_FOR_LLM}")
                     retrieved_contexts = retrieved_contexts[:MAX_CONTEXTS_FOR_LLM]
 
-                logging.info(f"Filtered retrieved contexts from ChromaDB: {retrieved_contexts}")
+                logging.info(f"\nFiltered retrieved contexts from ChromaDB: {retrieved_contexts}")
 
 
             # Prepare messages for Ollama's chat API
             messages = list(chat_history) # Start with provided chat history from Flutter
-            logging.info(f"messages: {messages}")
+            # logging.info(f"messages: {messages}")
 
             context_string = "No relevant context found in the knowledge base."
             if retrieved_contexts:
                 context_string = "\n\n".join([item['content'] for item in retrieved_contexts])
 
-            logging.info(f"next_messages: {messages}")
+            # logging.info(f"\nnext_messages: {messages}")
 
             # Append the RAG context and the current query to the latest user message
             # The last message in chat_history should be the current query from the user.
@@ -182,13 +184,13 @@ def handle_query():
 
             # /////////////////////////GENERATION/////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-            logging.info(f"Messages to be sent to Ollama: {json.dumps(messages, indent=2)}")
+            logging.info(f"\nMessages to be sent to LLm: {json.dumps(messages, indent=2)}")
 
             # use ollama for development(free) and use openai for production(paid)
             # ///////////////////////////USING LLAMA 3.1/////////////////////////////////////////////////////////////////
             response = generate_ollama_response(messages)
             # ////////////////////////////////////////////////////////////////////////////////////////////////////
-            # response = generate_openai_response(messages)
+            #response = generate_openai_response(messages)
             # ////////////////////////////////////////////////////////////////////////////////////////////////////
             if response['success']:
                 generated_answer = response['content']
