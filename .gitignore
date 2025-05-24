@@ -33,5 +33,5 @@ Thumbs.db
 .env
 .env.prod
 
-
+# ignore chroma
 chroma_db/
