@@ -32,3 +32,6 @@ Thumbs.db
 # Environment
 .env
 .env.prod
+
+
+chroma_db/
