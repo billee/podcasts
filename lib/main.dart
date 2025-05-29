@@ -2,6 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:kapwa_companion/screens/chat_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:kapwa_companion/services/suggestion_service.dart';
+import 'firebase_options.dart';
+
+
 
 const String openAIApiKey = String.fromEnvironment(
     'OPENAI_API_KEY',
@@ -10,15 +15,12 @@ const String openAIApiKey = String.fromEnvironment(
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  await SuggestionService.initializeDefaultSuggestions();
 
-  // ONLY attempt to load .env if it's expected to be present (e.g., local dev).
-  // In CI, where .env is not committed and not an asset, this block might be skipped
-  // or gracefully fail without error.
-  // The String.fromEnvironment() variables will then pick up values from --dart-define.
   try {
-    // This will only succeed if .env is present.
-    // If you plan to NEVER commit .env, you can even remove flutter_dotenv dependency
-    // and this whole try-catch. But for local dev, it's useful.
     await dotenv.load(fileName: ".env");
     print("Local .env loaded successfully."); // For local debugging
   } catch (e) {

@@ -4,7 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async'; // Import for TimeoutException
-
+import 'package:kapwa_companion/services/suggestion_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -16,29 +16,29 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final List<Map<String, dynamic>> _messages = []; // Stores messages for display
-  final List<String> _allSuggestions = [
-    "How are you feeling?",
-    "Share your thoughts",
-    "Today's highlights?",
-    "Any challenges?",
-    "Need support?",
-    "What are you grateful for?",
-    "Recent accomplishments?",
-    "Something bothering you?",
-  ];
+  // final List<String> _allSuggestions = [
+  //   "How are you feeling?",
+  //   "Share your thoughts",
+  //   "Today's highlights?",
+  //   "Any challenges?",
+  //   "Need support?",
+  //   "What are you grateful for?",
+  //   "Recent accomplishments?",
+  //   "Something bothering you?",
+  // ];
+  List<String> _allSuggestions = [];
   List<String> _currentSuggestions = [];
+  bool _suggestionsLoading = true;
 
-  // Stores chat history for LLM context, including system messages
   final List<Map<String, String>> _chatHistory = [];
-
-  // Define the RAG server URL directly in ChatScreen
   static final String _ragServerUrl = 'http://localhost:5000/query';
 
   @override
   void initState() {
     super.initState();
-    _refreshSuggestions();
-    // Add initial system message to chat history for LLM context
+    _loadSuggestions();
+    // _refreshSuggestions();
+
     final String initialSystemMessage = "You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English. Your goal is to provide empathetic and informative responses based on the provided context.";
 
     _chatHistory.add({
@@ -47,9 +47,53 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  Future<void> _loadSuggestions() async {
+    try {
+      setState(() {
+        _suggestionsLoading = true;
+      });
+
+      List<String> suggestions = await SuggestionService.getSuggestions();
+
+      setState(() {
+        _allSuggestions = suggestions;
+        _suggestionsLoading = false;
+        _refreshSuggestions();
+      });
+    } catch (e) {
+      print('Error loading suggestions: $e');
+      setState(() {
+        _suggestionsLoading = false;
+        // Use fallback suggestions if Firebase fails
+        _allSuggestions = [
+          "How are you feeling?",
+          "Share your thoughts",
+          "Today's highlights?",
+          "Any challenges?",
+          "Need support?",
+          "What are you grateful for?",
+          "Recent accomplishments?",
+          "Something bothering you?",
+        ];
+        _refreshSuggestions();
+      });
+    }
+  }
+
+
+
+  // void _refreshSuggestions() {
+  //   _allSuggestions.shuffle();
+  //   _currentSuggestions = _allSuggestions.sublist(0, 3);
+  // }
+
   void _refreshSuggestions() {
-    _allSuggestions.shuffle();
-    _currentSuggestions = _allSuggestions.sublist(0, 3);
+    if (_allSuggestions.isNotEmpty) {
+      _allSuggestions.shuffle();
+      _currentSuggestions = _allSuggestions.length >= 3
+          ? _allSuggestions.sublist(0, 3)
+          : _allSuggestions;
+    }
   }
 
   // sending message from the chat UI
@@ -69,7 +113,6 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages.add({"role": "assistant", "content": "Generating response..."});
     });
 
-    // FIX: Declare aiResponseContent as a local variable here
     String aiResponseContent;
 
     try {
@@ -95,7 +138,6 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       } else {
         print('ChatScreen: RAG Server error ${response.statusCode}: ${response.body}');
-        // Attempt to parse server's error message if available
         String errorMessage = "Unknown server error.";
         try {
           final errorData = jsonDecode(utf8.decode(response.bodyBytes));
@@ -128,7 +170,6 @@ class _ChatScreenState extends State<ChatScreen> {
       print("ChatScreen: Fatal error when generating response from RAG server: $e");
       setState(() {
         _messages.removeLast(); // Remove loading message
-        // Display a user-friendly error message
         _messages.add({"role": "assistant", "content": "Sorry, bro. There was a problem getting the answer. Please check your connection or server status."});
       });
     }
@@ -171,12 +212,47 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // Widget _buildSuggestionChips() {
+  //   return Padding(
+  //     padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+  //     child: Wrap(
+  //       spacing: 8.0, // horizontal space between chips
+  //       runSpacing: 4.0, // vertical space between lines of chips
+  //       children: _currentSuggestions.map((suggestion) {
+  //         return ActionChip(
+  //           label: Text(
+  //             suggestion,
+  //             style: const TextStyle(color: Colors.white70),
+  //           ),
+  //           onPressed: () => _handleSuggestionTap(suggestion),
+  //           backgroundColor: Colors.grey[700],
+  //           shape: RoundedRectangleBorder(
+  //             borderRadius: BorderRadius.circular(20),
+  //             side: BorderSide(color: Colors.grey[600]!),
+  //           ),
+  //         );
+  //       }).toList(),
+  //     ),
+  //   );
+  // }
+
   Widget _buildSuggestionChips() {
+    if (_suggestionsLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+        child: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
       child: Wrap(
-        spacing: 8.0, // horizontal space between chips
-        runSpacing: 4.0, // vertical space between lines of chips
+        spacing: 8.0,
+        runSpacing: 4.0,
         children: _currentSuggestions.map((suggestion) {
           return ActionChip(
             label: Text(

@@ -35,3 +35,7 @@ Thumbs.db
 
 # ignore chroma
 chroma_db/
+*bin
+chroma_db/chroma.sqlite3
+kapwa/
+devtools_options.yaml
