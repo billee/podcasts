@@ -33,5 +33,3 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=4096"
       - name: Deploy to Firebase
         run: firebase deploy --token "${{ secrets.FIREBASE_TOKEN }}" --project kapwa-companion --only hosting
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
