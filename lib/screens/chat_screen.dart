@@ -1,10 +1,10 @@
 // lib/screens/chat_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // Keep if you use other .env vars
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async'; // Import for TimeoutException
-import 'package:kapwa_companion/services/suggestion_service.dart';
+import 'package:kapwa_companion/services/suggestion_service.dart'; // Keep this import!
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -16,16 +16,8 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final List<Map<String, dynamic>> _messages = []; // Stores messages for display
-  // final List<String> _allSuggestions = [
-  //   "How are you feeling?",
-  //   "Share your thoughts",
-  //   "Today's highlights?",
-  //   "Any challenges?",
-  //   "Need support?",
-  //   "What are you grateful for?",
-  //   "Recent accomplishments?",
-  //   "Something bothering you?",
-  // ];
+
+  // Keep suggestion-related fields:
   List<String> _allSuggestions = [];
   List<String> _currentSuggestions = [];
   bool _suggestionsLoading = true;
@@ -36,8 +28,8 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    // Keep suggestion loading:
     _loadSuggestions();
-    // _refreshSuggestions();
 
     final String initialSystemMessage = "You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English. Your goal is to provide empathetic and informative responses based on the provided context.";
 
@@ -47,6 +39,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  // Keep suggestion loading method:
   Future<void> _loadSuggestions() async {
     try {
       setState(() {
@@ -55,16 +48,22 @@ class _ChatScreenState extends State<ChatScreen> {
 
       List<String> suggestions = await SuggestionService.getSuggestions();
 
+      // IMPORTANT: Filter out any null or non-string suggestions, and ensure they are Strings
+      final List<String> cleanSuggestions = suggestions
+          .where((s) => s != null && s is String && s.isNotEmpty)
+          .map((s) => s as String)
+          .toList();
+
       setState(() {
-        _allSuggestions = suggestions;
+        _allSuggestions = cleanSuggestions; // Use the cleaned list
         _suggestionsLoading = false;
-        _refreshSuggestions();
+        _refreshSuggestions(); // Refresh initial suggestions
       });
     } catch (e) {
       print('Error loading suggestions: $e');
       setState(() {
         _suggestionsLoading = false;
-        // Use fallback suggestions if Firebase fails
+        // Use fallback suggestions if Firebase fails (or keep _allSuggestions empty)
         _allSuggestions = [
           "How are you feeling?",
           "Share your thoughts",
@@ -80,19 +79,15 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-
-
-  // void _refreshSuggestions() {
-  //   _allSuggestions.shuffle();
-  //   _currentSuggestions = _allSuggestions.sublist(0, 3);
-  // }
-
+  // Keep suggestion refresh method:
   void _refreshSuggestions() {
     if (_allSuggestions.isNotEmpty) {
       _allSuggestions.shuffle();
       _currentSuggestions = _allSuggestions.length >= 3
           ? _allSuggestions.sublist(0, 3)
           : _allSuggestions;
+    } else {
+      _currentSuggestions = []; // Ensure it's empty if no suggestions are loaded
     }
   }
 
@@ -105,6 +100,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages.add({"role": "user", "content": message});
       _chatHistory.add({"role": "user", "content": message});
       _messageController.clear();
+      // Keep suggestion refresh:
       _refreshSuggestions(); // Refresh suggestions after sending a message
     });
 
@@ -175,6 +171,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // Restore suggestion tap handler:
   void _handleSuggestionTap(String suggestion) {
     _sendMessage(suggestion);
   }
@@ -204,6 +201,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 },
               ),
             ),
+            // Restore _buildSuggestionChips() here:
             _buildSuggestionChips(), // Display suggestions below the chat messages
             _buildMessageInput(), // Input field at the bottom
           ],
@@ -212,30 +210,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // Widget _buildSuggestionChips() {
-  //   return Padding(
-  //     padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-  //     child: Wrap(
-  //       spacing: 8.0, // horizontal space between chips
-  //       runSpacing: 4.0, // vertical space between lines of chips
-  //       children: _currentSuggestions.map((suggestion) {
-  //         return ActionChip(
-  //           label: Text(
-  //             suggestion,
-  //             style: const TextStyle(color: Colors.white70),
-  //           ),
-  //           onPressed: () => _handleSuggestionTap(suggestion),
-  //           backgroundColor: Colors.grey[700],
-  //           shape: RoundedRectangleBorder(
-  //             borderRadius: BorderRadius.circular(20),
-  //             side: BorderSide(color: Colors.grey[600]!),
-  //           ),
-  //         );
-  //       }).toList(),
-  //     ),
-  //   );
-  // }
-
+  // Restore _buildSuggestionChips() widget definition:
   Widget _buildSuggestionChips() {
     if (_suggestionsLoading) {
       return const Padding(
@@ -279,6 +254,11 @@ class _ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: TextField(
               controller: _messageController,
+              // *** IMPORTANT: Add these properties to disable browser's autofill/autocomplete ***
+              autofillHints: null, // Disables platform-specific autofill hints
+              autocorrect: false,  // Disables auto-correction
+              enableSuggestions: false, // Disables text input suggestions
+
               decoration: InputDecoration(
                 hintText: 'Type a message...',
                 hintStyle: TextStyle(color: Colors.white54),
@@ -295,11 +275,14 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          FloatingActionButton(
-            onPressed: () => _sendMessage(_messageController.text),
-            backgroundColor: Colors.blue[800],
-            mini: true,
-            child: const Icon(Icons.send, color: Colors.white),
+          SizedBox( // Fixed RenderFlex overflow with explicit size
+            width: 48, // Standard FAB size
+            height: 48, // Standard FAB size
+            child: FloatingActionButton(
+              onPressed: () => _sendMessage(_messageController.text),
+              backgroundColor: Colors.blue[800],
+              child: const Icon(Icons.send, color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -331,38 +314,6 @@ class ChatBubble extends StatelessWidget {
         child: Text(
           message,
           style: const TextStyle(color: Colors.white),
-        ),
-      ),
-    );
-  }
-}
-
-class SuggestionItem extends StatelessWidget {
-  final String text;
-  final VoidCallback onTap;
-
-  const SuggestionItem({
-    super.key,
-    required this.text,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[700]!),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(color: Colors.white70),
-          textAlign: TextAlign.center,
         ),
       ),
     );

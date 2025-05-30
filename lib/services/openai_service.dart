@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:async'; // Import for TimeoutException
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 class OpenAIService {
   // Replace with your actual OpenAI API Key
   static final String _openAIApiKey = dotenv.env['OPENAI_API_KEY'] ?? '';

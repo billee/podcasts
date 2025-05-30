@@ -8,10 +8,10 @@ import 'firebase_options.dart';
 
 
 
-const String openAIApiKey = String.fromEnvironment(
-    'OPENAI_API_KEY',
-    defaultValue: ''
-);
+// const String openAIApiKey = String.fromEnvironment(
+//     'OPENAI_API_KEY',
+//     defaultValue: ''
+// );
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,13 +22,14 @@ Future<void> main() async {
 
   try {
     await dotenv.load(fileName: ".env");
-    print("Local .env loaded successfully."); // For local debugging
+    //print('Local .env loaded successfully.'); // Your existing print
+    //print('OPENAI_API_KEY from dotenv.env: ${dotenv.env['OPENAI_API_KEY']}');
+    //print('Is OPENAI_API_KEY null? ${dotenv.env['OPENAI_API_KEY'] == null}');
+    //print('Type of OPENAI_API_KEY: ${dotenv.env['OPENAI_API_KEY']?.runtimeType}'); // Using ?. to safely get runtimeType
+
   } catch (e) {
     print("Warning: .env file not found or failed to load. This is expected in CI, relying on --dart-define or environment variables. Error: $e");
   }
-
-  // Verify that the keys are being read
-  print('OPENAI_API_KEY (from env/dart-define): $openAIApiKey');
 
   runApp(const MyApp());
 }
