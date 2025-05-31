@@ -1,61 +1,319 @@
 import chromadb
 from prettytable import PrettyTable
 from chromadb.utils import embedding_functions
+import json
 
-# Initialize Chroma Client
-client = chromadb.PersistentClient(path="./chroma_db")
-print(client)
+class ChromaDBViewer:
+    def __init__(self, db_path: str = "./chroma_db", collection_name: str = "ofw_knowledge"):
+        self.db_path = db_path
+        self.collection_name = collection_name
+        self.client = None
+        self.collection = None
+        self._initialize_client()
 
-# Get collection
-collection = client.get_collection(name="ofw_knowledge")
-print(collection)
+    def _initialize_client(self):
+        """Initialize ChromaDB client and get collection"""
+        try:
+            self.client = chromadb.PersistentClient(path=self.db_path)
+            print(f"✅ Connected to ChromaDB at: {self.db_path}")
 
-# Retrieve all items (FIXED INCLUDE PARAMETER)
-items = collection.get(
-    include=["documents", "metadatas"]  # Remove "ids" from include list
-)
+            self.collection = self.client.get_collection(name=self.collection_name)
+            print(f"✅ Retrieved collection: {self.collection_name}")
 
-num_items = len(items['ids'])
-print(f"Number of items retrieved: {num_items}")
+        except Exception as e:
+            print(f"❌ Error connecting to ChromaDB: {e}")
+            raise
 
-try:
-    embedding_func = collection._embedding_function
-    print(f"Embedding function used by the collection: {embedding_func}")
+    def show_collection_info(self):
+        """Display basic information about the collection"""
+        print("\n" + "="*60)
+        print("CHROMADB COLLECTION INFORMATION")
+        print("="*60)
 
-    if isinstance(embedding_func, embedding_func.SentenceTransformerEmbeddingFunction):
-        print(f"SentenceTransformer model name: {embedding_func.model_name}")
-    else:
-        print("This collection uses a custom or different type of embedding function.")
+        try:
+            # Get collection count
+            items = self.collection.get()
+            total_items = len(items['ids'])
 
-except AttributeError:
-    print("Could not directly access the embedding function object from the collection.")
-    print("This might be due to ChromaDB version or internal implementation details.")
-    print("If you didn't specify one, it likely used the default (often 'all-MiniLM-L6-v2').")
+            print(f"Collection Name: {self.collection_name}")
+            print(f"Total Documents: {total_items}")
+            print(f"Database Path: {self.db_path}")
+
+            # Try to get embedding function info
+            try:
+                embedding_func = self.collection._embedding_function
+                if hasattr(embedding_func, 'model_name'):
+                    print(f"Embedding Model: {embedding_func.model_name}")
+                else:
+                    print("Embedding Function: Custom or default")
+            except:
+                print("Embedding Function: Unable to determine")
+
+            print("-" * 60)
+
+        except Exception as e:
+            print(f"Error getting collection info: {e}")
+
+    def show_summary_table(self, limit: int = 10):
+        """Show a summary table of documents"""
+        print("\nDOCUMENT SUMMARY TABLE")
+        print("-" * 60)
+
+        try:
+            items = self.collection.get(include=["documents", "metadatas"])
+
+            if not items['ids']:
+                print("No documents found in the collection.")
+                return
+
+            # Create summary table
+            table = PrettyTable()
+            table.field_names = ["#", "ID", "File", "Type", "Chunk", "Preview"]
+            table.align = "l"
+            table.max_width["Preview"] = 50
+            table.max_width["ID"] = 30
+
+            # Show limited items
+            display_count = min(limit, len(items['ids']))
+
+            for i in range(display_count):
+                doc_id = items["ids"][i]
+                document = items["documents"][i]
+                metadata = items["metadatas"][i]
+
+                # Extract info from metadata
+                filename = metadata.get("filename", "Unknown")
+                file_type = metadata.get("file_type", "Unknown")
+                chunk_info = f"{metadata.get('chunk_index', 0)+1}/{metadata.get('total_chunks', 1)}"
+
+                # Create preview (first 47 chars + "...")
+                preview = document[:47] + "..." if len(document) > 50 else document
+                preview = preview.replace('\n', ' ').replace('\r', ' ')
+
+                table.add_row([
+                    i+1,
+                    doc_id[:27] + "..." if len(doc_id) > 30 else doc_id,
+                    filename,
+                    file_type,
+                    chunk_info,
+                    preview
+                ])
+
+            print(table)
+
+            if len(items['ids']) > limit:
+                print(f"\n(Showing {display_count} of {len(items['ids'])} documents. Use show_all_documents() to see more)")
+
+        except Exception as e:
+            print(f"Error creating summary table: {e}")
+
+    def show_document_details(self, document_index: int = 0):
+        """Show detailed view of a specific document"""
+        print(f"\nDETAILED DOCUMENT VIEW (Document #{document_index + 1})")
+        print("-" * 60)
+
+        try:
+            items = self.collection.get(include=["documents", "metadatas"])
+
+            if not items['ids'] or document_index >= len(items['ids']):
+                print(f"Document #{document_index + 1} not found. Total documents: {len(items['ids'])}")
+                return
+
+            doc_id = items["ids"][document_index]
+            document = items["documents"][document_index]
+            metadata = items["metadatas"][document_index]
+
+            print(f"ID: {doc_id}")
+            print(f"Length: {len(document)} characters")
+            print("\nMetadata:")
+            for key, value in metadata.items():
+                print(f"  {key}: {value}")
+
+            print(f"\nDocument Content:")
+            print("-" * 40)
+            print(document)
+            print("-" * 40)
+
+        except Exception as e:
+            print(f"Error showing document details: {e}")
+
+    def show_files_breakdown(self):
+        """Show breakdown by file types and sources"""
+        print("\nFILES BREAKDOWN")
+        print("-" * 60)
+
+        try:
+            items = self.collection.get(include=["metadatas"])
+
+            if not items['ids']:
+                print("No documents found.")
+                return
+
+            # Analyze metadata
+            file_stats = {}
+            type_stats = {}
+
+            for metadata in items["metadatas"]:
+                filename = metadata.get("filename", "Unknown")
+                file_type = metadata.get("file_type", "Unknown")
+
+                # Count by filename
+                if filename in file_stats:
+                    file_stats[filename] += 1
+                else:
+                    file_stats[filename] = 1
+
+                # Count by file type
+                if file_type in type_stats:
+                    type_stats[file_type] += 1
+                else:
+                    type_stats[file_type] = 1
+
+            # Display file breakdown
+            print("By File:")
+            for filename, count in sorted(file_stats.items()):
+                print(f"  {filename}: {count} chunks")
+
+            print(f"\nBy Type:")
+            for file_type, count in sorted(type_stats.items()):
+                print(f"  {file_type}: {count} chunks")
+
+            print(f"\nTotal: {len(items['ids'])} document chunks")
+
+        except Exception as e:
+            print(f"Error creating files breakdown: {e}")
+
+    def search_documents(self, query: str, n_results: int = 5):
+        """Search documents using vector similarity"""
+        print(f"\nSEARCH RESULTS for: '{query}'")
+        print("-" * 60)
+
+        try:
+            results = self.collection.query(
+                query_texts=[query],
+                n_results=n_results,
+                include=["documents", "metadatas", "distances"]
+            )
+
+            if not results['ids'][0]:
+                print("No results found.")
+                return
+
+            print(f"Found {len(results['ids'][0])} results:\n")
+
+            for i, (doc_id, document, metadata, distance) in enumerate(zip(
+                    results['ids'][0],
+                    results['documents'][0],
+                    results['metadatas'][0],
+                    results['distances'][0]
+            )):
+                print(f"Result #{i+1} (Distance: {distance:.4f})")
+                print(f"File: {metadata.get('filename', 'Unknown')}")
+                print(f"Type: {metadata.get('file_type', 'Unknown')}")
+                print(f"Content Preview: {document[:200]}...")
+                print("-" * 40)
+
+        except Exception as e:
+            print(f"Error searching documents: {e}")
+
+    def show_all_documents(self):
+        """Show all documents in a detailed format"""
+        print("\nALL DOCUMENTS")
+        print("=" * 60)
+
+        try:
+            items = self.collection.get(include=["documents", "metadatas"])
+
+            if not items['ids']:
+                print("No documents found.")
+                return
+
+            for i, (doc_id, document, metadata) in enumerate(zip(
+                    items["ids"],
+                    items["documents"],
+                    items["metadatas"]
+            )):
+                print(f"\nDocument #{i+1}")
+                print(f"ID: {doc_id}")
+                print(f"File: {metadata.get('filename', 'Unknown')}")
+                print(f"Type: {metadata.get('file_type', 'Unknown')}")
+                print(f"Chunk: {metadata.get('chunk_index', 0)+1}/{metadata.get('total_chunks', 1)}")
+                print(f"Content ({len(document)} chars):")
+                print("-" * 40)
+                print(document)
+                print("-" * 40)
+
+        except Exception as e:
+            print(f"Error showing all documents: {e}")
 
 
+def main():
+    """Main function with interactive options"""
+    try:
+        viewer = ChromaDBViewer()
+
+        # Show collection info
+        viewer.show_collection_info()
+
+        # Show summary table
+        viewer.show_summary_table()
+
+        # Show files breakdown
+        viewer.show_files_breakdown()
+
+        # Interactive menu
+        while True:
+            print("\n" + "="*60)
+            print("CHROMADB VIEWER OPTIONS")
+            print("="*60)
+            print("1. Show summary table")
+            print("2. Show files breakdown")
+            print("3. View specific document details")
+            print("4. Search documents")
+            print("5. Show all documents (detailed)")
+            print("6. Exit")
+
+            choice = input("\nSelect option (1-6): ").strip()
+
+            if choice == '1':
+                limit = input("Enter number of documents to show (default 10): ").strip()
+                limit = int(limit) if limit.isdigit() else 10
+                viewer.show_summary_table(limit)
+
+            elif choice == '2':
+                viewer.show_files_breakdown()
+
+            elif choice == '3':
+                doc_num = input("Enter document number to view: ").strip()
+                if doc_num.isdigit():
+                    viewer.show_document_details(int(doc_num) - 1)
+                else:
+                    print("Please enter a valid number.")
+
+            elif choice == '4':
+                query = input("Enter search query: ").strip()
+                if query:
+                    n_results = input("Number of results (default 5): ").strip()
+                    n_results = int(n_results) if n_results.isdigit() else 5
+                    viewer.search_documents(query, n_results)
+                else:
+                    print("Please enter a search query.")
+
+            elif choice == '5':
+                confirm = input("This will show ALL documents. Continue? (y/N): ").strip().lower()
+                if confirm == 'y':
+                    viewer.show_all_documents()
+
+            elif choice == '6':
+                print("Goodbye!")
+                break
+
+            else:
+                print("Invalid option. Please select 1-6.")
+
+    except Exception as e:
+        print(f"Fatal error: {e}")
 
 
-print('---------------------------------------------------')
-if len(items['ids']) > 0:
-    first_id = items['ids'][0]
-    first_document = items['documents'][0]
-    first_metadata = items['metadatas'][0]
-
-    print("\n--- First Item ---")
-    print(f"ID: {first_id}")
-    print(f"Document: {first_document}")
-    print(f"Metadata: {first_metadata}")
-
-# quit()
-
-# Create table
-table = PrettyTable()
-table.field_names = ["ID", "Document", "Category", "Metadata"]
-table.align = "l"
-
-# Populate table (IDs are now directly accessible)
-for id, doc, meta in zip(items["ids"], items["documents"], items["metadatas"]):
-    table.add_row([id, doc, meta.get("category", ""), meta])
-
-print("ChromaDB Contents:")
-print(table)
+if __name__ == "__main__":
+    main()

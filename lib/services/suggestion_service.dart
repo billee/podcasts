@@ -3,19 +3,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SuggestionService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  static const String _collectionName = 'suggestions';
+  static const String _collectionName = 'ofw_suggestions';
 
   // Get all suggestions from Firestore
   static Future<List<String>> getSuggestions() async {
     try {
       QuerySnapshot querySnapshot = await _firestore
           .collection(_collectionName)
-          .orderBy('order') // Optional: if you want to maintain a specific order
+      //.orderBy('order') // Optional: if you want to maintain a specific order
           .get();
 
+      // Safely map and filter out any entries where 'suggestion' might be null
       return querySnapshot.docs
           .map((doc) => doc.data() as Map<String, dynamic>)
-          .map((data) => data['text'] as String)
+          .where((data) => data['suggestion'] != null) // Corrected field name: 'suggestion'
+          .map((data) => data['suggestion'] as String) // Corrected field name: 'suggestion'
           .toList();
     } catch (e) {
       print('Error fetching suggestions: $e');
@@ -37,7 +39,7 @@ class SuggestionService {
   static Future<void> addSuggestion(String text, int order) async {
     try {
       await _firestore.collection(_collectionName).add({
-        'text': text,
+        'suggestion': text, // Corrected field name: 'suggestion'
         'order': order,
         'createdAt': FieldValue.serverTimestamp(),
       });

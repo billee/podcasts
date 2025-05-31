@@ -1,280 +1,250 @@
-# It deletes the whole previous records on the chromadb first.
-# Populate chromadb with all the sources in data_sources directory.
-# It uses "paraphrase-multilingual-MiniLM-L12-v2" as the embedding model.
-# After, Test the chromedb by querying. The test_query is assumed to use the same model as above.
-# Subsequent testing, you can use test_chroma.py by querying.
-
-import os
 import chromadb
-import hashlib
-import json
-from pathlib import Path
-from typing import List, Dict, Optional, Tuple
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 from chromadb.utils import embedding_functions
-from PyPDF2 import PdfReader
-from tqdm import tqdm
-import re # Import regex for splitting
-import time # Import time for a small delay if needed
+import os
+from typing import List, Dict, Any
+import uuid # For generating unique IDs
+import re # For simple text splitting
 
-class DataProcessor:
+# Import our custom module for data reading
+from data_source_reader import DataSourceReader
 
-    # EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
-    EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 
-    def __init__(self):
-        self.embed_fn = SentenceTransformerEmbeddingFunction(
-            model_name=DataProcessor.EMBEDDING_MODEL_NAME
-        )
-        self.supported_types = ['.txt', '.pdf', '.json']
-        # Define chunking parameters for PDFs
-        self.pdf_chunk_size = 500 # Characters per chunk
-        self.pdf_chunk_overlap = 100 # Overlap between chunks
+class ChromaVectorDatabase:
+    """
+    Single Responsibility: Manages ChromaDB vector database operations
+    - Initialize ChromaDB collection
+    - Clear existing data
+    - Populate with document embeddings
+    """
 
-    def process_directory(self, root_dir: str = "data_sources") -> Dict[str, List]:
-        """Process all files in data_sources directory"""
-        data = {"documents": [], "metadatas": [], "ids": []}
+    def __init__(self, db_path: str = "./chroma_db", collection_name: str = "ofw_knowledge"):
+        self.EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2" # Using a general-purpose embedding model
+        self.CHROMA_DB_PATH = db_path
+        self.CHROMA_COLLECTION_NAME = collection_name
 
-        for file_path in tqdm(list(Path(root_dir).rglob("*")), desc="Processing files"):
-            if file_path.suffix.lower() not in self.supported_types:
+        # Initialize ChromaDB components
+        self.client = None
+        self.collection = None
+
+        # Initialize data reader (Dependency Injection following SOLID)
+        self.data_reader = DataSourceReader()
+
+        # Setup ChromaDB
+        self._initialize_chroma_client()
+
+    def _initialize_chroma_client(self):
+        """Initialize ChromaDB client and collection with embedding function"""
+        try:
+            # Create persistent client
+            self.client = chromadb.PersistentClient(path=self.CHROMA_DB_PATH)
+
+            # Configure embedding function
+            sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name=self.EMBEDDING_MODEL_NAME
+            )
+
+            # Get or create collection
+            self.collection = self.client.get_or_create_collection(
+                name=self.CHROMA_COLLECTION_NAME,
+                embedding_function=sentence_transformer_ef,
+                # metadata={"hnsw:space": "cosine"} # Optional: define distance function
+            )
+            print(f"✅ ChromaDB collection '{self.CHROMA_COLLECTION_NAME}' initialized.")
+            print(f"   Using embedding model: {self.EMBEDDING_MODEL_NAME}")
+            print(f"   Database path: {self.CHROMA_DB_PATH}")
+
+        except Exception as e:
+            print(f"❌ Error initializing ChromaDB client or collection: {e}")
+            print("   Ensure you have internet access to download the embedding model if it's the first run.")
+            raise
+
+    def clear_vector_database(self):
+        """Clears all data from the ChromaDB collection."""
+        try:
+            print(f"Clearing existing data from collection '{self.CHROMA_COLLECTION_NAME}'...")
+            self.client.delete_collection(name=self.CHROMA_COLLECTION_NAME)
+            # Re-create the collection after deletion
+            self._initialize_chroma_client()
+            print("✅ ChromaDB collection cleared successfully.")
+        except Exception as e:
+            print(f"❌ Error clearing ChromaDB collection: {e}")
+            raise
+
+    def _simple_chunk_text(self, text: str, max_chunk_size: int = 500, overlap: int = 50) -> List[str]:
+        """
+        A simple text chunking function by splitting on sentences or paragraphs.
+        Attempts to split text into chunks no larger than max_chunk_size, with some overlap.
+        """
+        # Split by paragraphs first (double newline)
+        paragraphs = text.split('\n\n')
+        chunks = []
+        current_chunk = ""
+
+        for para in paragraphs:
+            para = para.strip()
+            if not para:
                 continue
 
-            try:
-                # Process file and get content(s) and metadata(s)
-                contents_and_metadatas = self._process_file(file_path)
+            if len(current_chunk) + len(para) + 1 <= max_chunk_size:
+                current_chunk += (" " if current_chunk else "") + para
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk)
+                current_chunk = para # Start new chunk with current paragraph
 
-                for content, metadata in contents_and_metadatas:
-                    if content and content.strip(): # Ensure content is not empty or just whitespace
-                        # Generate a unique ID for each chunk
-                        # Include chunk index in ID to ensure uniqueness for chunks from the same file
-                        # Using a hash of file path and chunk content/index for robustness
-                        chunk_id_base = f"{file_path}_{len(data['documents'])}" # Use a running index for this file's chunks
-                        doc_id = hashlib.md5(f"{chunk_id_base}_{content}".encode()).hexdigest()[:12]
+                # If a single paragraph is too large, split it further by sentences.
+                while len(current_chunk) > max_chunk_size:
+                    sentences = re.split(r'(?<=[.!?])\s+', current_chunk)
+                    temp_sub_chunk = ""
+                    added_sub_chunk = False
+                    for sentence in sentences:
+                        if len(temp_sub_chunk) + len(sentence) + 1 <= max_chunk_size:
+                            temp_sub_chunk += (" " if temp_sub_chunk else "") + sentence
+                        else:
+                            if temp_sub_chunk:
+                                chunks.append(temp_sub_chunk)
+                                added_sub_chunk = True
+                                # Add overlap if desired
+                                if overlap > 0:
+                                    last_words = temp_sub_chunk.split()[-overlap:]
+                                    temp_sub_chunk = " ".join(last_words) + " " + sentence
+                                else:
+                                    temp_sub_chunk = sentence
+                            else: # If a single sentence is larger than max_chunk_size
+                                chunks.append(sentence[:max_chunk_size])
+                                temp_sub_chunk = sentence[max_chunk_size:] # Remainder
+                                added_sub_chunk = True
+                    if temp_sub_chunk: # Add any remaining part of the oversized paragraph
+                        chunks.append(temp_sub_chunk)
+                    current_chunk = "" # Reset for next paragraph
+                    break # Break inner while loop, continue with next paragraph
 
+        if current_chunk: # Add any remaining content
+            chunks.append(current_chunk)
 
-                        data["documents"].append(content)
-                        data["metadatas"].append(metadata)
-                        data["ids"].append(doc_id)
-                    else:
-                        print(f"Warning: Skipped empty or whitespace content from {file_path}")
+        # Refine chunks to ensure max_chunk_size and add overlap
+        final_chunks = []
+        for i, chunk in enumerate(chunks):
+            if len(chunk) > max_chunk_size: # If a chunk is still too large, split it again
+                sub_chunks = [chunk[j:j+max_chunk_size] for j in range(0, len(chunk), max_chunk_size - overlap)]
+                final_chunks.extend(sub_chunks)
+            else:
+                final_chunks.append(chunk)
 
-
-            except Exception as e:
-                print(f"Error processing {file_path}: {str(e)}")
-
-        return data
-
-    def _process_file(self, file_path: Path) -> List[Tuple[str, Dict]]:
-        """Process individual files based on type, returning a list of (content, metadata) tuples"""
-        base_metadata = {
-            "source": str(file_path),
-            "type": file_path.parent.name,
-            "language": "taglish" # Assuming Taglish content
-        }
-        results = []
-
-        if file_path.suffix == '.txt':
-            content = file_path.read_text(encoding='utf-8')
-            metadata = base_metadata.copy()
-            metadata.update({"format": "text"})
-            if content and content.strip():
-                results.append((content.strip(), metadata))
-
-        elif file_path.suffix == '.pdf':
-            full_text = self._extract_pdf_text(file_path)
-            metadata_template = base_metadata.copy()
-            try:
-                pdf_reader = PdfReader(file_path)
-                metadata_template.update({"format": "pdf", "pages": len(pdf_reader.pages)})
-            except Exception as e:
-                print(f"Warning: Could not get page count for {file_path}: {e}")
-                metadata_template.update({"format": "pdf", "pages": "N/A"})
+        return [c.strip() for c in final_chunks if c.strip()]
 
 
-            # Chunk the PDF text
-            chunks = self._chunk_text(full_text, self.pdf_chunk_size, self.pdf_chunk_overlap)
+    def populate_vector_database(self):
+        """
+        Populates the ChromaDB vector database with documents from data sources.
+        It now uses the new read_all_files() method to get individual file contents
+        with metadata and performs intelligent chunking.
+        """
+        print("Populating ChromaDB with documents...")
+
+        # Read individual files from data sources with their metadata
+        all_files_data = self.data_reader.read_all_files()
+
+        if not all_files_data:
+            print("No individual file content found from data sources. Vector database will not be populated.")
+            return
+
+        documents_to_add: List[str] = []
+        metadatas_to_add: List[Dict[str, Any]] = []
+        ids_to_add: List[str] = []
+
+        print(f"Preparing {len(all_files_data)} files for embedding and chunking...")
+
+        for file_data in all_files_data:
+            content = file_data['content']
+            filename = file_data['filename']
+            file_type = file_data['file_type']
+
+            # Apply chunking to each individual file's content
+            # You can customize max_chunk_size and overlap based on your needs and embedding model
+            chunks = self._simple_chunk_text(content, max_chunk_size=400, overlap=50) # Adjusted chunk size for MiniLM
+
+            if not chunks:
+                print(f"  Skipping '{filename}' as no substantial chunks were extracted.")
+                continue
+
+            print(f"  Processed '{filename}' ({file_type}) into {len(chunks)} chunks.")
 
             for i, chunk in enumerate(chunks):
-                if chunk and chunk.strip(): # Ensure chunk is not empty or just whitespace
-                    chunk_metadata = metadata_template.copy()
-                    # Optional: Add chunk specific metadata, like chunk index or page number if derivable
-                    # Deriving page number from chunk is complex without more advanced PDF processing
-                    chunk_metadata["chunk_index"] = i
-                    results.append((chunk.strip(), chunk_metadata))
-                else:
-                    print(f"Warning: Skipped empty or whitespace chunk {i} from {file_path}")
+                documents_to_add.append(chunk)
+                # Attach specific metadata to each chunk
+                metadatas_to_add.append({
+                    "filename": filename,
+                    "file_type": file_type,
+                    "chunk_index": i,
+                    "length": len(chunk),
+                    "source_path": os.path.join(self.data_reader.data_sources_path, filename) # Full path can be useful
+                })
+                # Generate a unique ID for each chunk
+                ids_to_add.append(str(uuid.uuid4()))
 
 
-        elif file_path.suffix == '.json':
-            # Assuming JSON contains Q&A pairs, each pair becomes a document
+        if documents_to_add:
             try:
-                json_data = json.loads(file_path.read_text())
-                # Assuming JSON structure like {"question": "...", "answer": "...", "metadata": {...}}
-                question = json_data.get('question', '')
-                answer = json_data.get('answer', '')
-                content = f"Q: {question}\nA: {answer}"
+                self.add_documents_in_batches(documents_to_add, metadatas_to_add, ids_to_add)
+                print(f"🎉 Successfully populated ChromaDB with {len(documents_to_add)} document chunks.")
+            except Exception as e:
+                print(f"❌ Failed to add documents to ChromaDB: {e}")
+        else:
+            print("No documents were substantial enough to be added to ChromaDB after chunking.")
 
-                metadata = base_metadata.copy()
-                # Process metadata from JSON to ensure compatibility
-                json_metadata = json_data.get('metadata', {})
-                for key, value in json_metadata.items():
-                    if isinstance(value, list):
-                        # Convert list to a comma-separated string, or handle as needed
-                        metadata[key] = ", ".join(map(str, value))
-                    else:
-                        metadata[key] = value
-                # Ensure 'format' is also set, as in other file types
-                metadata.update({"format": "json"})
 
-                if content and content.strip():
-                    results.append((content.strip(), metadata))
+    def add_documents_in_batches(self, documents: List[str], metadatas: List[dict], ids: List[str], batch_size: int = 100):
+        """Add documents to ChromaDB in batches to handle large datasets efficiently"""
+        total_added = 0
+
+        for i in range(0, len(documents), batch_size):
+            batch_docs = documents[i:i+batch_size]
+            batch_metadata = metadatas[i:i+batch_size]
+            batch_ids = ids[i:i+batch_size]
+
+            try:
+                self.collection.add(
+                    documents=batch_docs,
+                    metadatas=batch_metadata,
+                    ids=batch_ids
+                )
+                total_added += len(batch_docs)
+                print(f"Added batch {i//batch_size + 1}: {len(batch_docs)} documents")
 
             except Exception as e:
-                print(f"Error processing JSON file {file_path}: {e}")
+                print(f"Error adding batch {i//batch_size + 1}: {e}")
+                raise
+
+        print(f"Successfully added {total_added} documents in total")
 
 
-        return results
-
-    def _extract_pdf_text(self, file_path: Path) -> str:
-        """Extract text from PDF files"""
-        text = []
-        try:
-            with open(file_path, 'rb') as f:
-                reader = PdfReader(f)
-                for page in reader.pages:
-                    # Extract text, replace multiple newlines/spaces for cleaner chunks
-                    page_text = page.extract_text()
-                    if page_text:
-                        # Simple cleaning: replace multiple whitespace with single space
-                        page_text = re.sub(r'\s+', ' ', page_text).strip()
-                        text.append(page_text)
-        except Exception as e:
-            print(f"Error extracting text from PDF {file_path}: {e}")
-            return "" # Return empty string if extraction fails
-        return " ".join(text) # Join pages with space for better flow between pages
-
-    def _chunk_text(self, text: str, chunk_size: int, chunk_overlap: int) -> List[str]:
-        """Splits text into overlapping chunks."""
-        if not text:
-            return []
-
-        chunks = []
-        start = 0
-        while start < len(text):
-            end = start + chunk_size
-            chunk = text[start:end]
-            chunks.append(chunk)
-            # Calculate the next start position, ensuring it's not beyond the text length
-            next_start = start + chunk_size - chunk_overlap
-            if next_start >= len(text):
-                break # Stop if the next chunk would start beyond the text
-            start = next_start
-
-
-        return chunks
-
-
-    def _generate_id(self, content: str, file_path: str, chunk_index: int) -> str:
-        """Generate unique ID from content hash, file path, and chunk index"""
-        # Include chunk index in the hash input
-        # Using a combination of file path, chunk index, and content hash for robustness
-        unique_string = f"{file_path}_{chunk_index}_{hashlib.md5(content.encode()).hexdigest()}"
-        return hashlib.md5(unique_string.encode()).hexdigest()[:12]
-
-
-def setup_chroma():
-
-    processor = DataProcessor()
-    print(processor)
-
-    CHROMA_COLLECTION_NAME = "ofw_knowledge"
-    # EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
-    EMBEDDING_MODEL_NAME =DataProcessor.EMBEDDING_MODEL_NAME
-
-    # Use a persistent client to store data on disk
-    client = chromadb.PersistentClient(path="./chroma_db")
-    sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name=EMBEDDING_MODEL_NAME
-    )
-
+def main():
+    """
+    Main execution function
+    Simple interface following Single Responsibility Principle
+    """
     try:
-        print(f"Attempting to delete collection '{CHROMA_COLLECTION_NAME}' for a clean re-index...")
-        client.delete_collection(name=CHROMA_COLLECTION_NAME)
-        print(f"Successfully deleted collection '{CHROMA_COLLECTION_NAME}'.")
+        print("🚀 Starting ChromaDB vector database setup...\n")
 
-        # Give ChromaDB a moment to process the deletion
-        time.sleep(1)
-    except Exception as e:
-        print(f"Could not delete collection (maybe it didn't exist?): {e}")
+        # Initialize ChromaDB manager
+        chroma_db = ChromaVectorDatabase()
 
+        # It's good practice to clear existing data before a fresh populate,
+        # especially if the source data or processing logic changes.
+        # Uncomment the line below if you want to clear the DB before populating.
+        # chroma_db.clear_vector_database()
 
-    try:
-        print(f"Creating collection '{CHROMA_COLLECTION_NAME}'...")
-        collection = client.create_collection(
-            name=CHROMA_COLLECTION_NAME,
-            embedding_function= sentence_transformer_ef,
-            metadata={"hnsw:space": "cosine"} # Using cosine similarity
-        )
-        print(f"Collection '{CHROMA_COLLECTION_NAME}' created/obtained.")
+        # Populate vector database
+        chroma_db.populate_vector_database()
+
+        print("\n🎉 ChromaDB setup completed successfully!")
 
     except Exception as e:
-        print(f"FATAL ERROR: Could not create collection '{CHROMA_COLLECTION_NAME}': {e}")
-        return # Exit if collection cannot be created/obtained
+        print(f"\n❌ An error occurred during ChromaDB setup: {e}")
+        import traceback
+        traceback.print_exc() # Print full traceback for debugging
 
-
-    # print('................................')
-    # exit()
-
-    # Process data and upsert documents (chunks)
-    print("Processing data sources and generating chunks...")
-    data = processor.process_directory()
-
-    if data["documents"]:
-        print(f"Adding {len(data['ids'])} document chunks to ChromaDB...")
-        # Add documents in batches if there are many
-        batch_size = 100
-        for i in tqdm(range(0, len(data["ids"]), batch_size), desc="Adding chunks to ChromaDB"):
-            batch_ids = data["ids"][i:i+batch_size]
-            batch_documents = data["documents"][i:i+batch_size]
-            batch_metadatas = data["metadatas"][i:i+batch_size]
-            collection.upsert(
-                documents=batch_documents,
-                metadatas=batch_metadatas,
-                ids=batch_ids
-            )
-
-        print(f"\nSuccessfully loaded {len(data['ids'])} document chunks into ChromaDB.")
-        current_count = collection.count()
-        print(f"Current collection count: {current_count} documents.")
-
-        # --- Post-Indexing Query Test ---
-        print("\n--- Running Post-Indexing Query Test ---")
-        test_query = "balikbayan box pro tips?" # A direct question from the PDF
-        try:
-            test_results = collection.query(
-                query_texts=[test_query],
-                n_results=5, # Get top 5 results for the test
-                include=['documents', 'distances', 'metadatas']
-            )
-
-            print(f"Test Query: '{test_query}'")
-            print("Test Query Results:")
-            if test_results and test_results.get('documents') and test_results['documents'][0]:
-                for i in range(len(test_results['documents'][0])):
-                    print(f"  Result {i+1}:::::::::::::::::::::::::::::::::::::::::::::")
-                    print(f"    Content: {test_results['documents'][0][i][:200]}...") # Print first 200 chars
-                    print(f"    Score: {1 - test_results['distances'][0][i]:.4f}") # Print similarity score
-                    print(f"    Metadata: {test_results['metadatas'][0][i]}")
-            else:
-                print("  No documents retrieved for the test query.")
-        except Exception as e:
-            print(f"Error during post-indexing test query: {e}")
-
-        print("--- End of Post-Indexing Query Test ---\n")
-
-
-    else:
-        print("No documents found in data_sources directory after processing.")
 
 if __name__ == "__main__":
-    setup_chroma()
+    main()

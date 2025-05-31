@@ -47,6 +47,8 @@ class _ChatScreenState extends State<ChatScreen> {
       });
 
       List<String> suggestions = await SuggestionService.getSuggestions();
+      print('suggestions: $suggestions');
+
 
       // IMPORTANT: Filter out any null or non-string suggestions, and ensure they are Strings
       final List<String> cleanSuggestions = suggestions
