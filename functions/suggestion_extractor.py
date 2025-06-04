@@ -11,7 +11,6 @@ class SuggestionExtractor:
     def __init__(self, api_key: str = None):
         self.client = openai.OpenAI(api_key=api_key or os.getenv('OPENAI_API_KEY'))
 
-    # Helper method to process LLM response and handle JSON parsing
     def _process_llm_response(self, raw_content: str, context_label: str) -> List[Dict]:
         """Strips markdown fences and parses JSON, adding generic metadata."""
         print(f"DEBUG: Raw OpenAI response for {context_label}:")
@@ -68,10 +67,10 @@ class SuggestionExtractor:
         print("Calling LLM to extract suggestions from combined text...")
 
         prompt = f"""
-        You are an expert advisor. From the following combined text, extract practical, actionable advice.
+        You are an expert advisor on Overseas Filipino Worker status. From the following combined text, extract practical, actionable advice.
         Each piece of advice must be a standalone suggestion, around 5 words in length, and expressed as a concise phrase.
         Ensure there are no duplicate suggestions.
-        Focus on providing advice relevant to the context of the text, which seems to be related to Overseas Filipino Workers (OFWs) or general practical guidance.
+        Focus on providing advice relevant to the context of the text, which seems to be related to Overseas Filipino Workers (OFWs).
 
         Respond ONLY with a JSON array, where each element is an object like this:
         {{"suggestion": "Your concise 5-word suggestion here"}}
@@ -82,7 +81,7 @@ class SuggestionExtractor:
 
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini", # Using gpt-4o-mini for cost-effectiveness and speed
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": "You are an expert advisor. Extract practical, actionable advice. Respond ONLY with a JSON array."},
                     {"role": "user", "content": prompt}
@@ -98,13 +97,3 @@ class SuggestionExtractor:
 
     def _get_current_timestamp(self):
         return datetime.now().isoformat()
-
-    # Legacy method, no longer directly used in the new flow
-    # def extract_suggestions_from_content(self, content: str, source_filename: str, file_type: str) -> List[Dict]:
-    #     """Legacy method for backward compatibility, not used in the new combined text flow."""
-    #     pass
-    #
-    # # Legacy method for backward compatibility
-    # def extract_suggestions_from_text(self, text: str, source_filename: str) -> List[Dict]:
-    #     """Legacy method for backward compatibility, not used in the new combined text flow."""
-    #     pass

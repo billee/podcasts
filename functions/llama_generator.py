@@ -7,7 +7,6 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Ollama Configuration ---
-# Ensure these match your Ollama setup
 OLLAMA_API_URL = "http://localhost:11434/api/chat" # <-- Your Ollama API endpoint
 OLLAMA_MODEL_NAME = "llama3.2:latest" # <-- Your Llama model name
 
@@ -24,7 +23,7 @@ def generate_ollama_response(messages: list) -> dict:
             'messages': messages,
             'stream': False,
             'options': {
-                'temperature': 0.7,
+                'temperature': 0.5,
                 'top_p': 0.9,
                 'num_predict': 1000,  # Add max tokens
             }

@@ -40,3 +40,4 @@ chroma_db/chroma.sqlite3
 kapwa/
 devtools_options.yaml
 serviceAccountKey.json
+data_sources/

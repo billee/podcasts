@@ -1,4 +1,34 @@
 // lib/screens/chat_screen.dart
+
+// Summary of chat_screen.dart:
+//
+// This Flutter file defines the `ChatScreen` widget, which is the main UI for the Kapwa Companion chat application.
+// It manages the chat interface, user input, message display, and communication with a RAG (Retrieval-Augmented Generation) server.
+//
+// Key Features:
+// - State Management: Manages `_messages` (for display), `_chatHistory` (for RAG server context), and suggestion-related states.
+// - Initialization (`initState`):
+//     - Loads initial suggestions from `SuggestionService`.
+//     - Adds an initial system message to `_chatHistory` to define the assistant's persona.
+// - Suggestion Management:
+//     - `_loadSuggestions()`: Fetches suggestions asynchronously, shuffles them, and displays a subset as chips.
+//     - `_refreshSuggestions()`: Shuffles and updates the currently displayed suggestions.
+//     - `_handleSuggestionTap()`: Sends a tapped suggestion as a message.
+// - Message Sending (`_sendMessage`):
+//     - Adds user messages to the display and `_chatHistory`.
+//     - Displays a "Generating response..." loading message.
+//     - Makes an HTTP POST request to the RAG server (`http://localhost:5000/query`), sending the current query and the entire `_chatHistory`.
+//     - Handles successful responses, parsing the AI-generated content.
+//     - Implements robust error handling for network issues, server errors, and timeouts, providing user-friendly feedback.
+//     - Removes the loading message and displays the AI's response, adding it to `_chatHistory`.
+// - User Interface (`build` method):
+//     - Uses a `Scaffold` with an `AppBar`.
+//     - Displays chat messages using a `ListView.builder` and `ChatBubble` widgets.
+//     - Shows interactive suggestion chips (`_buildSuggestionChips`).
+//     - Provides a message input field (`_buildMessageInput`) with a send button and disables browser autofill/suggestions.
+// - `ChatBubble` Widget: A stateless widget responsible for rendering individual chat messages, differentiating between user and assistant messages visually.
+
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // Keep if you use other .env vars
 import 'package:http/http.dart' as http;

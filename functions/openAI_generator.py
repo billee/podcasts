@@ -1,7 +1,7 @@
 # openai_generator.py
 import openai
 from dotenv import load_dotenv
-load_dotenv() # This loads the variables from .env into os.environ
+load_dotenv()
 import os
 import logging
 import json
@@ -18,7 +18,7 @@ if OPENAI_API_KEY:
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
 else:
     logging.error("OPENAI_API_KEY environment variable not set. OpenAI calls will fail.")
-    client = None # Set client to None if API key is missing
+    client = None
 
 def generate_openai_response(messages: list) -> dict:
     if client is None:
@@ -51,33 +51,14 @@ def generate_openai_response(messages: list) -> dict:
     except openai.APIError as api_e:
         logging.error(f"openai_generator: Error calling OpenAI API: {api_e}", exc_info=True)
         return {
-            "content": f"May problema sa pagkuha ng sagot mula sa AI (OpenAI API error: {api_e.status_code}). Subukan ulit mamaya.",
+            "content": f"There is an issue on retriving the answer (OpenAI API error: {api_e.status_code}). Please try again.",
             "success": False,
             "error_type": "openai_api_error"
         }
     except Exception as llm_e:
         logging.error(f"openai_generator: Error processing OpenAI response or general LLM error: {llm_e}", exc_info=True)
         return {
-            "content": "May problema sa pagbuo ng sagot. Subukan ulit mamaya. (General LLM Error)",
+            "content": "There is an issue on retrieving the answer. Please try again. (General LLM Error)",
             "success": False,
             "error_type": "general_llm_error"
         }
-
-# if __name__ == '__main__':
-#     # Example usage for testing this module directly
-#     # NOTE: For this to work, you MUST have OPENAI_API_KEY set in your environment
-#     print("--- Running openai_generator.py test ---")
-#     test_messages = [
-#         {"role": "system", "content": "You are a helpful assistant."},
-#         {"role": "user", "content": "What is the capital of Canada?"}
-#     ]
-#     response = generate_openai_response(test_messages)
-#     print("\n--- Test Response from openai_generator ---")
-#     print(response)
-#
-#     test_messages_2 = [
-#         {"role": "user", "content": "Tell me a short story."}
-#     ]
-#     response_2 = generate_openai_response(test_messages_2)
-#     print("\n--- Another Test Response ---")
-#     print(response_2)

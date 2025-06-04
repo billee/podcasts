@@ -1,4 +1,5 @@
 # rag_server.py
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
@@ -19,7 +20,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # --- ChromaDB Initialization ---
 # EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
-EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+# EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+EMBEDDING_MODEL_NAME = "all-mpnet-base-v2"
 CHROMA_HOST = "localhost" # Or your ChromaDB server IP
 CHROMA_PORT = 8000
 CHROMA_COLLECTION_NAME = "ofw_knowledge"
@@ -126,7 +128,7 @@ def handle_query():
             logging.info(f"results count: {len(results)}")
 
             # Step 2: Filter results based on the similarity score threshold
-            MIN_SIMILARITY_SCORE = 0.4
+            MIN_SIMILARITY_SCORE = -0.4
             retrieved_contexts = []
             if results and results.get('documents') and results['documents'][0]:
                 for i in range(len(results['documents'][0])):
@@ -136,6 +138,9 @@ def handle_query():
 
                     score = 1 - distance
 
+                    # print(f"DEBUG: Document: '{content[:80]}...', Filename: {metadata.get('filename')}, Raw Distance: {distance:.4f}, Calculated Similarity Score: {score:.4f}")
+
+
                     if score > MIN_SIMILARITY_SCORE:
                         retrieved_contexts.append({
                             "content": content,
@@ -144,7 +149,8 @@ def handle_query():
                         })
                     else:
                         logging.info(f" ")
-                        # logging.info(f"Skipping result with score {score:.4f} below threshold {MIN_SIMILARITY_SCORE}")
+                        logging.info(f"{content}")
+                        logging.info(f"Skipping result with score {score:.4f} below threshold {MIN_SIMILARITY_SCORE}")
 
                 retrieved_contexts.sort(key=lambda x: x['score'], reverse=True)
 
@@ -156,18 +162,40 @@ def handle_query():
                 logging.info(f"\nFiltered retrieved contexts from ChromaDB: {retrieved_contexts}")
 
 
-            # Prepare messages for Ollama's chat API
-            messages = list(chat_history) # Start with provided chat history from Flutter
-            # logging.info(f"messages: {messages}")
+            # Define the strict system instruction for the LLM
+            # strict_system_instruction = (
+            #     "You are a very helpful and dedicated assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English. "
+            #     "Your goal is to provide empathetic and informative responses based *solely* on the provided context. "
+            #     "Do not introduce any information not present in the provided text. If the information is not in the text, state that you cannot answer from the provided context."
+            # )
+
+            strict_system_instruction = (
+                "You are a very helpful and dedicated assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English. "
+                "Your primary goal is to provide empathetic and informative responses based on the provided context. "
+                "However, if the provided context is insufficient to fully answer the user's query or to offer comprehensive assistance, you may draw upon your general knowledge to provide additional relevant and useful information that is beneficial and relevant to OFWs. "
+                "Always clearly distinguish between information from the provided context and general knowledge you are adding." # Optional: Add a directive to distinguish sources
+            )
+
+            messages = []
+
+            # Ensure the strict system instruction is the first message
+            messages.append({"role": "system", "content": strict_system_instruction})
+
+            # Add existing chat history, skipping any system message already present
+            # as we've just added our definitive one.
+            for msg in chat_history:
+                if msg['role'] != 'system': # Only add user/assistant messages from history
+                    messages.append(msg)
+
 
             context_string = "No relevant context found in the knowledge base."
             if retrieved_contexts:
                 context_string = "\n\n".join([item['content'] for item in retrieved_contexts])
 
-            # logging.info(f"\nnext_messages: {messages}")
-
             # Append the RAG context and the current query to the latest user message
-            # The last message in chat_history should be the current query from the user.
+            # The last message in the combined 'messages' list (after history) should be the current user query.
+            # We assume the last user message in chat_history is the current query.
+            # If for some reason the chat_history doesn't end with a user message, we append it.
             if messages and messages[-1]['role'] == 'user':
                 current_user_message_content = messages[-1]['content']
                 messages[-1]['content'] = (
@@ -175,8 +203,8 @@ def handle_query():
                     f"Question: {current_user_message_content}"
                 )
             else:
-                # This case should ideally not happen if Flutter sends the current query correctly
-                logging.warning("Last message in chat_history is not user's current query. Appending as a new user message with context.")
+                # This fallback handles cases where chat_history might be empty or malformed
+                logging.warning("No previous user message found in chat history. Appending context and query as a new user message.")
                 messages.append({"role": "user", "content":
                     f"Context:\n{context_string}\n\n"
                     f"Question: {query_text}"
@@ -188,9 +216,9 @@ def handle_query():
 
             # use ollama for development(free) and use openai for production(paid)
             # ///////////////////////////USING LLAMA 3.1/////////////////////////////////////////////////////////////////
-            response = generate_ollama_response(messages)
+            # response = generate_ollama_response(messages)
             # ////////////////////////////////////////////////////////////////////////////////////////////////////
-            #response = generate_openai_response(messages)
+            response = generate_openai_response(messages)
             # ////////////////////////////////////////////////////////////////////////////////////////////////////
             if response['success']:
                 generated_answer = response['content']
@@ -233,3 +261,5 @@ def handle_query():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
+
+

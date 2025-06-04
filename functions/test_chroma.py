@@ -5,7 +5,8 @@ import os
 # Define your expected embedding model name and collection details
 # These should match what's in chroma_setup.py and rag_server.py
 # EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
-EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+# EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+EMBEDDING_MODEL_NAME = "all-mpnet-base-v2"
 CHROMA_COLLECTION_NAME = "ofw_knowledge"
 CHROMA_DB_PATH = "./chroma_db" # Ensure this path is correct for your ChromaDB data
 test_query = "balikbayan box pro tips?" # Example query
