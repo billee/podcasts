@@ -115,141 +115,151 @@ def handle_query():
         logging.info(f"QUERY_TEXT:{query_text}")
         # logging.info(f"\nCHAT_HISTORY:{json.dumps(chat_history)}") # Log history
 
-        # /////////////////////////RETRIEVAL/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        try:
-            # Step 1: Query ChromaDB for relevant documents (AUGMENTATION).  The query text will be automatically embeded
-            initial_n_results = 10 # Get more results to filter later
-            results = collection.query(
-                query_texts=[query_text],
-                n_results=initial_n_results,
-                include=['documents', 'distances', 'metadatas']
-            )
+        retrieved_contexts = []
+        # Define short, conversational follow-ups that don't need new retrieval
+        conversational_follow_ups = ["yes", "no", "tell me more", "elaborate", "can you elaborate", "please elaborate", "i would", "i would like to", "yes please", "no thanks"] # Added more common phrases
 
-            logging.info(f"results count: {len(results)}")
+        # Check if the current query is a short conversational follow-up
+        if query_text.lower() in conversational_follow_ups:
+            logging.info(f"Skipping ChromaDB retrieval for conversational follow-up: '{query_text}'")
+            # In this case, retrieved_contexts remains empty, and the LLM relies solely on chat_history
+        else:
+            # /////////////////////////RETRIEVAL/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            try:
+                # Step 1: Query ChromaDB for relevant documents (AUGMENTATION).  The query text will be automatically embeded
+                initial_n_results = 10 # Get more results to filter later
+                results = collection.query(
+                    query_texts=[query_text],
+                    n_results=initial_n_results,
+                    include=['documents', 'distances', 'metadatas']
+                )
 
-            # Step 2: Filter results based on the similarity score threshold
-            MIN_SIMILARITY_SCORE = -0.4
-            retrieved_contexts = []
-            if results and results.get('documents') and results['documents'][0]:
-                for i in range(len(results['documents'][0])):
-                    content = results['documents'][0][i]
-                    distance = results['distances'][0][i]
-                    metadata = results['metadatas'][0][i]
+                logging.info(f"results count: {len(results)}")
 
-                    score = 1 - distance
+                # Step 2: Filter results based on the similarity score threshold
+                MIN_SIMILARITY_SCORE = -0.4
+                if results and results.get('documents') and results['documents'][0]:
+                    for i in range(len(results['documents'][0])):
+                        content = results['documents'][0][i]
+                        distance = results['distances'][0][i]
+                        metadata = results['metadatas'][0][i]
 
-                    # print(f"DEBUG: Document: '{content[:80]}...', Filename: {metadata.get('filename')}, Raw Distance: {distance:.4f}, Calculated Similarity Score: {score:.4f}")
+                        score = 1 - distance
 
+                        # print(f"DEBUG: Document: '{content[:80]}...', Filename: {metadata.get('filename')}, Raw Distance: {distance:.4f}, Calculated Similarity Score: {score:.4f}")
 
-                    if score > MIN_SIMILARITY_SCORE:
-                        retrieved_contexts.append({
-                            "content": content,
-                            "score": score,
-                            "source": metadata.get('source', 'chromadb')
-                        })
-                    else:
-                        logging.info(f" ")
-                        logging.info(f"{content}")
-                        logging.info(f"Skipping result with score {score:.4f} below threshold {MIN_SIMILARITY_SCORE}")
-
-                retrieved_contexts.sort(key=lambda x: x['score'], reverse=True)
-
-                MAX_CONTEXTS_FOR_LLM = 3 # Cap the number of contexts for the LLM prompt
-                if len(retrieved_contexts) > MAX_CONTEXTS_FOR_LLM:
-                    logging.info(f"Limiting retrieved contexts from {len(retrieved_contexts)} to {MAX_CONTEXTS_FOR_LLM}")
-                    retrieved_contexts = retrieved_contexts[:MAX_CONTEXTS_FOR_LLM]
-
-                logging.info(f"\nFiltered retrieved contexts from ChromaDB: {retrieved_contexts}")
-
-
-            # Define the strict system instruction for the LLM
-            # strict_system_instruction = (
-            #     "You are a very helpful and dedicated assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English. "
-            #     "Your goal is to provide empathetic and informative responses based *solely* on the provided context. "
-            #     "Do not introduce any information not present in the provided text. If the information is not in the text, state that you cannot answer from the provided context."
-            # )
-
-            strict_system_instruction = (
-                "You are a very helpful and dedicated assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English. "
-                "Your primary goal is to provide empathetic and informative responses based on the provided context. "
-                "However, if the provided context is insufficient to fully answer the user's query or to offer comprehensive assistance, you may draw upon your general knowledge to provide additional relevant and useful information that is beneficial and relevant to OFWs. "
-                "Always clearly distinguish between information from the provided context and general knowledge you are adding." # Optional: Add a directive to distinguish sources
-            )
-
-            messages = []
-
-            # Ensure the strict system instruction is the first message
-            messages.append({"role": "system", "content": strict_system_instruction})
-
-            # Add existing chat history, skipping any system message already present
-            # as we've just added our definitive one.
-            for msg in chat_history:
-                if msg['role'] != 'system': # Only add user/assistant messages from history
-                    messages.append(msg)
+                        # Corrected filtering logic: Keep if score is greater than or equal to the minimum acceptable score
+                        if score >= MIN_SIMILARITY_SCORE:
+                            logging.info(f"✅ Keeping result: Score {score} >= Threshold {MIN_SIMILARITY_SCORE}")
+                            retrieved_contexts.append({
+                                "content": content,
+                                "score": score,
+                                "source": metadata.get('source', 'chromadb')
+                            })
+                        else:
+                            logging.info(f"❌ Skipping result: Score {score} < Threshold {MIN_SIMILARITY_SCORE}")
+                            logging.info(f"Content: {content}")
 
 
-            context_string = "No relevant context found in the knowledge base."
-            if retrieved_contexts:
-                context_string = "\n\n".join([item['content'] for item in retrieved_contexts])
+                    retrieved_contexts.sort(key=lambda x: x['score'], reverse=True)
 
-            # Append the RAG context and the current query to the latest user message
-            # The last message in the combined 'messages' list (after history) should be the current user query.
-            # We assume the last user message in chat_history is the current query.
-            # If for some reason the chat_history doesn't end with a user message, we append it.
-            if messages and messages[-1]['role'] == 'user':
-                current_user_message_content = messages[-1]['content']
+                    MAX_CONTEXTS_FOR_LLM = 3 # Cap the number of contexts for the LLM prompt
+                    if len(retrieved_contexts) > MAX_CONTEXTS_FOR_LLM:
+                        logging.info(f"Limiting retrieved contexts from {len(retrieved_contexts)} to {MAX_CONTEXTS_FOR_LLM}")
+                        retrieved_contexts = retrieved_contexts[:MAX_CONTEXTS_FOR_LLM]
+
+                    logging.info(f"\nFiltered retrieved contexts from ChromaDB: {retrieved_contexts}")
+
+            except Exception as e:
+                logging.error(f"Error during ChromaDB query or RAG processing: {e}", exc_info=True)
+                # Do not return immediately, let the LLM attempt to respond without context
+                pass # Continue to LLM generation even if ChromaDB query fails for this part
+
+
+        # Define the strict system instruction for the LLM
+        # strict_system_instruction = (
+        #     "You are a very helpful and dedicated assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English. "
+        #     "Your primary goal is to provide empathetic and informative responses based on the provided context. "
+        #     "However, if the provided context is insufficient to fully answer the user's query or to offer comprehensive assistance, you may draw upon your general knowledge to provide additional relevant and useful information that is beneficial and relevant to OFWs. "
+        #     "Always clearly distinguish between information from the provided context and general knowledge you are adding." # Optional: Add a directive to distinguish sources
+        # )
+
+        strict_system_instruction = (
+            "You are a very polite in Filipino way, helpful and dedicated assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English in the Philippines. Your primary goal is to provide empathetic and informative responses based on the provided context and say that 'base on our data, ...'. However, if the provided context is insufficient to fully answer the user's query or to offer comprehensive assistance, you may draw upon your general knowledge to provide additional relevant and useful information that is only beneficial and only relevant to OFWs but say that this is your suggestion. They have to be specific not generalization. If there is none, then do not add it. Always put yourself in the shoe of the OFW. Always clearly distinguish between information from the provided context and general knowledge you are adding. Remember, most OFW did not get high education, so speak to them accordingly."
+        )
+
+        messages = []
+
+        # Ensure the strict system instruction is the first message
+        messages.append({"role": "system", "content": strict_system_instruction})
+
+        # Add existing chat history, skipping any system message already present
+        # as we've just added our definitive one.
+        for msg in chat_history:
+            if msg['role'] != 'system': # Only add user/assistant messages from history
+                messages.append(msg)
+
+
+        context_string = "" # Initialize as empty, only fill if relevant contexts are found and not a follow-up
+        if retrieved_contexts and query_text.lower() not in conversational_follow_ups:
+            context_string = "\n\n".join([item['content'] for item in retrieved_contexts])
+            logging.info(f"Context string sent to LLM:\n{context_string}")
+        else:
+            logging.info("No relevant contexts retrieved or retrieval skipped for conversational follow-up.")
+
+
+        # Append the RAG context and the current query to the latest user message
+        # The last message in the combined 'messages' list (after history) should be the current user query.
+        # We assume the last user message in chat_history is the current query.
+        # If for some reason the chat_history doesn't end with a user message, we append it.
+        if messages and messages[-1]['role'] == 'user' and messages[-1]['content'].strip() == query_text:
+            if context_string: # Only add context if it's not empty
                 messages[-1]['content'] = (
                     f"Context:\n{context_string}\n\n"
-                    f"Question: {current_user_message_content}"
+                    f"Question: {messages[-1]['content']}"
                 )
-            else:
-                # This fallback handles cases where chat_history might be empty or malformed
-                logging.warning("No previous user message found in chat history. Appending context and query as a new user message.")
+        else:
+            # This fallback handles cases where chat_history might be empty or malformed
+            logging.warning("No previous user message found or current query mismatch in chat history. Appending context and query as a new user message.")
+            if context_string: # Only add context if it's not empty
                 messages.append({"role": "user", "content":
                     f"Context:\n{context_string}\n\n"
                     f"Question: {query_text}"
                                  })
+            else: # If no context, just append the query
+                messages.append({"role": "user", "content": query_text})
 
-            # /////////////////////////GENERATION/////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-            logging.info(f"\nMessages to be sent to LLm: {json.dumps(messages, indent=2)}")
+        # /////////////////////////GENERATION/////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-            # use ollama for development(free) and use openai for production(paid)
-            # ///////////////////////////USING LLAMA 3.1/////////////////////////////////////////////////////////////////
-            # response = generate_ollama_response(messages)
-            # ////////////////////////////////////////////////////////////////////////////////////////////////////
-            response = generate_openai_response(messages)
-            # ////////////////////////////////////////////////////////////////////////////////////////////////////
-            if response['success']:
-                generated_answer = response['content']
-                final_source = retrieved_contexts[0]['source'] if retrieved_contexts else "LLM_generated"
-                return jsonify({
-                    "results": [{
-                        "content": generated_answer,
-                        "score": retrieved_contexts[0]['score'] if retrieved_contexts else 0.0,
-                        "source": final_source
-                    }]
-                })
-            else:
-                # Handle error from llama_generator.py and return appropriate response
-                return jsonify({
-                    "results": [{
-                        "content": response['content'], # This will be the error message from llama_generator
-                        "score": 0.0,
-                        "source": response.get('error_type', 'llm_error') # Use error_type if available
-                    }]
-                }), 500 # Return 500 for internal server errors originating from LLM generation
-            # ///////////////////////////////////////////////////////////////////////////////////////////////////////
+        logging.info(f"\nMessages to be sent to LLm: {json.dumps(messages, indent=2)}")
 
-        except Exception as e:
-            logging.error(f"Error during ChromaDB query or RAG processing: {e}", exc_info=True)
+        # use ollama for development(free) and use openai for production(paid)
+        # ///////////////////////////USING LLAMA 3.1/////////////////////////////////////////////////////////////////
+        # response = generate_ollama_response(messages)
+        # ////////////////////////////////////////////////////////////////////////////////////////////////////
+        response = generate_openai_response(messages)
+        # ////////////////////////////////////////////////////////////////////////////////////////////////////
+        if response['success']:
+            generated_answer = response['content']
+            final_source = retrieved_contexts[0]['source'] if retrieved_contexts else "LLM_generated"
             return jsonify({
                 "results": [{
-                    "content": "May problema sa pagkuha ng impormasyon mula sa knowledge base. Subukan ulit mamaya.",
-                    "score": 0.0,
-                    "source": "chroma_error"
+                    "content": generated_answer,
+                    "score": retrieved_contexts[0]['score'] if retrieved_contexts else 0.0,
+                    "source": final_source
                 }]
-            }), 500
+            })
+        else:
+            # Handle error from llama_generator.py and return appropriate response
+            return jsonify({
+                "results": [{
+                    "content": response['content'], # This will be the error message from llama_generator
+                    "score": 0.0,
+                    "source": response.get('error_type', 'llm_error') # Use error_type if available
+                }]
+            }), 500 # Return 500 for internal server errors originating from LLM generation
+        # ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
     except ValueError as ve:
         logging.error(f"Invalid JSON format: {ve}")
@@ -261,5 +271,3 @@ def handle_query():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
-
-
