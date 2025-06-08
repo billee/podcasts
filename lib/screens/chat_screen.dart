@@ -61,12 +61,12 @@ class _ChatScreenState extends State<ChatScreen> {
     // Keep suggestion loading:
     _loadSuggestions();
 
-    final String initialSystemMessage = "You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English. Your goal is to provide empathetic and informative responses based on the provided context.";
-
-    _chatHistory.add({
-      "role": "system",
-      "content": initialSystemMessage,
-    });
+    // final String initialSystemMessage = "You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English. Your goal is to provide empathetic and informative responses based on the provided context.";
+    //
+    // _chatHistory.add({
+    //   "role": "system",
+    //   "content": initialSystemMessage,
+    // });
   }
 
   // Keep suggestion loading method:
@@ -130,7 +130,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // Add user message to display and chat history
     setState(() {
       _messages.add({"role": "user", "content": message});
-      _chatHistory.add({"role": "user", "content": message});
+      //_chatHistory.add({"role": "user", "content": message});
       _messageController.clear();
       // Keep suggestion refresh:
       _refreshSuggestions(); // Refresh suggestions after sending a message
@@ -164,6 +164,25 @@ class _ChatScreenState extends State<ChatScreen> {
           print('ChatScreen: RAG server response missing expected content: $data');
           aiResponseContent = "Sorry, bro. The RAG server didn't provide a complete answer.";
         }
+
+
+        if (data.containsKey('updated_chat_history') && data['updated_chat_history'] is List) {
+          // IMPORTANT: Replace the entire _chatHistory with the one provided by the server
+          _chatHistory.clear(); // Clear existing history
+          for (var item in data['updated_chat_history']) {
+            if (item is Map<String, dynamic> && item.containsKey('role') && item.containsKey('content')) {
+              _chatHistory.add({"role": item['role'] as String, "content": item['content'] as String});
+            }
+          }
+          print("ChatScreen: _chatHistory updated from server response.");
+        } else {
+          print("ChatScreen: Server did not return 'updated_chat_history'. Appending only AI response to local history.");
+          _chatHistory.add({"role": "user", "content": message}); // Re-add user message if history not returned
+          _chatHistory.add({"role": "assistant", "content": aiResponseContent});
+        }
+
+
+
       } else {
         print('ChatScreen: RAG Server error ${response.statusCode}: ${response.body}');
         String errorMessage = "Unknown server error.";
@@ -186,7 +205,7 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         _messages.removeLast(); // Remove loading message
         _messages.add({"role": "assistant", "content": aiResponseContent});
-        _chatHistory.add({"role": "assistant", "content": aiResponseContent});
+        //_chatHistory.add({"role": "assistant", "content": aiResponseContent});
       });
     } on TimeoutException {
       print("ChatScreen: Request to RAG server timed out.");

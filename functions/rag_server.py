@@ -10,6 +10,7 @@ import logging
 from llama_generator import generate_ollama_response
 from openAI_generator import generate_openai_response
 # import requests # Import for making HTTP requests to Ollama
+import tiktoken # <--- ADD THIS IMPORT for token counting
 
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
@@ -25,6 +26,8 @@ EMBEDDING_MODEL_NAME = "all-mpnet-base-v2"
 CHROMA_HOST = "localhost" # Or your ChromaDB server IP
 CHROMA_PORT = 8000
 CHROMA_COLLECTION_NAME = "ofw_knowledge"
+MODEL = "gpt-4o-mini"
+SUMMARIZE_THRESHOLD_TOKENS = 2000
 
 # Global variable for the collection - Initialize to None
 collection = None
@@ -52,10 +55,55 @@ def clean_text(text):
     text = text.strip()
     return text
 
+# --- NEW: Token Counting Function ---
+# This helps us know how much 'space' our messages are taking up
+def count_tokens(text: str, model: str = MODEL) -> int:
+    """Returns the number of tokens in a text string for a given model."""
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+        return len(encoding.encode(text))
+    except KeyError:
+        logging.warning(f"Could not find tokenizer for model '{model}'. Estimating tokens by character count.")
+        return len(text) // 4 # Rough estimation if tokenizer not found
 
-# --- Ollama Configuration ---
-OLLAMA_API_URL = 'http://localhost:11434/api/chat' # Ollama's chat API endpoint
-# OLLAMA_MODEL_NAME = 'llama3.2:latest' # Your desired Ollama model
+
+# --- NEW: Conversation Summarization Function ---
+# This function will call the LLM to summarize the chat history
+def summarize_conversation_with_llm(history_to_summarize: list, llm_generator_func) -> str:
+    """
+    Uses the LLM to summarize a long chat history.
+    It takes the history and the LLM generation function (e.g., generate_openai_response).
+    """
+    logging.info("Initiating conversation summarization with LLM, po.")
+    summarization_prompt = (
+        "You are an assistant whose only job is to create a very brief, clear, and coherent summary "
+        "of the following chat history. This summary will help the user remember what we've discussed. "
+        "Focus on the main topics, important questions asked, and key information provided. "
+        "Keep it very concise, like a quick memory refresh, but make sure to include any critical context "
+        "about the user's situation (e.g., if they are an OFW, their location, family details, or specific problems). "
+        "Do not add any new information, conversational pleasantries, or advice. Just the summary itself."
+    )
+
+    # We only summarize user and assistant messages, not system instructions
+    # because the system instruction will be added every time.
+    messages_for_summarization = [{"role": "system", "content": summarization_prompt}]
+    for msg in history_to_summarize:
+        if msg['role'] in ['user', 'assistant']:
+            messages_for_summarization.append(msg)
+
+    try:
+        # Use the provided LLM generator function (e.g., generate_openai_response)
+        response = llm_generator_func(messages_for_summarization)
+        if response['success']:
+            logging.info("Conversation successfully summarized by LLM, opo.")
+            return response['content']
+        else:
+            logging.error(f"Failed to summarize conversation with LLM: {response['content']}")
+            return "Unable to summarize previous conversation." # Fallback
+    except Exception as e:
+        logging.error(f"Error calling LLM for summarization: {e}")
+        return "Unable to summarize previous conversation." # Fallback
+
 
 # Health check endpoint
 @app.route('/')
@@ -107,6 +155,8 @@ def handle_query():
         logging.info(f"==============================================================================")
         data = request.get_json()
         query_text = data.get('query')
+        # IMPORTANT: This chat_history is what's passed from the client for this turn.
+        # It needs to be updated by the server if summarization occurs.
         chat_history = data.get('chat_history', [])
 
         if not query_text:
@@ -114,6 +164,23 @@ def handle_query():
 
         logging.info(f"QUERY_TEXT:{query_text}")
         # logging.info(f"\nCHAT_HISTORY:{json.dumps(chat_history)}") # Log history
+
+        # --- NEW: Check if chat_history needs summarization ---
+        # First, estimate total tokens of the current history (excluding current query and RAG context)
+        current_history_tokens = count_tokens(json.dumps(chat_history), model="gpt-4o-mini") # Adjust model if using a different one
+
+        if current_history_tokens > SUMMARIZE_THRESHOLD_TOKENS:
+            logging.info(f"Chat history tokens ({current_history_tokens}) exceed summarization threshold ({SUMMARIZE_THRESHOLD_TOKENS}). Summarizing, po.")
+            # Determine which LLM generator function to use for summarization
+            llm_generator_for_summary = generate_openai_response # Default to OpenAI for now
+            # You could add logic here to use generate_ollama_response if preferred for summarization
+
+            summarized_content = summarize_conversation_with_llm(chat_history, llm_generator_for_summary)
+            # Replace the old, long chat_history with a single summary message
+            # This message will act as the new starting point for the conversation context.
+            chat_history = [{"role": "assistant", "content": f"Summary of our previous conversation:\n{summarized_content}"}]
+            logging.info("Chat history summarized and updated, opo.")
+
 
         retrieved_contexts = []
         # Define short, conversational follow-ups that don't need new retrieval
@@ -128,8 +195,16 @@ def handle_query():
             try:
                 # Step 1: Query ChromaDB for relevant documents (AUGMENTATION).  The query text will be automatically embeded
                 initial_n_results = 10 # Get more results to filter later
+
+                # Use the *full conversation history* for the RAG query to improve relevance
+                # This is a key enhancement for better context-aware retrieval.
+                # Combine chat_history and current query for a more contextual search
+                combined_query_for_rag = " ".join([msg['content'] for msg in chat_history if msg['role'] in ['user', 'assistant']]) + " " + query_text
+
+
                 results = collection.query(
-                    query_texts=[query_text],
+                    # query_texts=[query_text],
+                    query_texts=[combined_query_for_rag],
                     n_results=initial_n_results,
                     include=['documents', 'distances', 'metadatas']
                 )
@@ -152,7 +227,8 @@ def handle_query():
                         if score >= MIN_SIMILARITY_SCORE:
                             logging.info(f"✅ Keeping result: Score {score} >= Threshold {MIN_SIMILARITY_SCORE}")
                             retrieved_contexts.append({
-                                "content": content,
+                                # "content": content,
+                                "content": clean_text(content),
                                 "score": score,
                                 "source": metadata.get('source', 'chromadb')
                             })
@@ -184,20 +260,70 @@ def handle_query():
         #     "Always clearly distinguish between information from the provided context and general knowledge you are adding." # Optional: Add a directive to distinguish sources
         # )
 
-        strict_system_instruction = (
-            "You are a very polite in Filipino way, helpful and dedicated assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English in the Philippines. Your primary goal is to provide empathetic and informative responses based on the provided context and say that 'base on our data, ...'. However, if the provided context is insufficient to fully answer the user's query or to offer comprehensive assistance, you may draw upon your general knowledge to provide additional relevant and useful information that is only beneficial and only relevant to OFWs but say that this is your suggestion. They have to be specific not generalization. If there is none, then do not add it. Always put yourself in the shoe of the OFW. Always clearly distinguish between information from the provided context and general knowledge you are adding. Remember, most OFW did not get high education, so speak to them accordingly."
-        )
+        # strict_system_instruction = (
+        #     "You are a very polite in Filipino way, helpful and dedicated assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English in the Philippines. Your primary goal is to provide empathetic and informative responses based on the provided context and say that 'base on our data, ...'. However, if the provided context is insufficient to fully answer the user's query or to offer comprehensive assistance, you may draw upon your general knowledge to provide additional relevant and useful information that is only beneficial and only relevant to OFWs but say that this is your suggestion. They have to be specific not generalization. If there is none, then do not add it. Always put yourself in the shoe of the OFW. Always clearly distinguish between information from the provided context and general knowledge you are adding. Remember, most OFW did not get high education, so speak to them accordingly."
+        # )
+
+        strict_system_instruction = """
+        Strict System Instruction
+        
+        You are:
+        - A polite assistant who speaks in a culturally appropriate Filipino manner
+          • Use polite expressions like “po” and “opo”
+          • Make them feel like you are with them and on their side
+        - A warm, respectful, and supportive presence, like a friend or family member
+        - Focused on giving empathetic, informative, and culturally aware advice tailored for Overseas Filipino Workers (OFWs)
+        - Communicating in simple, everyday conversational English that's easy for an OFW to understand
+        
+        Your goals:
+        - Prioritize the well-being of the OFW in all responses
+        - Reflect common Filipino values like:
+          • Family
+          • Bayanihan (community spirit)
+          • Resilience
+        
+        When answering:
+        - Base your reply on the provided context, and say: "Based on our knowledge,…”
+        - Do not use numbering format
+        - If the context is insufficient or empty, you are free to search general knowledge ONLY IF:
+          • It's relevant and helpful to this specific OFW
+          • You clearly say: “This is my suggestion…”
+          • You avoid generalizations
+          • You provide specific, actionable suggestions
+          • You do NOT add unrelated or unhelpful information
+          • Do not hallucinate and fabricate wrong informations such as dates, amounts,etc. 
+        - If retrieved content mentions a location that contradicts the system context, exclude retrieved mismatches from the final answer.
+        
+        Tone and empathy:
+        - Always put yourself in the shoes of the OFW
+        - Your tone must show:
+          • Understanding
+          • Compassion
+          • Support for the challenges OFWs face
+        
+        Clarity in information:
+        - Clearly distinguish between:
+          • Information from the provided context
+          • Information from your general knowledge
+        
+        Personalization:
+        - Always remember OFW's work location is Hong Kong
+        - Tailor your responses specifically to:
+          • A 26-year-old Filipina working as a caregiver in Hong kong (Remember this location)
+          • Married with 2 children in the Philippines
+          • High school graduate in the Philippines
+        - Help OFW feel that you understand her situation and struggles
+        """
 
         messages = []
 
         # Ensure the strict system instruction is the first message
         messages.append({"role": "system", "content": strict_system_instruction})
 
-        # Add existing chat history, skipping any system message already present
-        # as we've just added our definitive one.
+        # Add the (potentially summarized) chat history.
+        # This will now contain either the full short history or a single summary message.
         for msg in chat_history:
-            if msg['role'] != 'system': # Only add user/assistant messages from history
-                messages.append(msg)
+            messages.append(msg)
 
 
         context_string = "" # Initialize as empty, only fill if relevant contexts are found and not a follow-up
@@ -210,24 +336,16 @@ def handle_query():
 
         # Append the RAG context and the current query to the latest user message
         # The last message in the combined 'messages' list (after history) should be the current user query.
-        # We assume the last user message in chat_history is the current query.
         # If for some reason the chat_history doesn't end with a user message, we append it.
-        if messages and messages[-1]['role'] == 'user' and messages[-1]['content'].strip() == query_text:
-            if context_string: # Only add context if it's not empty
-                messages[-1]['content'] = (
-                    f"Context:\n{context_string}\n\n"
-                    f"Question: {messages[-1]['content']}"
-                )
-        else:
-            # This fallback handles cases where chat_history might be empty or malformed
-            logging.warning("No previous user message found or current query mismatch in chat history. Appending context and query as a new user message.")
-            if context_string: # Only add context if it's not empty
-                messages.append({"role": "user", "content":
-                    f"Context:\n{context_string}\n\n"
-                    f"Question: {query_text}"
-                                 })
-            else: # If no context, just append the query
-                messages.append({"role": "user", "content": query_text})
+        # For this setup, we'll always append the current query.
+        final_user_message_content = query_text
+        if context_string:
+            final_user_message_content = (
+                f"Context:\n{context_string}\n\n"
+                f"Question: {query_text}"
+            )
+        messages.append({"role": "user", "content": final_user_message_content})
+
 
 
         # /////////////////////////GENERATION/////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -236,19 +354,38 @@ def handle_query():
 
         # use ollama for development(free) and use openai for production(paid)
         # ///////////////////////////USING LLAMA 3.1/////////////////////////////////////////////////////////////////
-        # response = generate_ollama_response(messages)
+        response = generate_ollama_response(messages)
         # ////////////////////////////////////////////////////////////////////////////////////////////////////
-        response = generate_openai_response(messages)
+        # response = generate_openai_response(messages)
         # ////////////////////////////////////////////////////////////////////////////////////////////////////
         if response['success']:
             generated_answer = response['content']
             final_source = retrieved_contexts[0]['source'] if retrieved_contexts else "LLM_generated"
+
+            # --- IMPORTANT: Return the updated chat_history to the client ---
+            # The client needs to replace its local chat_history with this one for the next turn.
+            # We return everything from `messages` *after* the initial system instruction.
+            # updated_chat_history_for_client = messages[1:]
+            # Append the new assistant response to this history
+            # updated_chat_history_for_client.append({"role": "assistant", "content": generated_answer})
+
+
+            # Prepare updated chat history for the client.
+            # It should include the previous chat history received from the client,
+            # the original current user query, and the new assistant response.
+            # This ensures that the RAG context is NOT persisted in the chat history sent back.
+            updated_chat_history_for_client = chat_history.copy() # Start with the clean history received from the client
+            updated_chat_history_for_client.append({"role": "user", "content": query_text}) # Add the original user query
+            updated_chat_history_for_client.append({"role": "assistant", "content": generated_answer}) # Add the assistant response
+
+
             return jsonify({
                 "results": [{
                     "content": generated_answer,
                     "score": retrieved_contexts[0]['score'] if retrieved_contexts else 0.0,
                     "source": final_source
-                }]
+                }],
+                "updated_chat_history": updated_chat_history_for_client
             })
         else:
             # Handle error from llama_generator.py and return appropriate response

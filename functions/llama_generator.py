@@ -15,7 +15,7 @@ def generate_ollama_response(messages: list) -> dict:
     Makes an API call to Ollama to generate a response based on the given messages.
     Returns a dictionary containing the generated content, or an error message.
     """
-    logging.info(f"llama_generator: Messages to be sent to Ollama: {json.dumps(messages, indent=2)}")
+    # logging.info(f"llama_generator: Messages to be sent to Ollama: {json.dumps(messages, indent=2)}")
 
     try:
         ollama_payload = {
@@ -23,13 +23,13 @@ def generate_ollama_response(messages: list) -> dict:
             'messages': messages,
             'stream': False,
             'options': {
-                'temperature': 0.5,
+                'temperature': 0.2,
                 'top_p': 0.9,
                 'num_predict': 1000,  # Add max tokens
             }
         }
 
-        logging.info(f"llama_generator: Sending payload to Ollama: {json.dumps(ollama_payload, indent=2)}")
+        # logging.info(f"llama_generator: Sending payload to Ollama: {json.dumps(ollama_payload, indent=2)}")
 
 
         ollama_response = requests.post(
@@ -131,16 +131,16 @@ def generate_ollama_response(messages: list) -> dict:
 
 
 
-if __name__ == '__main__':
-    # Example usage for testing this module directly
-    test_messages = [
-        {"role": "system", "content": "You are a helpful assistant for Overseas Filipino Workers."},
-        {"role": "user", "content": "What are the basic rights of OFWs?"}
-    ]
-    print("Testing llama_generator...")
-    response = generate_ollama_response(test_messages)
-    print("\n--- Test Response from llama_generator ---")
-    print(json.dumps(response, indent=2))
+# if __name__ == '__main__':
+#     # Example usage for testing this module directly
+#     test_messages = [
+#         {"role": "system", "content": "You are a helpful assistant for Overseas Filipino Workers."},
+#         {"role": "user", "content": "What are the basic rights of OFWs?"}
+#     ]
+#     print("Testing llama_generator...")
+#     response = generate_ollama_response(test_messages)
+#     print("\n--- Test Response from llama_generator ---")
+#     print(json.dumps(response, indent=2))
 
 
 
