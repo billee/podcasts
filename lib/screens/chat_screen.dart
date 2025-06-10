@@ -255,6 +255,7 @@ class _ChatScreenState extends State<ChatScreen> {
             // Restore _buildSuggestionChips() here:
             _buildSuggestionChips(), // Display suggestions below the chat messages
             _buildMessageInput(), // Input field at the bottom
+            _buildDisclaimer(),
           ],
         ),
       ),
@@ -339,7 +340,25 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+  Widget _buildDisclaimer() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Text(
+        'I can make mistakes, please double check.',
+        style: TextStyle(
+          color: Colors.white54,
+          fontSize: 12.0,
+          fontStyle: FontStyle.italic,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
 }
+
+
+
+
 
 class ChatBubble extends StatelessWidget {
   final String message;

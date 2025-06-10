@@ -6,10 +6,12 @@ import os
 # These should match what's in chroma_setup.py and rag_server.py
 # EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 # EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
-EMBEDDING_MODEL_NAME = "all-mpnet-base-v2"
+# EMBEDDING_MODEL_NAME = "all-mpnet-base-v2"
+EMBEDDING_MODEL_NAME = "intfloat/multilingual-e5-base"
 CHROMA_COLLECTION_NAME = "ofw_knowledge"
-CHROMA_DB_PATH = "./chroma_db" # Ensure this path is correct for your ChromaDB data
-test_query = "balikbayan box pro tips?" # Example query
+CHROMA_DB_PATH = "./chroma_db"
+SCORE_THRESHOLD = 0.6
+test_query = "ano ang OWWA?" # Example query
 
 collection = None
 try:
@@ -42,20 +44,42 @@ try:
             # When you query, the query text is embedded using the EF associated with the collection.
             test_results = collection.query(
                 query_texts=[test_query],
-                n_results=5,
+                n_results=10,
                 include=['documents', 'distances', 'metadatas']
             )
 
+
             print(f"Test Query: '{test_query}'")
+            print("Test Query Results (filtered with score > SCORE_THRESHOLD):")
             print("Test Query Results:")
+
+            filtered_results = []
             if test_results and test_results.get('documents') and test_results['documents'][0]:
                 for i in range(len(test_results['documents'][0])):
+                    content = test_results['documents'][0][i]
+                    distance = test_results['distances'][0][i]
+                    score = 1 - distance # Convert distance to similarity
+                    metadata = test_results['metadatas'][0][i]
+
+                    # Filter condition: score must be greater than 0.7
+                    if score > SCORE_THRESHOLD:
+                        filtered_results.append({
+                            'content': content,
+                            'score': score,
+                            'metadata': metadata
+                        })
+
+            if filtered_results:
+                # Sort by score in descending order
+                filtered_results.sort(key=lambda x: x['score'], reverse=True)
+                for i, result in enumerate(filtered_results):
                     print(f"  Result {i+1}::::::::::::::::::::::::::::::::::::::::::::::::")
-                    print(f"    Content: {test_results['documents'][0][i][:200]}...")
-                    print(f"    Score (cosine similarity): {1 - test_results['distances'][0][i]:.4f}") # Convert distance to similarity
-                    print(f"    Metadata: {test_results['metadatas'][0][i]}")
+                    print(f"    Content: {result['content'][:200]}...")
+                    print(f"    Score (cosine similarity): {result['score']:.4f}")
+                    print(f"    Metadata: {result['metadata']}")
             else:
-                print("  No documents retrieved for the test query. This might indicate an issue with embeddings or data.")
+                print("  No documents retrieved for the test query with score > 0.7. This means no highly relevant results were found.")
+
         except Exception as e:
             print(f"Error during test query: {e}")
 
