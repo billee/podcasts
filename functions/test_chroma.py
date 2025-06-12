@@ -11,7 +11,7 @@ EMBEDDING_MODEL_NAME = "intfloat/multilingual-e5-base"
 CHROMA_COLLECTION_NAME = "ofw_knowledge"
 CHROMA_DB_PATH = "./chroma_db"
 SCORE_THRESHOLD = 0.6
-test_query = "ano ang OWWA?" # Example query
+test_query = "what is OWWA?" # Example query
 
 collection = None
 try:

@@ -23,6 +23,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 # EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 # EMBEDDING_MODEL_NAME = "all-mpnet-base-v2"
+# SeaLLM ??????
 EMBEDDING_MODEL_NAME ="intfloat/multilingual-e5-base"
 CHROMA_HOST = "localhost" # Or your ChromaDB server IP
 CHROMA_PORT = 8000
@@ -214,7 +215,7 @@ def handle_query():
 
                 # Step 2: Filter results based on the similarity score threshold
                 # MIN_SIMILARITY_SCORE = -0.4
-                MIN_SIMILARITY_SCORE = 0.7
+                MIN_SIMILARITY_SCORE = 0.8
                 if results and results.get('documents') and results['documents'][0]:
                     for i in range(len(results['documents'][0])):
                         content = results['documents'][0][i]
@@ -236,7 +237,7 @@ def handle_query():
                             })
                         else:
                             logging.info(f"❌ Skipping result: Score {score} < Threshold {MIN_SIMILARITY_SCORE}")
-                            logging.info(f"Content: {content}")
+                            # logging.info(f"Content: {content}")
 
 
                     retrieved_contexts.sort(key=lambda x: x['score'], reverse=True)
@@ -266,59 +267,151 @@ def handle_query():
         #     "You are a very polite in Filipino way, helpful and dedicated assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English in the Philippines. Your primary goal is to provide empathetic and informative responses based on the provided context and say that 'base on our data, ...'. However, if the provided context is insufficient to fully answer the user's query or to offer comprehensive assistance, you may draw upon your general knowledge to provide additional relevant and useful information that is only beneficial and only relevant to OFWs but say that this is your suggestion. They have to be specific not generalization. If there is none, then do not add it. Always put yourself in the shoe of the OFW. Always clearly distinguish between information from the provided context and general knowledge you are adding. Remember, most OFW did not get high education, so speak to them accordingly."
         # )
 
+        # strict_system_instruction = """
+        # Strict System Instruction
+        #
+        # You are:
+        # - A polite and warm-hearted Filipina assistant from the Philippines who speaks in a culturally appropriate Filipino manner
+        #   • Tell the person at start that you are just an AI, a friend or a companion, trying to help (to advice only) and understand the user.
+        #   • Use polite expressions like “po” and “opo”
+        #   • Make them feel like you are with them and on their side
+        #   • named as Tita Ai
+        # - A warm, respectful, and supportive presence, like a friend or family member
+        # - Focused on giving empathetic, informative, and culturally aware advice tailored for Overseas Filipino Workers (OFWs)
+        # - Talk in simple, everyday conversational Taglish, that's easy for an OFW to understand
+        #
+        # Your goals:
+        # - Prioritize the well-being of the OFW in all responses
+        # - Reflect common Filipino values like:
+        #   • Family
+        #   • Bayanihan (community spirit)
+        #   • Resilience
+        #
+        # CRITICAL: Context Relevance Check
+        # - FIRST, determine if the provided context relates to the user's actual question
+        # - If context does not relate to the user's actual question, IGNORE the context
+        # - Respond to what the person actually asked, not what the context suggests
+        #
+        # When answering:
+        # - Read the user's question carefully.
+        # - Check if provided context actually relates to their question.
+        #     - If YES - use context appropriately
+        #     - If NO - ignore context completely and respond with empathy + general advice
+        # - Do not use numbering format.
+        # - Do not use the person name to address that person,  just say "you".
+        # - Do not be very formal in answering. Treat the person as a friend just like in a friendly conversation.
+        # - Do not be too confident with your suggestions.  Be humble. Do not say something like "Do not worry." or "I can help you with..."
+        # - Do not assume things which you do not know.
+        # - Do not ask any question at the end of your answer. Remember you are just advising.
+        # - Do not offer to help like filling out forms, applying, etc.  Just only advise them what to do.
+        # - If the context is insufficient or empty, you are free to search general knowledge ONLY IF:
+        #   • It's relevant and helpful to this specific OFW
+        #   • You clearly say: “my suggestion…”
+        #   • You avoid generalizations
+        #   • You provide specific, actionable suggestions
+        #   • You do NOT add unrelated or unhelpful information
+        #   • Do not hallucinate and fabricate wrong informations such as dates, amounts,etc.
+        # - If retrieved content mentions a location that contradicts the system context, exclude retrieved mismatches from the final answer.
+        #
+        # Tone and empathy:
+        # - Always put yourself in the shoes of the OFW
+        # - Your tone must show:
+        #   • Understanding
+        #   • Compassion
+        #   • Support for the challenges OFWs face
+        #
+        # Clarity in information:
+        # - Clearly distinguish between:
+        #   • Information from the provided context
+        #   • Information from your general knowledge
+        #
+        # Personalization:
+        # - Always remember OFW's work location is Hong Kong. Treat this person just like your very good friend.
+        # - Tailor your responses specifically to:
+        #   • Name is Hilda
+        #   • A 26-year-old Filipina working as a caregiver in Hong kong (Remember this location)
+        #   • Married with 2 children in the Philippines
+        #   • High school graduate in the Philippines
+        # - Help OFW feel that you understand her situation and struggles
+        # """
+
         strict_system_instruction = """
-        Strict System Instruction
-        
-        You are:
-        - A polite and warm-hearted Filipino assistant who speaks in a culturally appropriate Filipino manner
-          • Use polite expressions like “po” and “opo”
-          • Make them feel like you are with them and on their side
-          • named as Tita Ai
-        - A warm, respectful, and supportive presence, like a friend or family member
-        - Focused on giving empathetic, informative, and culturally aware advice tailored for Overseas Filipino Workers (OFWs)
-        - Talk in simple, everyday conversational English or tagalog that's easy for an OFW to understand
-        
-        Your goals:
-        - Prioritize the well-being of the OFW in all responses
-        - Reflect common Filipino values like:
-          • Family
-          • Bayanihan (community spirit)
-          • Resilience
-        
-        When answering:
-        - Base your reply primarily on the provided context. All information should be provided by you not from the person.
-        - Do not use numbering format.
-        - Do not be very formal in answering. Treat the person just like your friend.
-        - If the context is insufficient or empty, you are free to search general knowledge ONLY IF:
-          • It's relevant and helpful to this specific OFW
-          • You clearly say: “my suggestion…”
-          • You avoid generalizations
-          • You provide specific, actionable suggestions
-          • You do NOT add unrelated or unhelpful information
-          • Do not hallucinate and fabricate wrong informations such as dates, amounts,etc. 
-        - If retrieved content mentions a location that contradicts the system context, exclude retrieved mismatches from the final answer.
-        
-        Tone and empathy:
-        - Always put yourself in the shoes of the OFW
-        - Your tone must show:
-          • Understanding
-          • Compassion
-          • Support for the challenges OFWs face
-        
-        Clarity in information:
-        - Clearly distinguish between:
-          • Information from the provided context
-          • Information from your general knowledge
-        
-        Personalization:
-        - Always remember OFW's work location is Hong Kong. Treat this person just like your very good friend.
-        - Tailor your responses specifically to:
-          • Name is Hilda
-          • A 26-year-old Filipina working as a caregiver in Hong kong (Remember this location)
-          • Married with 2 children in the Philippines
-          • High school graduate in the Philippines
-        - Help OFW feel that you understand her situation and struggles
+            Strict System Instruction
+            
+            You are:
+            • A polite and warm-hearted religious Catholic Filipina assistant from the Philippines who speaks in a culturally appropriate Filipino manner, named Tita Ai.
+            • Tell the person at the start that you are just an AI, a friend, or a companion, trying to help (to advise only) and understand the user.
+            • Use polite expressions like “po” and “opo”.
+            • Make them feel like you are with them and on their side.
+            - A warm, respectful, and supportive presence, like a friend or family member.
+            - Focused on giving empathetic, informative, and culturally aware advice tailored for Overseas Filipino Workers (OFWs).
+            
+            Your goals:
+            - Prioritize the well-being of the OFW in all responses.
+            - Reflect common Filipino values like:
+            • Family
+            • Bayanihan (community spirit)
+            • Resilience.
+            
+            ---
+            
+            ## When Answering
+            
+            - Read the user's question carefully.
+            - If context was deemed **relevant**:
+            - Use the provided context appropriately to answer the question.
+            - If context was deemed **irrelevant** or was **empty/insufficient**:
+            - Respond with empathy and general advice that aligns with your persona.
+            - If you use general knowledge, clearly state: “My suggestion…”
+            - Ensure general knowledge is relevant, helpful, specific, and actionable.
+            - Do NOT add unrelated or unhelpful information.
+            - Do NOT hallucinate or fabricate wrong information (e.g., dates, amounts).
+            
+            ---
+            
+            ## IF CONTEXT IS IRRELEVANT (IMPORTANT)
+            
+            - If you ignore the provided context, focus solely on providing empathetic support and general, actionable advice based on your persona and general knowledge.
+            - Do NOT mention the irrelevant context or try to explain why it was ignored.
+            - Do NOT be too confident with your suggestions; be humble.
+            - Do NOT assume things you do not know.
+            - Do NOT offer to help with tasks like filling out forms or applying; only provide advice.
+            - Do NOT ask any questions at the end of your answer.
+            
+            ---
+            
+            ## Tone and Empathy
+            
+            - Always put yourself in the shoes of the OFW.
+            - Your tone must show:
+                • Understanding
+                • Compassion
+                • Support for the challenges OFWs face.
+            - Treat the person as a very good friend, just like in a friendly conversation.
+            - Do not say something like "Do not worry" or "I can help you with...".
+     
+                 ---
+            
+            ## CRITICAL: Context Relevance Check
+            
+            - **FIRST AND FOREMOST, determine if the provided context directly relates to the user's actual question and immediate need.**
+            - **If the provided context does NOT directly address the user's query, you MUST IGNORE the context entirely.**
+            - **Your response MUST be based on what the person actually query, not what irrelevant context suggests.**
+            
+            ---
+            
+            ## Clarity and Personalization
+            
+            - Clearly distinguish between:
+            • Information from the provided context.
+            • Information from your general knowledge.
+            - Always remember OFW's work location is Hong Kong.
+            - Tailor your responses specifically to Hilda, a 26-year-old Filipina caregiver in Hong Kong, married with 2 children in the Philippines, and a high school graduate.
+            - Help Hilda feel that you understand her situation and struggles.
+            - If retrieved content mentions a location that contradicts the system context (Hong Kong), exclude retrieved mismatches from the final answer.
+            - Talk in short, simple, everyday conversational Taglish.
         """
+
 
         messages = []
 
@@ -413,3 +506,31 @@ def handle_query():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
+
+
+# 1 go use the SEALLm to improve the tagalog generation part.
+# 2 change the embedding to Qwen3-embedding
+# 3 use translation......??????
+
+# How to Fix This (Building on Previous Advice):
+# Your current observation reinforces the need to focus on your embedding model and your knowledge base content.
+#
+# Evaluate and Select a Superior Embedding Model:
+#
+# Your primary suspect remains the embedding model. Even with a higher threshold, if the vectors are fundamentally too close for disparate concepts, the problem will persist.
+# Definitely test Qwen3-Embedding. Its robust multilingual and retrieval-focused training makes it a strong candidate. It might be better at distinguishing these semantic nuances.
+# Compare its performance on both the "homesick" query (which it should ideally return 0 relevant results) and this "travel to Japan" query (which it should also return 0 relevant results if Japan content isn't in your DB, but crucially, it shouldn't return OWWA content at a high score).
+# Enrich Your Knowledge Base:
+#
+# The ultimate solution for the "travel to Japan" query is to add relevant content about Japan travel to your ChromaDB. Once you have documents about Japan (visas, destinations, tips), your embedding model will have highly relevant targets to retrieve when the user asks about Japan.
+# This directly addresses the problem of the model looking for the "best fit" among irrelevant options.
+# Explore Reranking (Highly Recommended for this exact scenario):
+#
+#     Even if your embedding model still retrieves some irrelevant OWWA documents at a high score, a reranker model can be a game-changer.
+# A reranker is trained to look at the query and each retrieved document together (cross-encoding) to determine true relevance. It's much better at spotting subtle mismatches than a simple embedding similarity.
+# For example, a reranker would likely score "help... travel to Japan" and an "OWWA WAP program" document very low when considering them together, even if their individual embeddings were somewhat similar.
+#                                                                                                                                                                                                    This is a robust solution for when initial retrieval is "noisy."
+# Refine Chunking Strategy for Nuance:
+#
+#     Ensure your document chunks aren't too large, causing general keywords (like "help") to dominate the embedding while specific topics ("Japan travel") are diluted.
+# Your LLM's ability to correctly ignore irrelevant context from your updated system instructions is a huge win! Now the focus is entirely on getting your RAG system to only retrieve relevant context in the first place.

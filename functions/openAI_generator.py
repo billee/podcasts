@@ -11,7 +11,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # --- OpenAI Configuration ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL_NAME = "gpt-4o-mini"
+# OPENAI_MODEL_NAME = "gpt-4o-mini"
+OPENAI_MODEL_NAME = "gpt-4.1-nano"
 
 # Initialize OpenAI client
 if OPENAI_API_KEY:

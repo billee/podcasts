@@ -1,8 +1,9 @@
 """
-ChromaDB Setup with Pure Regex Chunking
-- No NLTK dependencies
-- Reliable sentence splitting using regex
-- Preserves all core functionality
+ChromaDB Setup with Improved Chunking
+- Token-based chunking instead of character-based
+- Better sentence splitting for Filipino/English mixed content
+- Sentence-level overlap (no broken words/sentences)
+- Robust error handling and progress tracking
 """
 
 import chromadb
@@ -10,6 +11,7 @@ from chromadb.utils import embedding_functions
 import os
 import uuid
 import re
+import tiktoken
 from typing import List, Dict, Any
 
 # Import our custom module for data reading
@@ -17,14 +19,25 @@ from data_source_reader import DataSourceReader
 
 class ChromaVectorDatabase:
     def __init__(self, db_path: str = "./chroma_db", collection_name: str = "ofw_knowledge"):
-        # self.EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
-        # self.EMBEDDING_MODEL_NAME = "all-mpnet-base-v2"
+        # Updated to use multilingual model as discussed
         self.EMBEDDING_MODEL_NAME = "intfloat/multilingual-e5-base"
         self.CHROMA_DB_PATH = db_path
         self.CHROMA_COLLECTION_NAME = collection_name
         self.client = None
         self.collection = None
         self.data_reader = DataSourceReader()
+
+        # Chunking parameters - using tokens instead of characters
+        self.MAX_TOKENS_PER_CHUNK = 400  # Optimal for most embedding models
+        self.OVERLAP_TOKENS = 50  # Meaningful overlap without too much redundancy
+
+        # Initialize tokenizer for accurate token counting
+        try:
+            self.tokenizer = tiktoken.get_encoding("cl100k_base")  # GPT-4 tokenizer
+        except Exception as e:
+            print(f"⚠️ Warning: Could not load tokenizer, falling back to character estimation: {e}")
+            self.tokenizer = None
+
         self._initialize_chroma_client()
 
     def _initialize_chroma_client(self):
@@ -38,7 +51,7 @@ class ChromaVectorDatabase:
                 name=self.CHROMA_COLLECTION_NAME,
                 embedding_function=sentence_transformer_ef
             )
-            print(f"✅ ChromaDB collection '{self.CHROMA_COLLECTION_NAME}' initialized.")
+            print(f"✅ ChromaDB collection '{self.CHROMA_COLLECTION_NAME}' initialized with {self.EMBEDDING_MODEL_NAME}")
         except Exception as e:
             print(f"❌ Error initializing ChromaDB client: {e}")
             raise
@@ -54,80 +67,135 @@ class ChromaVectorDatabase:
             print(f"❌ Error clearing collection: {e}")
             raise
 
+    def _count_tokens(self, text: str) -> int:
+        """Count actual tokens in text"""
+        if self.tokenizer:
+            return len(self.tokenizer.encode(text))
+        else:
+            # Fallback: rough estimation (4 characters ≈ 1 token)
+            return len(text) // 4
+
     def _clean_text(self, text: str) -> str:
-        """Basic text cleaning before chunking"""
-        text = re.sub(r'\s+', ' ', text)  # Normalize whitespace
-        text = re.sub(r'\[\d+\]', '', text)  # Remove citation numbers
+        """Enhanced text cleaning for Filipino/English mixed content"""
+        # Normalize whitespace
+        text = re.sub(r'\s+', ' ', text)
+
+        # Remove citation numbers but preserve other brackets
+        text = re.sub(r'\[\d+\]', '', text)
+
+        # Fix common OCR/encoding issues
+        text = re.sub(r'â€™', "'", text)  # Fix apostrophes
+        text = re.sub(r'â€œ|â€', '"', text)  # Fix quotes
+
+        # Normalize Filipino punctuation
+        text = re.sub(r'\.{3,}', '...', text)  # Multiple dots to ellipsis
+
         return text.strip()
 
-    def _regex_sent_tokenize(self, text: str) -> List[str]:
-        """Reliable sentence tokenizer using regex, also splitting on paragraphs."""
-        # Split on sentence endings with lookbehind for punctuation
-        sentences = re.split(r'(?<=[.!?])\s+', text)
-        # Further split on paragraph markers if needed, ensuring no empty strings
+    def _improved_sentence_split(self, text: str) -> List[str]:
+        """
+        Better sentence splitting for Filipino/English mixed content
+        Handles common abbreviations and mixed language patterns
+        """
+        # Protect common abbreviations from being split
+        abbreviations = [
+            'Mr', 'Mrs', 'Ms', 'Dr', 'Prof', 'Sr', 'Jr', 'Inc', 'Ltd', 'Corp',
+            'vs', 'etc', 'i.e', 'e.g', 'a.m', 'p.m', 'Ph.D', 'M.D',
+            'Gov', 'Sen', 'Rep', 'Pres', 'VP', 'CEO', 'CFO'
+        ]
+
+        # Temporarily replace abbreviations
+        for abbr in abbreviations:
+            text = re.sub(f'\\b{abbr}\\.', f'{abbr}<DOT>', text, flags=re.IGNORECASE)
+
+        # Split on sentence endings followed by whitespace and capital letter
+        # This handles most English and Filipino sentence patterns
+        sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text)
+
+        # Also split on paragraph breaks (double newlines)
         result = []
-        for s in sentences:
-            parts = re.split(r'\n\n', s) # Split on explicit paragraph breaks
-            result.extend([p.strip() for p in parts if p.strip()])
+        for sentence in sentences:
+            # Split on explicit paragraph breaks
+            parts = re.split(r'\n\s*\n', sentence)
+            for part in parts:
+                if part.strip():
+                    # Restore abbreviation dots
+                    part = part.replace('<DOT>', '.')
+                    result.append(part.strip())
+
         return result
 
-    def _semantic_chunk_text(self, text: str, max_chunk_size: int = 300, overlap: int = 100) -> List[str]: # Increased defaults
+    def _smart_chunk_text(self, text: str) -> List[str]:
         """
-        Robust chunking using only regex, prioritizing semantic coherence.
-        - Tries to keep logical units (like paragraphs) together.
-        - Preserves logical flow with overlap.
-        - Ensures no chunk exceeds max size.
+        Improved chunking with token-based sizing and sentence-level overlap
+        - Uses actual tokens instead of characters
+        - Maintains sentence boundaries
+        - Creates meaningful overlap using complete sentences
         """
         text = self._clean_text(text)
-        # First, try to get larger logical blocks (e.g., paragraphs or groups of sentences)
-        sentences = self._regex_sent_tokenize(text) # This already handles \n\n as paragraph splits
+        sentences = self._improved_sentence_split(text)
+
+        if not sentences:
+            return []
 
         chunks = []
-        current_chunk = ""
+        current_sentences = []
+        current_tokens = 0
 
-        for i, sentence in enumerate(sentences):
-            # If adding the current sentence makes the chunk too large,
-            # or if it's a new paragraph and the current chunk is substantial,
-            # finalize the current chunk.
-            if len(current_chunk) + len(sentence) + 1 > max_chunk_size:
-                if current_chunk: # Only append if the chunk has content
-                    chunks.append(current_chunk)
+        for sentence in sentences:
+            sentence_tokens = self._count_tokens(sentence)
 
-                # Prepare for the next chunk with overlap from the *previous* finalized chunk
-                # or start fresh if no previous chunk or not enough content for meaningful overlap
-                if len(current_chunk) >= overlap:
-                    overlap_content = current_chunk[-overlap:].strip()
-                else:
-                    overlap_content = current_chunk.strip() # Use full chunk if smaller than overlap
+            # Skip extremely long sentences that exceed max chunk size
+            if sentence_tokens > self.MAX_TOKENS_PER_CHUNK:
+                print(f"⚠️ Warning: Skipping very long sentence ({sentence_tokens} tokens): {sentence[:100]}...")
+                continue
 
-                current_chunk = (overlap_content + " " + sentence).strip()
-                # Ensure the overlap doesn't make the *new* chunk too big from the start
-                # This might require trimming overlap if the new sentence is very long
-                if len(current_chunk) > max_chunk_size:
-                    current_chunk = current_chunk[-max_chunk_size:] # Take the end part if it's too long
+            # If adding this sentence would exceed the limit, finalize current chunk
+            if current_tokens + sentence_tokens > self.MAX_TOKENS_PER_CHUNK and current_sentences:
+                # Create chunk from current sentences
+                chunk_text = ' '.join(current_sentences)
+                chunks.append(chunk_text)
+
+                # Create overlap using complete sentences from the end
+                overlap_sentences = []
+                overlap_tokens = 0
+
+                # Take sentences from the end for overlap (reverse order, then reverse back)
+                for sent in reversed(current_sentences):
+                    sent_tokens = self._count_tokens(sent)
+                    if overlap_tokens + sent_tokens <= self.OVERLAP_TOKENS:
+                        overlap_sentences.insert(0, sent)  # Insert at beginning to maintain order
+                        overlap_tokens += sent_tokens
+                    else:
+                        break
+
+                # Start new chunk with overlap + current sentence
+                current_sentences = overlap_sentences + [sentence]
+                current_tokens = overlap_tokens + sentence_tokens
             else:
                 # Add sentence to current chunk
-                current_chunk += (" " + sentence).strip() if current_chunk else sentence.strip()
+                current_sentences.append(sentence)
+                current_tokens += sentence_tokens
 
-        # Add the last chunk if it exists
-        if current_chunk:
-            chunks.append(current_chunk)
+        # Add the final chunk if it has content
+        if current_sentences:
+            chunk_text = ' '.join(current_sentences)
+            chunks.append(chunk_text)
 
-        # Final safety check: if any chunk is still too large, split it
-        final_chunks = []
-        for chunk in chunks:
-            if len(chunk) > max_chunk_size:
-                # Simple split for oversized chunks, this might break sentences but is a fallback
-                sub_chunks = [chunk[j:j+max_chunk_size] for j in range(0, len(chunk), max_chunk_size)]
-                final_chunks.extend(sub_chunks)
-            else:
-                final_chunks.append(chunk)
+        # Filter out empty chunks and log statistics
+        valid_chunks = [chunk for chunk in chunks if chunk.strip()]
 
-        return [chunk.strip() for chunk in final_chunks if chunk.strip()]
+        if valid_chunks:
+            avg_tokens = sum(self._count_tokens(chunk) for chunk in valid_chunks) / len(valid_chunks)
+            print(f"    Created {len(valid_chunks)} chunks (avg {avg_tokens:.0f} tokens each)")
+
+        return valid_chunks
 
     def populate_vector_database(self):
-        """Populates ChromaDB with documents"""
-        print("Populating ChromaDB with documents...")
+        """Populates ChromaDB with documents using improved chunking"""
+        print("🚀 Starting ChromaDB population with improved chunking...")
+        print(f"📊 Chunking parameters: {self.MAX_TOKENS_PER_CHUNK} max tokens, {self.OVERLAP_TOKENS} overlap tokens")
+
         all_files_data = self.data_reader.read_all_files()
 
         if not all_files_data:
@@ -135,59 +203,119 @@ class ChromaVectorDatabase:
             return
 
         documents, metadatas, ids = [], [], []
+        total_chunks = 0
 
         for file_data in all_files_data:
-            chunks = self._semantic_chunk_text(file_data['content'])
+            print(f"📄 Processing: {file_data['filename']}")
+
+            chunks = self._smart_chunk_text(file_data['content'])
             if not chunks:
-                print(f"  Skipped {file_data['filename']} (no valid chunks)")
+                print(f"  ⚠️ Skipped {file_data['filename']} (no valid chunks created)")
                 continue
 
-            print(f"  Processed {file_data['filename']} -> {len(chunks)} chunks")
+            print(f"  ✅ Generated {len(chunks)} chunks")
+            total_chunks += len(chunks)
 
             for i, chunk in enumerate(chunks):
                 documents.append(chunk)
                 metadatas.append({
                     "source": file_data['filename'],
                     "chunk_id": i,
-                    "length": len(chunk)
+                    "token_count": self._count_tokens(chunk),
+                    "char_length": len(chunk)
                 })
                 ids.append(str(uuid.uuid4()))
 
         if documents:
+            print(f"\n📊 Total chunks to add: {len(documents)}")
             self._add_documents_in_batches(documents, metadatas, ids)
-            print(f"🎉 Added {len(documents)} chunks to ChromaDB")
+            print(f"🎉 Successfully populated ChromaDB with {len(documents)} chunks from {len(all_files_data)} files")
+
+            # Print final statistics
+            total_tokens = sum(meta['token_count'] for meta in metadatas)
+            avg_tokens = total_tokens / len(documents)
+            print(f"📈 Statistics: {total_tokens:,} total tokens, {avg_tokens:.0f} avg tokens per chunk")
         else:
-            print("⚠️ No documents were added.")
+            print("⚠️ No documents were added to ChromaDB.")
 
     def _add_documents_in_batches(self, documents: List[str], metadatas: List[dict], ids: List[str], batch_size: int = 100):
-        """Batch addition with progress tracking"""
-        total = 0
-        for i in range(0, len(documents), batch_size):
-            batch = {
-                "documents": documents[i:i+batch_size],
-                "metadatas": metadatas[i:i+batch_size],
-                "ids": ids[i:i+batch_size]
-            }
-            try:
-                self.collection.add(**batch)
-                total += len(batch["documents"])
-                print(f"  Added batch {i//batch_size + 1} ({len(batch['documents'])} chunks)")
-            except Exception as e:
-                print(f"❌ Batch {i//batch_size + 1} failed: {e}")
-                raise
+        """Add documents to ChromaDB in batches with progress tracking"""
+        total_added = 0
+        total_batches = (len(documents) + batch_size - 1) // batch_size
 
-        print(f"✅ Successfully added {total} documents total")
+        print(f"📦 Adding documents in {total_batches} batches of {batch_size}...")
+
+        for i in range(0, len(documents), batch_size):
+            batch_num = i // batch_size + 1
+            batch_docs = documents[i:i+batch_size]
+            batch_metas = metadatas[i:i+batch_size]
+            batch_ids = ids[i:i+batch_size]
+
+            try:
+                self.collection.add(
+                    documents=batch_docs,
+                    metadatas=batch_metas,
+                    ids=batch_ids
+                )
+                total_added += len(batch_docs)
+                print(f"  ✅ Batch {batch_num}/{total_batches}: Added {len(batch_docs)} chunks")
+
+            except Exception as e:
+                print(f"  ❌ Batch {batch_num}/{total_batches} failed: {e}")
+                # Continue with other batches instead of failing completely
+                continue
+
+        print(f"✅ Successfully added {total_added}/{len(documents)} documents to ChromaDB")
+
+        if total_added < len(documents):
+            print(f"⚠️ Warning: {len(documents) - total_added} documents failed to add")
+
+    def get_collection_stats(self):
+        """Get statistics about the current collection"""
+        try:
+            count = self.collection.count()
+            print(f"📊 Collection '{self.CHROMA_COLLECTION_NAME}' contains {count} documents")
+            return count
+        except Exception as e:
+            print(f"❌ Error getting collection stats: {e}")
+            return 0
 
 def main():
+    """Main function to run the ChromaDB setup"""
     try:
-        print("🚀 Starting ChromaDB setup...")
+        print("🚀 Starting improved ChromaDB setup for Kapwa Companion...")
+        print("=" * 60)
+
+        # Initialize the database
         chroma_db = ChromaVectorDatabase()
+
+        # Show current collection stats
+        current_count = chroma_db.get_collection_stats()
+
+        if current_count > 0:
+            response = input(f"\n⚠️ Collection already contains {current_count} documents. Clear and rebuild? (y/N): ").strip().lower()
+            if response in ['y', 'yes']:
+                chroma_db.clear_vector_database()
+            else:
+                print("Keeping existing collection. Exiting...")
+                return
+
+        # Populate the database
+        print("\n" + "=" * 60)
         chroma_db.populate_vector_database()
-        print("\n🎉 Setup completed successfully!")
+
+        # Final stats
+        print("\n" + "=" * 60)
+        final_count = chroma_db.get_collection_stats()
+        print(f"🎉 Setup completed successfully! Final document count: {final_count}")
+
+    except KeyboardInterrupt:
+        print("\n⚠️ Setup interrupted by user.")
     except Exception as e:
-        print(f"\n❌ Setup failed: {e}")
+        print(f"\n❌ Setup failed with error: {e}")
         import traceback
         traceback.print_exc()
+        print("\n💡 Check your data files and try again.")
 
 if __name__ == "__main__":
     main()
