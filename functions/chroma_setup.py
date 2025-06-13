@@ -20,7 +20,8 @@ from data_source_reader import DataSourceReader
 class ChromaVectorDatabase:
     def __init__(self, db_path: str = "./chroma_db", collection_name: str = "ofw_knowledge"):
         # Updated to use multilingual model as discussed
-        self.EMBEDDING_MODEL_NAME = "intfloat/multilingual-e5-base"
+        # self.EMBEDDING_MODEL_NAME = "intfloat/multilingual-e5-base"
+        self.EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
         self.CHROMA_DB_PATH = db_path
         self.CHROMA_COLLECTION_NAME = collection_name
         self.client = None

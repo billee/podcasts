@@ -25,7 +25,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 # EMBEDDING_MODEL_NAME = "all-mpnet-base-v2"
 # SeaLLM ??????
-EMBEDDING_MODEL_NAME ="intfloat/multilingual-e5-base"
+# EMBEDDING_MODEL_NAME ="intfloat/multilingual-e5-base"
+EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 CHROMA_HOST = "localhost" # Or your ChromaDB server IP
 CHROMA_PORT = 8000
 CHROMA_COLLECTION_NAME = "ofw_knowledge"
@@ -170,7 +171,7 @@ def handle_query():
 
         # --- NEW: Check if chat_history needs summarization ---
         # First, estimate total tokens of the current history (excluding current query and RAG context)
-        current_history_tokens = count_tokens(json.dumps(chat_history), model="gpt-4o-mini") # Adjust model if using a different one
+        current_history_tokens = count_tokens(json.dumps(chat_history), model=MODEL) # Adjust model if using a different one
 
         if current_history_tokens > SUMMARIZE_THRESHOLD_TOKENS:
             logging.info(f"Chat history tokens ({current_history_tokens}) exceed summarization threshold ({SUMMARIZE_THRESHOLD_TOKENS}). Summarizing, po.")
@@ -199,37 +200,39 @@ def handle_query():
                 # Step 1: Query ChromaDB for relevant documents (AUGMENTATION).  The query text will be automatically embeded
                 initial_n_results = 10 # Get more results to filter later
 
-                # Use the *full conversation history* for the RAG query to improve relevance
-                # This is a key enhancement for better context-aware retrieval.
-                # Combine chat_history and current query for a more contextual search
-                combined_query_for_rag = " ".join([msg['content'] for msg in chat_history if msg['role'] in ['user', 'assistant']]) + " " + query_text
+                logging.info(f"Original query for ChromaDB: '{query_text}'")
+
+                # combined_query_for_rag = " ".join([msg['content'] for msg in chat_history if msg['role'] in ['user', 'assistant']]) + " " + query_text
 
 
                 results = collection.query(
-                    # query_texts=[query_text],
-                    query_texts=[combined_query_for_rag],
+                    query_texts=[query_text],
+                    # query_texts=[combined_query_for_rag],
                     n_results=initial_n_results,
                     include=['documents', 'distances', 'metadatas']
                 )
 
-                logging.info(f"results count: {len(results)}")
+                logging.info(f"results count: {len(results['documents'][0]) if results and results.get('documents') else 0}")
 
                 # Step 2: Filter results based on the similarity score threshold
                 # MIN_SIMILARITY_SCORE = -0.4
-                MIN_SIMILARITY_SCORE = 0.8
+                SCORE_THRESHOLD = 0.15
                 if results and results.get('documents') and results['documents'][0]:
                     for i in range(len(results['documents'][0])):
                         content = results['documents'][0][i]
                         distance = results['distances'][0][i]
                         metadata = results['metadatas'][0][i]
 
-                        score = 1 - distance
+                        if distance < 0:
+                            score = 1 / (1 + abs(distance))
+                        else:
+                            score = 1 / (1 + distance)
 
-                        # print(f"DEBUG: Document: '{content[:80]}...', Filename: {metadata.get('filename')}, Raw Distance: {distance:.4f}, Calculated Similarity Score: {score:.4f}")
+                        logging.info(f"Distance: {distance:.6f}, Score: {score:.6f}")
 
                         # Corrected filtering logic: Keep if score is greater than or equal to the minimum acceptable score
-                        if score >= MIN_SIMILARITY_SCORE:
-                            logging.info(f"✅ Keeping result: Score {score} >= Threshold {MIN_SIMILARITY_SCORE}")
+                        if score > SCORE_THRESHOLD:
+                            logging.info(f"✅ Keeping result: Score {score:.6f} > Threshold {SCORE_THRESHOLD}")
                             retrieved_contexts.append({
                                 # "content": content,
                                 "content": clean_text(content),
@@ -237,7 +240,7 @@ def handle_query():
                                 "source": metadata.get('source', 'chromadb')
                             })
                         else:
-                            logging.info(f"❌ Skipping result: Score {score} < Threshold {MIN_SIMILARITY_SCORE}")
+                            logging.info(f"❌ Skipping result: Score {score:.6f} < Threshold {SCORE_THRESHOLD}")
                             # logging.info(f"Content: {content}")
 
 
@@ -453,12 +456,12 @@ def handle_query():
 
         # use ollama for development(free) and use openai for production(paid)
         # ///////////////////////////USING LLAMA 3.1/////////////////////////////////////////////////////////////////
-        #response = generate_ollama_response(messages)
+        response = generate_ollama_response(messages)
         # ////////////////////////////////////////////////////////////////////////////////////////////////////
         # response = generate_openai_response(messages)
         # ////////////////////////////////////////////////////////////////////////////////////////////////////
         # ////////////////////////////////////////////////////////////////////////////////////////////////////
-        response = generate_seallm_response(messages)
+        # response = generate_seallm_response(messages)
         # ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -514,30 +517,3 @@ def handle_query():
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
 
-
-# 1 go use the SEALLm to improve the tagalog generation part.
-# 2 change the embedding to Qwen3-embedding
-# 3 use translation......??????
-
-# How to Fix This (Building on Previous Advice):
-# Your current observation reinforces the need to focus on your embedding model and your knowledge base content.
-#
-# Evaluate and Select a Superior Embedding Model:
-#
-# Your primary suspect remains the embedding model. Even with a higher threshold, if the vectors are fundamentally too close for disparate concepts, the problem will persist.
-# Definitely test Qwen3-Embedding. Its robust multilingual and retrieval-focused training makes it a strong candidate. It might be better at distinguishing these semantic nuances.
-# Compare its performance on both the "homesick" query (which it should ideally return 0 relevant results) and this "travel to Japan" query (which it should also return 0 relevant results if Japan content isn't in your DB, but crucially, it shouldn't return OWWA content at a high score).
-# Enrich Your Knowledge Base:
-#
-# The ultimate solution for the "travel to Japan" query is to add relevant content about Japan travel to your ChromaDB. Once you have documents about Japan (visas, destinations, tips), your embedding model will have highly relevant targets to retrieve when the user asks about Japan.
-# This directly addresses the problem of the model looking for the "best fit" among irrelevant options.
-# Explore Reranking (Highly Recommended for this exact scenario):
-#
-#     Even if your embedding model still retrieves some irrelevant OWWA documents at a high score, a reranker model can be a game-changer.
-# A reranker is trained to look at the query and each retrieved document together (cross-encoding) to determine true relevance. It's much better at spotting subtle mismatches than a simple embedding similarity.
-# For example, a reranker would likely score "help... travel to Japan" and an "OWWA WAP program" document very low when considering them together, even if their individual embeddings were somewhat similar.
-#                                                                                                                                                                                                    This is a robust solution for when initial retrieval is "noisy."
-# Refine Chunking Strategy for Nuance:
-#
-#     Ensure your document chunks aren't too large, causing general keywords (like "help") to dominate the embedding while specific topics ("Japan travel") are diluted.
-# Your LLM's ability to correctly ignore irrelevant context from your updated system instructions is a huge win! Now the focus is entirely on getting your RAG system to only retrieve relevant context in the first place.

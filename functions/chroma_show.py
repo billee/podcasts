@@ -19,7 +19,7 @@ class ChromaDBViewer:
 
             # Use the same embedding function that was used to create the collection
             embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name="intfloat/multilingual-e5-base"
+                model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
             )
 
             self.collection = self.client.get_collection(
@@ -57,10 +57,31 @@ class ChromaDBViewer:
             except:
                 print("Embedding Function: Unable to determine")
 
+            # Show actual metadata structure for debugging
+            if items['metadatas'] and len(items['metadatas']) > 0:
+                print(f"Sample Metadata Keys: {list(items['metadatas'][0].keys())}")
+
             print("-" * 60)
 
         except Exception as e:
             print(f"Error getting collection info: {e}")
+
+    def _extract_file_info(self, metadata):
+        """Extract filename and file type from metadata"""
+        source = metadata.get("source", "Unknown")
+
+        # Extract filename from source (remove path if present)
+        if "/" in source:
+            filename = source.split("/")[-1]
+        elif "\\" in source:
+            filename = source.split("\\")[-1]
+        else:
+            filename = source
+
+        # Derive file type
+        file_type = filename.split(".")[-1].upper() if "." in filename else "TXT"
+
+        return filename, file_type, source
 
     def show_summary_table(self, limit: int = 10):
         """Show a summary table of documents"""
@@ -74,88 +95,57 @@ class ChromaDBViewer:
                 print("No documents found in the collection.")
                 return
 
-            # DEBUG: Print raw data structure
-            print(f"DEBUG: Total items retrieved: {len(items['ids'])}")
-            print(f"DEBUG: First few IDs: {items['ids'][:3]}")
-            if items['metadatas']:
-                print(f"DEBUG: First metadata sample: {items['metadatas'][0]}")
-
             # Create summary table
             table = PrettyTable()
             table.field_names = ["#", "ID", "File", "Type", "Chunk", "Preview"]
             table.align = "l"
             table.max_width["Preview"] = 40
             table.max_width["ID"] = 25
-            table.max_width["File"] = 35  # Add this to prevent file name overflow
+            table.max_width["File"] = 35
             table.max_width = 150
+
+            # Count chunks per file for chunk display
+            file_chunk_counts = {}
+            for metadata in items["metadatas"]:
+                _, _, source = self._extract_file_info(metadata)
+                file_chunk_counts[source] = file_chunk_counts.get(source, 0) + 1
 
             # Show limited items
             display_count = min(limit, len(items['ids']))
-            print(f"DEBUG: Will display {display_count} items")
-
-            file_chunk_counts = {}
-            for metadata in items["metadatas"]:
-                source = metadata.get("source", "Unknown")
-                if source in file_chunk_counts:
-                    file_chunk_counts[source] += 1
-                else:
-                    file_chunk_counts[source] = 1
-
 
             for i in range(display_count):
+                doc_id = items["ids"][i]
+                document = items["documents"][i]
+                metadata = items["metadatas"][i]
 
-                    doc_id = items["ids"][i]
-                    document = items["documents"][i]
-                    metadata = items["metadatas"][i]
+                # Extract file information
+                filename, file_type, source = self._extract_file_info(metadata)
 
-                    print(f"DEBUG: Processing item {i+1}, ID: {doc_id[:20]}...")
-                    print(f"DEBUG: Metadata keys: {list(metadata.keys())}")
+                # Truncate filename if too long
+                if len(filename) > 32:
+                    filename = filename[:29] + "..."
 
-                    # Extract info from metadata - FIXED VERSION
-                    source = metadata.get("source", "Unknown")
+                # Get chunk information
+                chunk_id = metadata.get("chunk_id", 0)
+                total_chunks = file_chunk_counts.get(source, 1)
+                chunk_info = f"{chunk_id + 1}/{total_chunks}"
 
-                    # Extract filename from source (remove path if present)
-                    if "/" in source:
-                        filename = source.split("/")[-1]
-                    elif "\\" in source:
-                        filename = source.split("\\")[-1]
-                    else:
-                        filename = source
+                # Create preview (first 37 chars + "...")
+                preview = document[:37] + "..." if len(document) > 40 else document
+                preview = preview.replace('\n', ' ').replace('\r', ' ')
 
+                # Truncate ID if too long
+                display_id = doc_id[:22] + "..." if len(doc_id) > 25 else doc_id
 
-                    # Derive file type
-                    file_type = filename.split(".")[-1].upper() if "." in filename else "TXT"
-                    print(f"DEBUG: Calculated file_type: '{file_type}'")
+                table.add_row([
+                    i+1,
+                    display_id,
+                    filename,
+                    file_type,
+                    chunk_info,
+                    preview
+                ])
 
-                    print(f"DEBUG: filename='{filename}', file_type='{file_type}'")
-
-                    # Truncate filename if too long
-                    if len(filename) > 32:
-                        filename = filename[:29] + "..."
-
-                    # Use chunk_id from metadata
-                    chunk_id = metadata.get("chunk_id", 0)
-                    total_chunks = file_chunk_counts.get(source, 1)
-                    chunk_info = f"{chunk_id + 1}/{total_chunks}"  # We don't store total chunks
-
-                    # Create preview (first 47 chars + "...")
-                    preview = document[:37] + "..." if len(document) > 40 else document
-                    preview = preview.replace('\n', ' ').replace('\r', ' ')
-
-                    print(f"DEBUG: Row data - #{i+1}, File: {filename}, Type: {file_type}, Chunk: {chunk_info}")
-
-                    table.add_row([
-                        i+1,
-                        doc_id[:22] + "..." if len(doc_id) > 25 else doc_id,
-                        filename,
-                        file_type,
-                        chunk_info,
-                        preview
-                    ])
-
-
-
-            print("\nDEBUG: About to print table...")
             print(table)
 
             if len(items['ids']) > limit:
@@ -213,32 +203,11 @@ class ChromaDBViewer:
             type_stats = {}
 
             for metadata in items["metadatas"]:
-                source = metadata.get("source", "Unknown")
+                filename, file_type, source = self._extract_file_info(metadata)
 
                 # Count by filename
-                if "/" in source:
-                    filename = source.split("/")[-1]
-                elif "\\" in source:
-                    filename = source.split("\\")[-1]
-                else:
-                    filename = source
-
-                if "." in filename:
-                    file_type = filename.split(".")[-1].upper()
-                else:
-                    file_type = "Unknown"
-
-                # Count by file type
-                if filename in file_stats:
-                    file_stats[filename] += 1
-                else:
-                    file_stats[filename] = 1
-
-                if file_type in type_stats:
-                    type_stats[file_type] += 1
-                else:
-                    type_stats[file_type] = 1
-
+                file_stats[filename] = file_stats.get(filename, 0) + 1
+                type_stats[file_type] = type_stats.get(file_type, 0) + 1
 
             # Display file breakdown
             print("By File:")
@@ -278,10 +247,19 @@ class ChromaDBViewer:
                     results['metadatas'][0],
                     results['distances'][0]
             )):
-                print(f"Result #{i+1} (Distance: {distance:.4f})")
-                print(f"File: {metadata.get('filename', 'Unknown')}")
-                print(f"Type: {metadata.get('file_type', 'Unknown')}")
-                print(f"Content Preview: {document[:200]}...")
+                filename, file_type, source = self._extract_file_info(metadata)
+
+                # Convert distance to score
+                if distance < 0:
+                    score = 1 / (1 + abs(distance))
+                else:
+                    score = 1 / (1 + distance)
+
+                print(f"Result #{i+1}")
+                print(f"  Score: {score:.4f} (Distance: {distance:.4f})")
+                print(f"  File: {filename}")
+                print(f"  Type: {file_type}")
+                print(f"  Content Preview: {document[:200]}...")
                 print("-" * 40)
 
         except Exception as e:
@@ -304,11 +282,14 @@ class ChromaDBViewer:
                     items["documents"],
                     items["metadatas"]
             )):
+                filename, file_type, source = self._extract_file_info(metadata)
+                chunk_id = metadata.get('chunk_id', 0)
+
                 print(f"\nDocument #{i+1}")
                 print(f"ID: {doc_id}")
-                print(f"File: {metadata.get('filename', 'Unknown')}")
-                print(f"Type: {metadata.get('file_type', 'Unknown')}")
-                print(f"Chunk: {metadata.get('chunk_index', 0)+1}/{metadata.get('total_chunks', 1)}")
+                print(f"File: {filename}")
+                print(f"Type: {file_type}")
+                print(f"Chunk: {chunk_id + 1}")
                 print(f"Content ({len(document)} chars):")
                 print("-" * 40)
                 print(document)
