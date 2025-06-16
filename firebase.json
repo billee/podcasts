@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "kapwa-companion",
     "public": "build/web",
     "ignore": [
       "firebase.json",
