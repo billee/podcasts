@@ -1,6 +1,9 @@
 import chromadb
 from chromadb.utils import embedding_functions
 import os
+import re
+from scoring_utils import filter_results_by_score, get_all_results_with_scores, print_score_analysis
+
 
 # Define your expected embedding model name and collection details
 # These should match what's in chroma_setup.py and rag_server.py
@@ -12,7 +15,8 @@ EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base
 CHROMA_COLLECTION_NAME = "ofw_knowledge"
 CHROMA_DB_PATH = "./chroma_db"
 SCORE_THRESHOLD = 0.15
-test_query = "are there scholarship programs?" # Example query
+# test_query = "are there scholarship programs?" # Example query
+test_query = "hello" # Example query
 
 collection = None
 try:
@@ -29,6 +33,7 @@ try:
         embedding_function=sentence_transformer_ef # Pass the same EF here
     )
     print(f"Successfully connected to ChromaDB and retrieved collection '{CHROMA_COLLECTION_NAME}'.")
+    logging.info(f"Collection count: {collection.count()} documents")
 
     if collection is not None:
         print("\n--- Running a test query with the specified embedding model ---")
@@ -46,37 +51,38 @@ try:
             print(f"Test Query Results (filtered with score > {SCORE_THRESHOLD}):")
             print("Test Query Results:")
 
-            filtered_results = []
-            if test_results and test_results.get('documents') and test_results['documents'][0]:
-                for i in range(len(test_results['documents'][0])):
-                    content = test_results['documents'][0][i]
-                    distance = test_results['distances'][0][i]
-                    # score = 1 - distance # Convert distance to similarity
-                    metadata = test_results['metadatas'][0][i]
+            filtered_results = filter_results_by_score(test_results, SCORE_THRESHOLD)
 
-                    if distance < 0:
-                        # For negative distances, use absolute value and invert
-                        score = 1 / (1 + abs(distance))
-                    else:
-                        # For positive distances, use standard conversion
-                        score = 1 / (1 + distance)
 
-                    print(f"##############: Distance: {distance:.6f}, Score: {score:.6f}")
-                    print(f"Content: {content[:100]}...")
-                    print()
-
-                    # Filter condition: score must be greater SCORE_THRESHOLD
-                    if score > SCORE_THRESHOLD:
-                        filtered_results.append({
-                            'content': content,
-                            'score': score,
-                            'distance': distance,
-                            'metadata': metadata
-                        })
+            # filtered_results = []
+            # if test_results and test_results.get('documents') and test_results['documents'][0]:
+            #     for i in range(len(test_results['documents'][0])):
+            #         content = test_results['documents'][0][i]
+            #         distance = test_results['distances'][0][i]
+            #         # score = 1 - distance # Convert distance to similarity
+            #         metadata = test_results['metadatas'][0][i]
+            #
+            #         if distance < 0:
+            #             # For negative distances, use absolute value and invert
+            #             score = 1 / (1 + abs(distance))
+            #         else:
+            #             # For positive distances, use standard conversion
+            #             score = 1 / (1 + distance)
+            #
+            #         print(f"##############: Distance: {distance:.6f}, Score: {score:.6f}")
+            #         print(f"Content: {content[:100]}...")
+            #         print()
+            #
+            #         # Filter condition:
+            #         if score > SCORE_THRESHOLD:
+            #             filtered_results.append({
+            #                 'content': content,
+            #                 'score': score,
+            #                 'distance': distance,
+            #                 'metadata': metadata
+            #             })
 
             if filtered_results:
-                # Sort by score in descending order
-                filtered_results.sort(key=lambda x: x['score'], reverse=True)
                 print(f"\n✅ Found {len(filtered_results)} relevant results:")
                 print("=" * 80)
                 for i, result in enumerate(filtered_results):
@@ -95,24 +101,8 @@ try:
 
                 # Show all results regardless of threshold for debugging
                 print(f"\n🔍 All results (regardless of threshold):")
-                all_results = []
-                for i in range(len(test_results['documents'][0])):
-                    content = test_results['documents'][0][i]
-                    distance = test_results['distances'][0][i]
+                all_results = get_all_results_with_scores(test_results)
 
-                    if distance < 0:
-                        score = 1 / (1 + abs(distance))
-                    else:
-                        score = 1 / (1 + distance)
-
-                    all_results.append({
-                        'content': content,
-                        'score': score,
-                        'distance': distance
-                    })
-
-                # Sort and show top results
-                all_results.sort(key=lambda x: x['score'], reverse=True)
                 for i, result in enumerate(all_results[:3]):  # Show top 3
                     print(f"  {i+1}. Score: {result['score']:.4f}, Distance: {result['distance']:.6f}")
                     print(f"     Content: {result['content'][:150]}...")

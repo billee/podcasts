@@ -13,6 +13,7 @@ import uuid
 import re
 import tiktoken
 from typing import List, Dict, Any
+from scoring_utils import print_score_analysis
 
 # Import our custom module for data reading
 from data_source_reader import DataSourceReader
@@ -280,6 +281,23 @@ class ChromaVectorDatabase:
         except Exception as e:
             print(f"❌ Error getting collection stats: {e}")
             return 0
+
+    def test_query_with_scoring(self, query: str = "test query", n_results: int = 5):
+        """Test the collection with a sample query and display scoring analysis"""
+    try:
+        results = self.collection.query(
+            query_texts=[query],
+            n_results=n_results,
+            include=['documents', 'distances', 'metadatas']
+        )
+
+        print(f"\nTesting query: '{query}'")
+        print_score_analysis(results, score_threshold=0.15, max_display=3)
+
+    except Exception as e:
+        print(f"Error during test query: {e}")
+
+
 
 def main():
     """Main function to run the ChromaDB setup"""

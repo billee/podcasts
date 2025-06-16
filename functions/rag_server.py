@@ -12,6 +12,8 @@ from openAI_generator import generate_openai_response
 from seallm_generator import generate_seallm_response
 # import requests # Import for making HTTP requests to Ollama
 import tiktoken # <--- ADD THIS IMPORT for token counting
+from scoring_utils import filter_results_by_score
+
 
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
@@ -30,14 +32,17 @@ EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base
 CHROMA_HOST = "localhost" # Or your ChromaDB server IP
 CHROMA_PORT = 8000
 CHROMA_COLLECTION_NAME = "ofw_knowledge"
+CHROMA_DB_PATH = "./chroma_db"
 MODEL = "gpt-4o-mini"
 SUMMARIZE_THRESHOLD_TOKENS = 2000
+SCORE_THRESHOLD = 0.15
+
 
 # Global variable for the collection - Initialize to None
 collection = None
 
 try:
-    client = chromadb.PersistentClient(path="./chroma_db")
+    client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
     # Ensure the embedding function is used when getting the collection
     sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
         model_name=EMBEDDING_MODEL_NAME
@@ -47,7 +52,6 @@ try:
         embedding_function=sentence_transformer_ef
     )
 
-    logging.info(f"collection: {collection}")
     logging.info(f"Successfully connected to ChromaDB collection: '{CHROMA_COLLECTION_NAME}'")
     logging.info(f"Collection count: {collection.count()} documents")
 except Exception as e:
@@ -154,7 +158,6 @@ def handle_query():
         logging.error("ChromaDB collection is not initialized. Cannot perform query.")
         return jsonify({"error": "ChromaDB not ready. Please check server logs."}), 500
 
-
     try:
         logging.info(f"==============================================================================")
         data = request.get_json()
@@ -198,9 +201,9 @@ def handle_query():
             # /////////////////////////RETRIEVAL/////////////////////////////////////////////////////////////////////////////////////////////////////////////
             try:
                 # Step 1: Query ChromaDB for relevant documents (AUGMENTATION).  The query text will be automatically embeded
-                initial_n_results = 10 # Get more results to filter later
+                initial_n_results = 5 # Get more results to filter later
 
-                logging.info(f"Original query for ChromaDB: '{query_text}'")
+                # logging.info(f"Original query for ChromaDB: '{query_text}'")
 
                 # combined_query_for_rag = " ".join([msg['content'] for msg in chat_history if msg['role'] in ['user', 'assistant']]) + " " + query_text
 
@@ -214,44 +217,54 @@ def handle_query():
 
                 logging.info(f"results count: {len(results['documents'][0]) if results and results.get('documents') else 0}")
 
+                retrieved_contexts = filter_results_by_score(results, SCORE_THRESHOLD)
+
                 # Step 2: Filter results based on the similarity score threshold
-                # MIN_SIMILARITY_SCORE = -0.4
-                SCORE_THRESHOLD = 0.15
-                if results and results.get('documents') and results['documents'][0]:
-                    for i in range(len(results['documents'][0])):
-                        content = results['documents'][0][i]
-                        distance = results['distances'][0][i]
-                        metadata = results['metadatas'][0][i]
+                # if results and results.get('documents') and results['documents'][0]:
+                #     for i in range(len(results['documents'][0])):
+                #         content = results['documents'][0][i]
+                #         distance = results['distances'][0][i]
+                #         metadata = results['metadatas'][0][i]
+                #
+                #         if distance < 0:
+                #             score = 1 / (1 + abs(distance))
+                #         else:
+                #             score = 1 / (1 + distance)
+                #
+                #         print(f"##############: Distance: {distance:.6f}, Score: {score:.6f}")
+                #         print(f"Content: {content[:100]}...")
+                #         print()
+                #
+                #         # Corrected filtering logic: Keep if score is greater than or equal to the minimum acceptable score
+                #         if score > SCORE_THRESHOLD:
+                #             logging.info(f"✅ Keeping result: Score {score:.6f} > Threshold {SCORE_THRESHOLD}")
+                #             retrieved_contexts.append({
+                #                 # "content": content,
+                #                 "content": clean_text(content),
+                #                 'distance': distance,
+                #                 'metadata': metadata,
+                #                 "score": score,
+                #                 # "source": metadata.get('source', 'chromadb')
+                #             })
+                #         else:
+                #             logging.info(f"❌ Skipping result: Score {score:.6f} < Threshold {SCORE_THRESHOLD}")
+                #             print(f"Content: {content[:100]}...")
+                #             print()
+                #
+                #
+                #     retrieved_contexts.sort(key=lambda x: x['score'], reverse=True)
 
-                        if distance < 0:
-                            score = 1 / (1 + abs(distance))
-                        else:
-                            score = 1 / (1 + distance)
 
-                        logging.info(f"Distance: {distance:.6f}, Score: {score:.6f}")
-
-                        # Corrected filtering logic: Keep if score is greater than or equal to the minimum acceptable score
-                        if score > SCORE_THRESHOLD:
-                            logging.info(f"✅ Keeping result: Score {score:.6f} > Threshold {SCORE_THRESHOLD}")
-                            retrieved_contexts.append({
-                                # "content": content,
-                                "content": clean_text(content),
-                                "score": score,
-                                "source": metadata.get('source', 'chromadb')
-                            })
-                        else:
-                            logging.info(f"❌ Skipping result: Score {score:.6f} < Threshold {SCORE_THRESHOLD}")
-                            # logging.info(f"Content: {content}")
-
-
-                    retrieved_contexts.sort(key=lambda x: x['score'], reverse=True)
-
+                if(retrieved_contexts):
                     MAX_CONTEXTS_FOR_LLM = 3 # Cap the number of contexts for the LLM prompt
                     if len(retrieved_contexts) > MAX_CONTEXTS_FOR_LLM:
-                        logging.info(f"Limiting retrieved contexts from {len(retrieved_contexts)} to {MAX_CONTEXTS_FOR_LLM}")
                         retrieved_contexts = retrieved_contexts[:MAX_CONTEXTS_FOR_LLM]
 
                     logging.info(f"\nFiltered retrieved contexts from ChromaDB: {retrieved_contexts}")
+                else:
+
+                    logging.info(f"\nFiltered retrieved contexts from ChromaDB: {retrieved_contexts}")
+
 
             except Exception as e:
                 logging.error(f"Error during ChromaDB query or RAG processing: {e}", exc_info=True)
@@ -468,7 +481,7 @@ def handle_query():
 
         if response['success']:
             generated_answer = response['content']
-            final_source = retrieved_contexts[0]['source'] if retrieved_contexts else "LLM_generated"
+            final_source = retrieved_contexts[0]['metadata'].get('source', 'chromadb') if retrieved_contexts else "LLM_generated"
 
             # --- IMPORTANT: Return the updated chat_history to the client ---
             # The client needs to replace its local chat_history with this one for the next turn.
