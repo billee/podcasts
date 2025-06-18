@@ -41,3 +41,5 @@ kapwa/
 devtools_options.yaml
 serviceAccountKey.json
 data_sources/
+audio_sources/
+story_sources/

@@ -1,40 +1,14 @@
 // lib/screens/chat_screen.dart
 
-// Summary of chat_screen.dart:
-//
-// This Flutter file defines the `ChatScreen` widget, which is the main UI for the Kapwa Companion chat application.
-// It manages the chat interface, user input, message display, and communication with a RAG (Retrieval-Augmented Generation) server.
-//
-// Key Features:
-// - State Management: Manages `_messages` (for display), `_chatHistory` (for RAG server context), and suggestion-related states.
-// - Initialization (`initState`):
-//     - Loads initial suggestions from `SuggestionService`.
-//     - Adds an initial system message to `_chatHistory` to define the assistant's persona.
-// - Suggestion Management:
-//     - `_loadSuggestions()`: Fetches suggestions asynchronously, shuffles them, and displays a subset as chips.
-//     - `_refreshSuggestions()`: Shuffles and updates the currently displayed suggestions.
-//     - `_handleSuggestionTap()`: Sends a tapped suggestion as a message.
-// - Message Sending (`_sendMessage`):
-//     - Adds user messages to the display and `_chatHistory`.
-//     - Displays a "Generating response..." loading message.
-//     - Makes an HTTP POST request to the RAG server (`http://localhost:5000/query`), sending the current query and the entire `_chatHistory`.
-//     - Handles successful responses, parsing the AI-generated content.
-//     - Implements robust error handling for network issues, server errors, and timeouts, providing user-friendly feedback.
-//     - Removes the loading message and displays the AI's response, adding it to `_chatHistory`.
-// - User Interface (`build` method):
-//     - Uses a `Scaffold` with an `AppBar`.
-//     - Displays chat messages using a `ListView.builder` and `ChatBubble` widgets.
-//     - Shows interactive suggestion chips (`_buildSuggestionChips`).
-//     - Provides a message input field (`_buildMessageInput`) with a send button and disables browser autofill/suggestions.
-// - `ChatBubble` Widget: A stateless widget responsible for rendering individual chat messages, differentiating between user and assistant messages visually.
-
-
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // Keep if you use other .env vars
+//import 'package:flutter_dotenv/flutter_dotenv.dart'; // Keep if you use other .env vars
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async'; // Import for TimeoutException
 import 'package:kapwa_companion/services/suggestion_service.dart'; // Keep this import!
+import 'package:logging/logging.dart';
+import 'package:kapwa_companion/widgets/audio_player_widget.dart';
+import 'package:kapwa_companion/services/audio_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -44,8 +18,10 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final Logger _logger = Logger('ChatScreen');
   final TextEditingController _messageController = TextEditingController();
-  final List<Map<String, dynamic>> _messages = []; // Stores messages for display
+  final List<Map<String, dynamic>> _messages =
+      []; // Stores messages for display
 
   // Keep suggestion-related fields:
   List<String> _allSuggestions = [];
@@ -53,20 +29,14 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _suggestionsLoading = true;
 
   final List<Map<String, String>> _chatHistory = [];
-  static final String _ragServerUrl = 'http://localhost:5000/query';
+  static const String _ragServerUrl = 'http://localhost:5000/query';
 
   @override
   void initState() {
     super.initState();
     // Keep suggestion loading:
     _loadSuggestions();
-
-    // final String initialSystemMessage = "You are a helpful assistant for Overseas Filipino Workers (OFWs), providing culturally appropriate advice in everyday spoken English. Your goal is to provide empathetic and informative responses based on the provided context.";
-    //
-    // _chatHistory.add({
-    //   "role": "system",
-    //   "content": initialSystemMessage,
-    // });
+    AudioService().initialize();
   }
 
   // Keep suggestion loading method:
@@ -77,13 +47,13 @@ class _ChatScreenState extends State<ChatScreen> {
       });
 
       List<String> suggestions = await SuggestionService.getSuggestions();
-      print('suggestions: $suggestions');
-
+      _logger.info('suggestions: $suggestions');
 
       // IMPORTANT: Filter out any null or non-string suggestions, and ensure they are Strings
       final List<String> cleanSuggestions = suggestions
-          .where((s) => s != null && s is String && s.isNotEmpty)
-          .map((s) => s as String)
+          // ignore: unnecessary_null_comparison
+          .where((s) => s != null && s.isNotEmpty)
+          .map((s) => s)
           .toList();
 
       setState(() {
@@ -92,7 +62,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _refreshSuggestions(); // Refresh initial suggestions
       });
     } catch (e) {
-      print('Error loading suggestions: $e');
+      _logger.info('Error loading suggestions: $e');
       setState(() {
         _suggestionsLoading = false;
         // Use fallback suggestions if Firebase fails (or keep _allSuggestions empty)
@@ -119,7 +89,8 @@ class _ChatScreenState extends State<ChatScreen> {
           ? _allSuggestions.sublist(0, 3)
           : _allSuggestions;
     } else {
-      _currentSuggestions = []; // Ensure it's empty if no suggestions are loaded
+      _currentSuggestions =
+          []; // Ensure it's empty if no suggestions are loaded
     }
   }
 
@@ -144,15 +115,20 @@ class _ChatScreenState extends State<ChatScreen> {
     String aiResponseContent;
 
     try {
-      print("ChatScreen: Calling RAG server at $_ragServerUrl with query: $message");
-      final http.Response response = await http.post(
-        Uri.parse(_ragServerUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'query': message, // Use the current message as the query
-          'chat_history': _chatHistory, // Pass the entire chat history
-        }),
-      ).timeout(const Duration(seconds: 120)); // Set a reasonable timeout for the entire RAG + LLM process
+      _logger.info(
+          "ChatScreen: Calling RAG server at $_ragServerUrl with query: $message");
+      final http.Response response = await http
+          .post(
+            Uri.parse(_ragServerUrl),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'query': message, // Use the current message as the query
+              'chat_history': _chatHistory, // Pass the entire chat history
+            }),
+          )
+          .timeout(const Duration(
+              seconds:
+                  120)); // Set a reasonable timeout for the entire RAG + LLM process
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -161,34 +137,47 @@ class _ChatScreenState extends State<ChatScreen> {
         if (results.isNotEmpty && results[0].containsKey('content')) {
           aiResponseContent = results[0]['content'];
         } else {
-          print('ChatScreen: RAG server response missing expected content: $data');
-          aiResponseContent = "Sorry, bro. The RAG server didn't provide a complete answer.";
+          _logger.info(
+              'ChatScreen: RAG server response missing expected content: $data');
+          aiResponseContent =
+              "Sorry, bro. The RAG server didn't provide a complete answer.";
         }
 
-
-        if (data.containsKey('updated_chat_history') && data['updated_chat_history'] is List) {
+        if (data.containsKey('updated_chat_history') &&
+            data['updated_chat_history'] is List) {
           // IMPORTANT: Replace the entire _chatHistory with the one provided by the server
           _chatHistory.clear(); // Clear existing history
           for (var item in data['updated_chat_history']) {
-            if (item is Map<String, dynamic> && item.containsKey('role') && item.containsKey('content')) {
-              _chatHistory.add({"role": item['role'] as String, "content": item['content'] as String});
+            if (item is Map<String, dynamic> &&
+                item.containsKey('role') &&
+                item.containsKey('content')) {
+              _chatHistory.add({
+                "role": item['role'] as String,
+                "content": item['content'] as String
+              });
             }
           }
-          print("ChatScreen: _chatHistory updated from server response.");
+          _logger
+              .info("ChatScreen: _chatHistory updated from server response.");
         } else {
-          print("ChatScreen: Server did not return 'updated_chat_history'. Appending only AI response to local history.");
-          _chatHistory.add({"role": "user", "content": message}); // Re-add user message if history not returned
+          _logger.info(
+              "ChatScreen: Server did not return 'updated_chat_history'. Appending only AI response to local history.");
+          _chatHistory.add({
+            "role": "user",
+            "content": message
+          }); // Re-add user message if history not returned
           _chatHistory.add({"role": "assistant", "content": aiResponseContent});
         }
-
-
-
       } else {
-        print('ChatScreen: RAG Server error ${response.statusCode}: ${response.body}');
+        _logger.info(
+            'ChatScreen: RAG Server error ${response.statusCode}: ${response.body}');
         String errorMessage = "Unknown server error.";
         try {
           final errorData = jsonDecode(utf8.decode(response.bodyBytes));
-          if (errorData.containsKey('results') && errorData['results'] is List && errorData['results'].isNotEmpty && errorData['results'][0].containsKey('content')) {
+          if (errorData.containsKey('results') &&
+              errorData['results'] is List &&
+              errorData['results'].isNotEmpty &&
+              errorData['results'][0].containsKey('content')) {
             errorMessage = errorData['results'][0]['content'];
           } else if (errorData.containsKey('error')) {
             errorMessage = errorData['error'];
@@ -196,9 +185,11 @@ class _ChatScreenState extends State<ChatScreen> {
             errorMessage = errorData['message'];
           }
         } catch (e) {
-          print("ChatScreen: Could not parse RAG server error response: $e");
+          _logger.info(
+              "ChatScreen: Could not parse RAG server error response: $e");
         }
-        aiResponseContent = "Sorry, bro. There was an error from the RAG server (${response.statusCode}): $errorMessage. Please try again.";
+        aiResponseContent =
+            "Sorry, bro. There was an error from the RAG server (${response.statusCode}): $errorMessage. Please try again.";
       }
 
       // Remove loading message and add AI response to display and chat history
@@ -208,16 +199,25 @@ class _ChatScreenState extends State<ChatScreen> {
         //_chatHistory.add({"role": "assistant", "content": aiResponseContent});
       });
     } on TimeoutException {
-      print("ChatScreen: Request to RAG server timed out.");
+      _logger.info("ChatScreen: Request to RAG server timed out.");
       setState(() {
         _messages.removeLast();
-        _messages.add({"role": "assistant", "content": "Sorry, bro. The server took too long to respond. Please try again later."});
+        _messages.add({
+          "role": "assistant",
+          "content":
+              "Sorry, bro. The server took too long to respond. Please try again later."
+        });
       });
     } catch (e) {
-      print("ChatScreen: Fatal error when generating response from RAG server: $e");
+      _logger.info(
+          "ChatScreen: Fatal error when generating response from RAG server: $e");
       setState(() {
         _messages.removeLast(); // Remove loading message
-        _messages.add({"role": "assistant", "content": "Sorry, bro. There was a problem getting the answer. Please check your connection or server status."});
+        _messages.add({
+          "role": "assistant",
+          "content":
+              "Sorry, bro. There was a problem getting the answer. Please check your connection or server status."
+        });
       });
     }
   }
@@ -254,12 +254,19 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             // Restore _buildSuggestionChips() here:
             _buildSuggestionChips(), // Display suggestions below the chat messages
+            const AudioPlayerWidget(),
             _buildMessageInput(), // Input field at the bottom
             _buildDisclaimer(),
           ],
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    AudioService().dispose();
+    super.dispose();
   }
 
   // Restore _buildSuggestionChips() widget definition:
@@ -308,26 +315,28 @@ class _ChatScreenState extends State<ChatScreen> {
               controller: _messageController,
               // *** IMPORTANT: Add these properties to disable browser's autofill/autocomplete ***
               autofillHints: null, // Disables platform-specific autofill hints
-              autocorrect: false,  // Disables auto-correction
+              autocorrect: false, // Disables auto-correction
               enableSuggestions: false, // Disables text input suggestions
 
               decoration: InputDecoration(
                 hintText: 'Type a message...',
-                hintStyle: TextStyle(color: Colors.white54),
+                hintStyle: const TextStyle(color: Colors.white54),
                 filled: true,
                 fillColor: Colors.grey[800],
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(25.0),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               ),
               style: const TextStyle(color: Colors.white),
               onSubmitted: _sendMessage, // Allow sending message on Enter key
             ),
           ),
           const SizedBox(width: 8),
-          SizedBox( // Fixed RenderFlex overflow with explicit size
+          SizedBox(
+            // Fixed RenderFlex overflow with explicit size
             width: 48, // Standard FAB size
             height: 48, // Standard FAB size
             child: FloatingActionButton(
@@ -340,10 +349,11 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+
   Widget _buildDisclaimer() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Text(
+      child: const Text(
         'I can make mistakes, please double check.',
         style: TextStyle(
           color: Colors.white54,
@@ -355,10 +365,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
-
-
-
-
 
 class ChatBubble extends StatelessWidget {
   final String message;

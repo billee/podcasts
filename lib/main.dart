@@ -5,14 +5,14 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:kapwa_companion/services/suggestion_service.dart';
 import 'firebase_options.dart';
-
-
+import 'package:logging/logging.dart';
 
 // const String openAIApiKey = String.fromEnvironment(
 //     'OPENAI_API_KEY',
 //     defaultValue: ''
 // );
 
+final Logger _logger = Logger('main');
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -26,9 +26,9 @@ Future<void> main() async {
     //print('OPENAI_API_KEY from dotenv.env: ${dotenv.env['OPENAI_API_KEY']}');
     //print('Is OPENAI_API_KEY null? ${dotenv.env['OPENAI_API_KEY'] == null}');
     //print('Type of OPENAI_API_KEY: ${dotenv.env['OPENAI_API_KEY']?.runtimeType}'); // Using ?. to safely get runtimeType
-
   } catch (e) {
-    print("Warning: .env file not found or failed to load. This is expected in CI, relying on --dart-define or environment variables. Error: $e");
+    _logger.info(
+        "Warning: .env file not found or failed to load. This is expected in CI, relying on --dart-define or environment variables. Error: $e");
   }
 
   runApp(const MyApp());

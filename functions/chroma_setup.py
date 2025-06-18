@@ -128,12 +128,6 @@ class ChromaVectorDatabase:
         return result
 
     def _smart_chunk_text(self, text: str) -> List[str]:
-        """
-        Improved chunking with token-based sizing and sentence-level overlap
-        - Uses actual tokens instead of characters
-        - Maintains sentence boundaries
-        - Creates meaningful overlap using complete sentences
-        """
         text = self._clean_text(text)
         sentences = self._improved_sentence_split(text)
 
@@ -149,7 +143,21 @@ class ChromaVectorDatabase:
 
             # Skip extremely long sentences that exceed max chunk size
             if sentence_tokens > self.MAX_TOKENS_PER_CHUNK:
-                print(f"⚠️ Warning: Skipping very long sentence ({sentence_tokens} tokens): {sentence[:100]}...")
+                print(f"⚠️ Breaking down long sentence ({sentence_tokens} tokens): {sentence[:100]}...")
+            
+                # Add current chunk if it has content
+                if current_sentences:
+                    chunk_text = ' '.join(current_sentences)
+                    chunks.append(chunk_text)
+                    current_sentences = []
+                    current_tokens = 0
+                
+                # Break down the long sentence and add as separate chunks
+                long_sentence_parts = self._handle_long_sentence(sentence, self.MAX_TOKENS_PER_CHUNK)
+                for part in long_sentence_parts:
+                    if part.strip():
+                        chunks.append(part.strip())
+
                 continue
 
             # If adding this sentence would exceed the limit, finalize current chunk
@@ -184,14 +192,7 @@ class ChromaVectorDatabase:
             chunk_text = ' '.join(current_sentences)
             chunks.append(chunk_text)
 
-        # Filter out empty chunks and log statistics
-        valid_chunks = [chunk for chunk in chunks if chunk.strip()]
-
-        if valid_chunks:
-            avg_tokens = sum(self._count_tokens(chunk) for chunk in valid_chunks) / len(valid_chunks)
-            print(f"    Created {len(valid_chunks)} chunks (avg {avg_tokens:.0f} tokens each)")
-
-        return valid_chunks
+        return [chunk for chunk in chunks if chunk.strip()]
 
     def populate_vector_database(self):
         """Populates ChromaDB with documents using improved chunking"""
@@ -284,18 +285,71 @@ class ChromaVectorDatabase:
 
     def test_query_with_scoring(self, query: str = "test query", n_results: int = 5):
         """Test the collection with a sample query and display scoring analysis"""
-    try:
-        results = self.collection.query(
-            query_texts=[query],
-            n_results=n_results,
-            include=['documents', 'distances', 'metadatas']
-        )
+        try:
+            results = self.collection.query(
+                query_texts=[query],
+                n_results=n_results,
+                include=['documents', 'distances', 'metadatas']
+            )
 
-        print(f"\nTesting query: '{query}'")
-        print_score_analysis(results, score_threshold=0.15, max_display=3)
+            print(f"\nTesting query: '{query}'")
+            print_score_analysis(results, score_threshold=0.15, max_display=3)
 
-    except Exception as e:
-        print(f"Error during test query: {e}")
+        except Exception as e:
+            print(f"Error during test query: {e}")
+
+
+    def _handle_long_sentence(self, sentence: str, max_tokens: int) -> List[str]:
+        sentence_tokens = self._count_tokens(sentence)
+        
+        if sentence_tokens <= max_tokens:
+            return [sentence]
+        
+        # Split on common breakpoints
+        parts = []
+        
+        # Try splitting on semicolons, colons, or long dashes first
+        for delimiter in [';', ':', ' - ', ' – ']:
+            if delimiter in sentence:
+                temp_parts = sentence.split(delimiter)
+                if len(temp_parts) > 1:
+                    for i, part in enumerate(temp_parts):
+                        if i > 0:  # Add delimiter back except for first part
+                            part = delimiter + part
+                        if self._count_tokens(part.strip()) <= max_tokens:
+                            parts.append(part.strip())
+                        else:
+                            # Still too long, split further
+                            parts.extend(self._split_by_clauses(part.strip(), max_tokens))
+                    return [p for p in parts if p.strip()]
+        
+        # Fallback: split by clauses/commas
+        return self._split_by_clauses(sentence, max_tokens)
+
+    def _split_by_clauses(self, text: str, max_tokens: int) -> List[str]:
+        """Split text by clauses and commas as last resort"""
+        parts = []
+        current_part = ""
+        
+        # Split on commas but try to maintain meaning
+        clauses = text.split(',')
+        
+        for clause in clauses:
+            test_part = current_part + (',' if current_part else '') + clause
+            if self._count_tokens(test_part) <= max_tokens:
+                current_part = test_part
+            else:
+                if current_part:
+                    parts.append(current_part.strip())
+                current_part = clause.strip()
+        
+        if current_part:
+            parts.append(current_part.strip())
+        
+        return parts
+
+
+
 
 
 

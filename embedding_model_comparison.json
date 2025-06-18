@@ -1,0 +1,18 @@
+[
+  {
+    "model": "intfloat/multilingual-e5-small",
+    "avg_query_time": 0.9886085987091064,
+    "avg_results_count": 0.0,
+    "avg_top_score": 0.0,
+    "overall_avg_score": 0.0,
+    "detailed_results": {
+      "medical insurance for caregivers": {
+        "query_time": 0.9886085987091064,
+        "total_results": 5,
+        "filtered_results": 0,
+        "top_score": 0.0,
+        "avg_score": 0.0
+      }
+    }
+  }
+]
