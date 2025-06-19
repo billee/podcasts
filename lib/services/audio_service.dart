@@ -1,7 +1,7 @@
 // lib/services/audio_service.dart
 
 import 'dart:io';
-//import 'dart:math';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:logging/logging.dart';
 
@@ -34,6 +34,13 @@ class AudioService {
 
   static const String _audioSourcesPath = './audio_sources';
 
+  // Predefined audio assets for web
+  static const List<String> _audioAssets = [
+    'assets/audio_sources/alone_abroad.wav',
+    'assets/audio_sources/beyond_remittances.wav',
+    'assets/audio_sources/essential_mental_health.wav',
+  ];
+
   Future<void> initialize() async {
     _logger.info('Initializing AudioService...');
 
@@ -62,6 +69,18 @@ class AudioService {
     try {
       _audioLoading = true;
 
+      if (kIsWeb) {
+        // Web platform: use predefined assets
+        _logger.info('Running on web - using predefined audio assets');
+        _allAudioFiles = List.from(_audioAssets);
+        _audioLoading = false;
+        _refreshAudioFiles();
+        _logger.info('Loaded ${_allAudioFiles.length} audio files from assets');
+        return;
+      }
+
+      // Desktop platform: use file system
+      _logger.info('Running on desktop - scanning file system');
       print('=== AudioService Debug ===');
       print('Current working directory: ${Directory.current.path}');
       print('Looking for: $_audioSourcesPath');
@@ -149,7 +168,14 @@ class AudioService {
         await _audioPlayer.stop();
       }
 
-      await _audioPlayer.play(DeviceFileSource(filePath));
+      if (kIsWeb) {
+        // Web: use AssetSource
+        final assetPath = filePath.replaceFirst('assets/', '');
+        await _audioPlayer.play(AssetSource(assetPath));
+      } else {
+        // Desktop: use DeviceFileSource
+        await _audioPlayer.play(DeviceFileSource(filePath));
+      }
     } catch (e) {
       _logger.severe('Error playing audio: $e');
     }
@@ -190,9 +216,14 @@ class AudioService {
   }
 
   String getAudioFileName(String filePath) {
-    return filePath
-        .split(Platform.pathSeparator)
-        .last
+    String fileName;
+    if (kIsWeb) {
+      fileName = filePath.split('/').last;
+    } else {
+      fileName = filePath.split(Platform.pathSeparator).last;
+    }
+
+    return fileName
         .replaceAll('.wav', '')
         .replaceAll('.mp3', '')
         .replaceAll('.ogg', '')
