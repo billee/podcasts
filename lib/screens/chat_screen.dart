@@ -3,12 +3,14 @@
 import 'package:flutter/material.dart';
 //import 'package:flutter_dotenv/flutter_dotenv.dart'; // Keep if you use other .env vars
 import 'package:http/http.dart' as http;
+import 'package:kapwa_companion/screens/video_conference_screen.dart';
 import 'dart:convert';
 import 'dart:async'; // Import for TimeoutException
 import 'package:kapwa_companion/services/suggestion_service.dart'; // Keep this import!
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion/widgets/audio_player_widget.dart';
 import 'package:kapwa_companion/services/audio_service.dart';
+import 'package:kapwa_companion/screens/contacts_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -234,6 +236,20 @@ class _ChatScreenState extends State<ChatScreen> {
         title: const Text('Kapwa Companion'),
         backgroundColor: Colors.blue[800],
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ContactsScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.contacts),
+            tooltip: 'OFW',
+          ),
+        ],
       ),
       body: Container(
         color: Colors.grey[850], // Dark background for the chat screen

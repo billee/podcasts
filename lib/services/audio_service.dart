@@ -39,6 +39,9 @@ class AudioService {
     'assets/audio_sources/alone_abroad.wav',
     'assets/audio_sources/beyond_remittances.wav',
     'assets/audio_sources/essential_mental_health.wav',
+    'assets/audio_sources/boredom_homesickness.wav',
+    'assets/audio_sources/cultural_festival_abu_dhabi.wav',
+    'assets/audio_sources/filipinos_abroad_in_their_30s.wav',
   ];
 
   Future<void> initialize() async {
