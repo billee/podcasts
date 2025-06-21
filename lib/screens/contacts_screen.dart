@@ -1,8 +1,11 @@
 // lib/screens/contacts_screen.dart
 import 'package:flutter/material.dart';
-import 'package:kapwa_companion/models/ofw_contact.dart';
-import 'package:kapwa_companion/services/contact_service.dart';
-import 'package:kapwa_companion/services/video_conference_service.dart';
+// import 'package:kapwa_companion/models/ofw_contact.dart'; // No longer strictly needed for this simplified version
+// import 'package:kapwa_companion/services/contact_service.dart'; // No longer needed
+import 'package:kapwa_companion/services/video_conference_service.dart'; // Import the new direct call service
+import 'package:kapwa_companion/screens/incoming_call_screen.dart'; // Import IncomingCallScreen
+import 'package:kapwa_companion/models/ofw_contact.dart'; // Still needed for IncomingCallScreen
+import 'package:flutter_webrtc/flutter_webrtc.dart'; // Needed for RTCSessionDescription
 
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
@@ -12,11 +15,19 @@ class ContactsScreen extends StatefulWidget {
 }
 
 class _ContactsScreenState extends State<ContactsScreen> {
-  // Use only one _contacts declaration - using Map for simplicity
+  // We will store contacts as a list of maps, where 'id' is the unique user ID for signaling
   List<Map<String, String>> _contacts = [];
   bool _loading = true;
-  final SimpleVideoService _videoService = SimpleVideoService();
+  // Initialize the new direct video call service
+  final DirectVideoCallService _videoService = DirectVideoCallService();
   final TextEditingController _controller = TextEditingController();
+
+  // IMPORTANT: For testing, you need to set a unique userId for each phone.
+  // In a real app, this would come from an authentication system.
+  // For example, on Phone A, set 'phone1_user_id', on Phone B set 'phone2_user_id'.
+  // Make sure these IDs are unique and known to each other for calling.
+  // For demonstration, let's assume a static ID for now, which you should change.
+  final String _currentUserId = 'user_id_1'; // <<< CHANGE THIS FOR EACH DEVICE
 
   @override
   void initState() {
@@ -28,51 +39,92 @@ class _ContactsScreenState extends State<ContactsScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _videoService.dispose(); // Dispose the video service
     super.dispose();
   }
 
   Future<void> _loadContacts() async {
-    // For now, we'll load empty contacts since we're using Map instead of OFWContact
-    // You can modify this later to load actual OFWContact data
+    // For now, load some dummy contacts. In a real app, you'd fetch these from a database.
     setState(() {
-      _contacts = []; // Start with empty list
+      _contacts = [
+        {'id': 'user_id_2', 'name': 'Family Member 1', 'phone': '123-456-7890'},
+        {'id': 'user_id_3', 'name': 'Family Member 2', 'phone': '098-765-4321'},
+        // Add more contacts here, ensuring their 'id' matches the 'userId'
+        // that another testing device will be using for its _currentUserId.
+        // Make sure 'user_id_2' and 'user_id_3' are set as _currentUserId on other phones.
+      ];
       _loading = false;
     });
   }
 
   void _setupVideoService() {
-    _videoService.onIncomingCall = (callerId, callerName, isVideo) {
-      _showIncomingCallDialog(callerId, callerName, isVideo);
+    _videoService.initialize(_currentUserId); // Initialize with the current user's ID
+
+    // Set up callback for incoming calls
+    _videoService.onIncomingCall = (callerId, callerName, isVideo, sdpOffer) {
+      _showIncomingCallDialog(callerId, callerName, isVideo, sdpOffer);
     };
 
-    _videoService.initialize('current_user_id');
+    // Set up callbacks for call status updates
+    _videoService.onCallEnded = (partnerId) {
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context); // Pop the VideoConferenceScreen if it's open
+      }
+      _showSnackBar('$partnerId ended the call.');
+    };
+
+    _videoService.onCallDeclined = (partnerId) {
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context); // Pop the dialing screen or call screen
+      }
+      _showSnackBar('$partnerId declined your call.');
+    };
+
+    _videoService.onCallAccepted = (partnerId) {
+      // Navigate to the video conference screen once the call is accepted
+      Navigator.pushReplacementNamed(
+        context,
+        '/video-conference',
+        arguments: {
+          'contactId': partnerId, // The ID of the person we are calling
+          'isIncoming': false, // We initiated this call
+        },
+      );
+    };
+
+    _videoService.onPartnerDisconnected = (disconnectedUserId) {
+        if (Navigator.canPop(context)) {
+            Navigator.pop(context); // Pop the VideoConferenceScreen if it's open
+        }
+        _showSnackBar('$disconnectedUserId disconnected.');
+    };
+
+    _videoService.onError = (message) {
+      _showErrorDialog(message);
+    };
   }
 
   void _showIncomingCallDialog(
-      String callerId, String callerName, bool isVideo) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Text('Incoming ${isVideo ? 'Video' : 'Voice'} Call'),
-        content: Text('$callerName is calling you'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _videoService.declineCall();
-            },
-            child: const Text('Decline'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _videoService.acceptCall();
-              // Navigate to call screen
-            },
-            child: const Text('Accept'),
-          ),
-        ],
+      String callerId, String callerName, bool isVideo, RTCSessionDescription sdpOffer) {
+    // Create a dummy OFWContact for the IncomingCallScreen
+    final incomingCaller = OFWContact(
+      id: callerId,
+      name: callerName,
+      phone: '', // Phone number not available from signaling for now
+      specialization: '', // Dummy data
+      profileImage: null, // No profile image
+    );
+
+    // Navigate to IncomingCallScreen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => IncomingCallScreen(
+          caller: incomingCaller,
+          isVideoCall: isVideo,
+          sdpOffer: sdpOffer, // Pass the SDP offer
+          videoCallService: _videoService, // Pass the service instance
+        ),
       ),
     );
   }
@@ -85,51 +137,58 @@ class _ContactsScreenState extends State<ContactsScreen> {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
       ),
-      body: _contacts.isEmpty
+      body: _loading
           ? const Center(
-              child: Text(
-                'No contacts yet\nTap + to add family members',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
-              ),
+              child: CircularProgressIndicator(),
             )
-          : ListView.builder(
-              itemCount: _contacts.length,
-              itemBuilder: (context, index) {
-                final contact = _contacts[index];
-                return Card(
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.blue,
-                      child: Text(
-                        contact['name']![0].toUpperCase(),
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ),
-                    title: Text(contact['name']!),
-                    subtitle: Text(contact['phone']!),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.call, color: Colors.green),
-                          onPressed: () => _makeCall(contact, false),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.videocam, color: Colors.blue),
-                          onPressed: () => _makeCall(contact, true),
-                        ),
-                      ],
+          : _contacts.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No contacts yet\nTap + to add family members',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
                     ),
                   ),
-                );
-              },
-            ),
+                )
+              : ListView.builder(
+                  itemCount: _contacts.length,
+                  itemBuilder: (context, index) {
+                    final contact = _contacts[index];
+                    // Do not show current user in contacts list
+                    if (contact['id'] == _currentUserId) {
+                      return const SizedBox.shrink(); // Hide current user
+                    }
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.blue,
+                          child: Text(
+                            contact['name']![0].toUpperCase(),
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        title: Text('${contact['name']!} (ID: ${contact['id']})'), // Show ID for debugging
+                        subtitle: Text(contact['phone']!),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.call, color: Colors.green),
+                              onPressed: () => _makeCall(contact, false), // Voice call
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.videocam, color: Colors.blue),
+                              onPressed: () => _makeCall(contact, true), // Video call
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddContactDialog,
         backgroundColor: Colors.blue,
@@ -138,32 +197,44 @@ class _ContactsScreenState extends State<ContactsScreen> {
     );
   }
 
-  // Single _addContact method
-  void _addContact(String contactInfo) {
+  // Modified _addContact to take 'id', 'name', 'phone'
+  void _addContact(String id, String name, String phone) {
     setState(() {
       _contacts.add({
-        'name': 'Contact ${_contacts.length + 1}',
-        'phone': contactInfo,
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'id': id,
+        'name': name,
+        'phone': phone,
       });
     });
-    print('Contact added: $contactInfo');
+    print('Contact added: ID=$id, Name=$name, Phone=$phone');
   }
 
-  void _makeCall(Map<String, String> contact, bool isVideo) {
-    _videoService.makeCall(contact['id']!, contact['name']!, isVideo);
-
-    Navigator.pushNamed(
+  // This is the core function to initiate a call
+  void _makeCall(Map<String, String> contact, bool isVideo) async {
+    // Navigate to a temporary screen to show "Calling..." while waiting for acceptance
+    Navigator.push(
       context,
-      '/video-conference',
-      arguments: {
-        'contactName': contact['name'],
-        'isVideo': isVideo,
-      },
+      MaterialPageRoute(
+        builder: (context) => VideoConferenceScreen(
+          contactId: contact['id']!,
+          isIncoming: false,
+          isVideoCall: isVideo,
+          videoCallService: _videoService, // Pass the service instance
+        ),
+      ),
     );
+
+    // Make the direct call using the service
+    await _videoService.makeCall(contact['id']!, _currentUserId, isVideo);
+    // Note: The actual navigation to the full call screen happens in
+    // _videoService.onCallAccepted callback if the callee accepts.
   }
 
   void _showAddContactDialog() {
+    final TextEditingController idController = TextEditingController();
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController phoneController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -172,15 +243,29 @@ class _ContactsScreenState extends State<ContactsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              controller: _controller,
+              controller: idController,
               decoration: const InputDecoration(
-                hintText: 'Enter phone number',
+                hintText: 'Enter unique ID (e.g., user_id_X)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                hintText: 'Enter contact name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: phoneController,
+              decoration: const InputDecoration(
+                hintText: 'Enter phone number (optional)',
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.phone,
             ),
-            const SizedBox(height: 16),
-            const Text('Scan QR code or enter phone number'),
           ],
         ),
         actions: [
@@ -190,19 +275,45 @@ class _ContactsScreenState extends State<ContactsScreen> {
           ),
           TextButton(
             onPressed: () {
-              String contactInfo = _controller.text.trim();
+              String contactId = idController.text.trim();
+              String contactName = nameController.text.trim();
+              String contactPhone = phoneController.text.trim();
 
-              if (contactInfo.isNotEmpty) {
-                _addContact(contactInfo);
-                _controller.clear();
+              if (contactId.isNotEmpty && contactName.isNotEmpty) {
+                _addContact(contactId, contactName, contactPhone);
+                idController.clear();
+                nameController.clear();
+                phoneController.clear();
                 Navigator.pop(context);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter a phone number')),
+                  const SnackBar(content: Text('Please enter a unique ID and name')),
                 );
               }
             },
             child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
           ),
         ],
       ),

@@ -1,41 +1,56 @@
 // lib/screens/video_conference_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart'; // Needed for Clipboard
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:kapwa_companion/services/video_conference_service.dart';
-//import 'package:logging/logging.dart';
+import 'package:kapwa_companion/services/video_conference_service.dart'; // Import the new direct call service
+//import 'package:logging/logging.dart'; // Uncomment if you use logging within this file
 
 class VideoConferenceScreen extends StatefulWidget {
-  final String? roomId;
+  // We no longer need roomId, but rather the contactId (the user we're calling/connected to)
+  final String contactId;
+  final bool isIncoming; // true if it's an incoming call being accepted, false if it's an outgoing call
+  final bool isVideoCall; // True for video, false for audio only
+  final DirectVideoCallService videoCallService; // The service instance
 
-  const VideoConferenceScreen({super.key, this.roomId});
+  const VideoConferenceScreen({
+    super.key,
+    required this.contactId,
+    required this.isIncoming,
+    required this.isVideoCall,
+    required this.videoCallService, // Receive the service instance
+  });
 
   @override
   State<VideoConferenceScreen> createState() => _VideoConferenceScreenState();
 }
 
 class _VideoConferenceScreenState extends State<VideoConferenceScreen> {
-  //final Logger _logger = Logger('VideoConferenceScreen');
-  final SimpleVideoService _videoService = SimpleVideoService();
-  final TextEditingController _roomIdController = TextEditingController();
+  //final Logger _logger = Logger('VideoConferenceScreen'); // Uncomment if using logger
+
+  // Use the passed service instance
+  late final DirectVideoCallService _videoService; // Marked as late final
 
   final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
 
-  bool _isInCall = false;
-  bool _isConnecting = false;
-  String _connectionStatus = 'Disconnected';
-  final List<String> _participants = [];
+  String _connectionStatus = 'Connecting...';
+  // Note: _isInCall and _isConnecting states will primarily be driven by _connectionStatus
+  // from the service callbacks.
 
   @override
   void initState() {
     super.initState();
+    _videoService = widget.videoCallService; // Assign the passed service instance
+
     _initializeRenderers();
     _setupVideoServiceCallbacks();
 
-    if (widget.roomId != null) {
-      _roomIdController.text = widget.roomId!;
+    // Initial status based on whether it's an outgoing or incoming call
+    if (!widget.isIncoming) {
+      _connectionStatus = 'Calling ${widget.contactId}...';
+    } else {
+      _connectionStatus = 'Connecting to ${widget.contactId}...';
     }
   }
 
@@ -59,77 +74,53 @@ class _VideoConferenceScreenState extends State<VideoConferenceScreen> {
 
     _videoService.onConnectionStateChanged = (isConnected) {
       setState(() {
-        _connectionStatus = isConnected ? 'Connected' : 'Connecting...';
-        _isInCall = isConnected;
-        _isConnecting = !isConnected && _isInCall;
+        _connectionStatus = isConnected ? 'Connected with ${widget.contactId}' : 'Connecting...';
       });
+      // If connected, ensure the speaker is on for the remote audio
+      if (isConnected) {
+        _videoService.toggleSpeaker(); // Ensure speaker is on when connected
+      }
     };
 
     _videoService.onError = (error) {
       _showErrorDialog(error);
       setState(() {
-        _isConnecting = false;
+        _connectionStatus = 'Disconnected: $error';
       });
     };
 
-    _videoService.onParticipantJoined = (participant) {
-      setState(() {
-        _participants.add(participant['participantId'] as String);
-      });
-      _showSnackBar('${participant['participantId']} joined the call');
+    // The following callbacks are already handled in contacts_screen,
+    // which pops this screen. But having them here as a fallback or for logging
+    // might be useful in complex scenarios. For direct calls, usually the
+    // contacts_screen handles the popping logic on call end/decline.
+    _videoService.onCallEnded = (partnerId) {
+      _showSnackBar('$partnerId ended the call.');
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context); // Pop this screen if partner ends
+      }
     };
 
-    _videoService.onParticipantLeft = (participantId) {
-      setState(() {
-        _participants.remove(participantId);
-      });
-      _showSnackBar('$participantId left the call');
+    _videoService.onCallDeclined = (partnerId) {
+      _showSnackBar('$partnerId declined your call.');
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context); // Pop this screen if call declined
+      }
+    };
+
+    _videoService.onPartnerDisconnected = (disconnectedUserId) {
+      _showSnackBar('$disconnectedUserId disconnected.');
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context); // Pop this screen if partner disconnects
+      }
     };
   }
 
-  Future<void> _createRoom() async {
-    setState(() {
-      _isConnecting = true;
-      _connectionStatus = 'Creating room...';
-    });
-
-    await _videoService.createRoom();
-    _roomIdController.text = _videoService.currentRoomId ?? '';
-    await _videoService.startCall();
-  }
-
-  Future<void> _joinRoom() async {
-    final roomId = _roomIdController.text.trim();
-    if (roomId.isEmpty) {
-      _showErrorDialog('Please enter a room ID');
-      return;
-    }
-
-    setState(() {
-      _isConnecting = true;
-      _connectionStatus = 'Joining room...';
-    });
-
-    await _videoService.joinRoom(roomId);
-    await _videoService.startCall();
-  }
-
+  // This function is now only about ending the current active call.
   Future<void> _endCall() async {
     await _videoService.endCall();
-    setState(() {
-      _isInCall = false;
-      _isConnecting = false;
-      _connectionStatus = 'Disconnected';
-      _participants.clear();
-      _localRenderer.srcObject = null;
-      _remoteRenderer.srcObject = null;
-    });
-  }
-
-  void _copyRoomId() {
-    if (_videoService.currentRoomId != null) {
-      Clipboard.setData(ClipboardData(text: _videoService.currentRoomId!));
-      _showSnackBar('Room ID copied to clipboard');
+    // After ending the call, we navigate back to the previous screen (ContactsScreen).
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
     }
   }
 
@@ -150,9 +141,12 @@ class _VideoConferenceScreenState extends State<VideoConferenceScreen> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    // Check if the current context has a ScaffoldMessenger
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 
   @override
@@ -160,178 +154,81 @@ class _VideoConferenceScreenState extends State<VideoConferenceScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Video Conference'),
+        title: Text('Call with ${widget.contactId}'), // Show partner's ID
         backgroundColor: Colors.grey[900],
         foregroundColor: Colors.white,
-        actions: [
-          if (_isInCall && _videoService.currentRoomId != null)
-            IconButton(
-              onPressed: _copyRoomId,
-              icon: const Icon(Icons.copy),
-              tooltip: 'Copy Room ID',
-            ),
-        ],
+        automaticallyImplyLeading: false, // No back button during active call
       ),
-      body: _isInCall || _isConnecting
-          ? _buildCallInterface()
-          : _buildJoinInterface(),
-    );
-  }
-
-  Widget _buildJoinInterface() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.video_call,
-            size: 80,
-            color: Colors.blue,
-          ),
-          const SizedBox(height: 32),
-          const Text(
-            'Video Conference',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Connect with OFW counselors and support groups',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.white70,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          TextField(
-            controller: _roomIdController,
-            decoration: InputDecoration(
-              labelText: 'Room ID (optional)',
-              labelStyle: const TextStyle(color: Colors.white70),
-              hintText: 'Enter room ID to join existing room',
-              hintStyle: const TextStyle(color: Colors.white54),
-              filled: true,
-              fillColor: Colors.grey[800],
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-            ),
-            style: const TextStyle(color: Colors.white),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _createRoom,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Create Room'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[700],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _joinRoom,
-                  icon: const Icon(Icons.login),
-                  label: const Text('Join Room'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[700],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Status: $_connectionStatus',
-            style: const TextStyle(color: Colors.white70),
-          ),
-        ],
-      ),
+      body: _buildCallInterface(), // Always show the call interface
     );
   }
 
   Widget _buildCallInterface() {
     return Stack(
       children: [
-        // Remote video (full screen)
-        _remoteRenderer.srcObject != null
+        // Remote video (full screen) - Only show if video call and remote stream available
+        widget.isVideoCall && _remoteRenderer.srcObject != null
             ? RTCVideoView(_remoteRenderer,
                 objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover)
             : Container(
                 color: Colors.grey[800],
-                child: const Center(
+                child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.person, size: 80, color: Colors.white54),
-                      SizedBox(height: 16),
+                      Icon(widget.isVideoCall ? Icons.person : Icons.call, size: 80, color: Colors.white54),
+                      const SizedBox(height: 16),
                       Text(
-                        'Waiting for participant...',
-                        style: TextStyle(color: Colors.white70, fontSize: 16),
+                        _connectionStatus, // Show actual connection status
+                        style: const TextStyle(color: Colors.white70, fontSize: 16),
                       ),
+                      const SizedBox(height: 8),
+                      if (!widget.isVideoCall) // Show voice call icon if it's a voice call
+                        const Icon(Icons.mic, size: 40, color: Colors.white54),
                     ],
                   ),
                 ),
               ),
 
-        // Local video (picture-in-picture)
-        Positioned(
-          top: 16,
-          right: 16,
-          child: Container(
-            width: 120,
-            height: 160,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white, width: 2),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: _localRenderer.srcObject != null
-                  ? RTCVideoView(_localRenderer, mirror: true)
-                  : Container(
-                      color: Colors.grey[700],
-                      child:
-                          const Icon(Icons.videocam_off, color: Colors.white54),
-                    ),
-            ),
-          ),
-        ),
-
-        // Connection status
-        if (_isConnecting)
+        // Local video (picture-in-picture) - Only show if video call
+        if (widget.isVideoCall)
           Positioned(
             top: 16,
-            left: 16,
+            right: 16,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              width: 120,
+              height: 160,
               decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white, width: 2),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: _localRenderer.srcObject != null
+                    ? RTCVideoView(_localRenderer, mirror: true)
+                    : Container(
+                        color: Colors.grey[700],
+                        child:
+                            const Icon(Icons.videocam_off, color: Colors.white54),
+                      ),
+              ),
+            ),
+          ),
+
+        // Connection status overlay (e.g., "Connecting...", "Calling...")
+        Positioned(
+          top: 16,
+          left: 16,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_connectionStatus.contains('Connecting') || _connectionStatus.contains('Calling'))
                   const SizedBox(
                     width: 16,
                     height: 16,
@@ -340,40 +237,16 @@ class _VideoConferenceScreenState extends State<VideoConferenceScreen> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   ),
+                if (_connectionStatus.contains('Connecting') || _connectionStatus.contains('Calling'))
                   const SizedBox(width: 8),
-                  Text(
-                    _connectionStatus,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ],
-              ),
+                Text(
+                  _connectionStatus,
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ],
             ),
           ),
-
-        // Room ID display
-        if (_videoService.currentRoomId != null)
-          Positioned(
-            top: 16,
-            left: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.room, color: Colors.white, size: 16),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Room: ${_videoService.currentRoomId}',
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        ),
 
         // Control buttons
         Positioned(
@@ -385,28 +258,26 @@ class _VideoConferenceScreenState extends State<VideoConferenceScreen> {
             children: [
               _buildControlButton(
                 icon: _videoService.isMuted ? Icons.mic_off : Icons.mic,
-                onPressed: _videoService.toggleMute,
-                backgroundColor:
-                    _videoService.isMuted ? Colors.red : Colors.grey[700],
+                onPressed: () => setState(() => _videoService.toggleMute()), // Update UI on toggle
+                backgroundColor: _videoService.isMuted ? Colors.red : Colors.grey[700],
               ),
+              // Only show video toggle if it's a video call
+              if (widget.isVideoCall)
+                _buildControlButton(
+                  icon: _videoService.isVideoOff ? Icons.videocam_off : Icons.videocam,
+                  onPressed: () => setState(() => _videoService.toggleVideo()), // Update UI on toggle
+                  backgroundColor: _videoService.isVideoOff ? Colors.red : Colors.grey[700],
+                ),
+              // Only show switch camera if it's a video call
+              if (widget.isVideoCall)
+                _buildControlButton(
+                  icon: Icons.switch_camera,
+                  onPressed: _videoService.switchCamera,
+                  backgroundColor: Colors.grey[700],
+                ),
               _buildControlButton(
-                icon: _videoService.isVideoOff
-                    ? Icons.videocam_off
-                    : Icons.videocam,
-                onPressed: _videoService.toggleVideo,
-                backgroundColor:
-                    _videoService.isVideoOff ? Colors.red : Colors.grey[700],
-              ),
-              _buildControlButton(
-                icon: Icons.switch_camera,
-                onPressed: _videoService.switchCamera,
-                backgroundColor: Colors.grey[700],
-              ),
-              _buildControlButton(
-                icon: _videoService.isSpeakerOn
-                    ? Icons.volume_up
-                    : Icons.volume_off,
-                onPressed: _videoService.toggleSpeaker,
+                icon: _videoService.isSpeakerOn ? Icons.volume_up : Icons.volume_off,
+                onPressed: () => setState(() => _videoService.toggleSpeaker()), // Update UI on toggle
                 backgroundColor: Colors.grey[700],
               ),
               _buildControlButton(
@@ -441,9 +312,10 @@ class _VideoConferenceScreenState extends State<VideoConferenceScreen> {
 
   @override
   void dispose() {
+    // Only dispose renderers here. The _videoService is managed externally
+    // (in ContactsScreen) and will be disposed there.
     _localRenderer.dispose();
     _remoteRenderer.dispose();
-    _roomIdController.dispose();
     super.dispose();
   }
 }

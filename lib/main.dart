@@ -1,30 +1,16 @@
-// main.dart
+// lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:kapwa_companion/screens/chat_screen.dart';
-import 'package:kapwa_companion/screens/contacts_screen.dart';
-import 'package:kapwa_companion/screens/video_conference_screen.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:kapwa_companion/services/suggestion_service.dart';
-import 'firebase_options.dart';
-import 'package:logging/logging.dart';
+import 'package:kapwa_companion/screens/main_screen.dart';
+import 'package:kapwa_companion/screens/video_conference_screen.dart'; // Import VideoConferenceScreen
+import 'package:kapwa_companion/services/video_conference_service.dart'; // Import the service
+import 'package:logging/logging.dart'; // For logging
 
-final Logger _logger = Logger('main');
-
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  await SuggestionService.initializeDefaultSuggestions();
-
-  try {
-    await dotenv.load(fileName: ".env");
-  } catch (e) {
-    _logger.info(
-        "Warning: .env file not found or failed to load. This is expected in CI, relying on --dart-define or environment variables. Error: $e");
-  }
-
+void main() {
+  // Set up logging
+  Logger.root.level = Level.ALL; // defaults to Level.INFO
+  Logger.root.onRecord.listen((record) {
+    debugPrint('${record.level.name}: ${record.time}: ${record.message}');
+  });
   runApp(const MyApp());
 }
 
@@ -33,62 +19,38 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Create a single instance of DirectVideoCallService here to be shared
+    // This isn't the ideal pattern for larger apps (Provider, GetIt would be better)
+    // but for simplicity, we'll create it once and pass it down.
+    // It's crucial that it's initialized with a unique ID *before* it's used.
+    // For this example, we will initialize it in ContactsScreen.
+    final DirectVideoCallService _sharedVideoService = DirectVideoCallService();
+
     return MaterialApp(
       title: 'Kapwa Companion',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+        brightness: Brightness.dark, // Keep dark theme
       ),
-      home: const ChatScreen(), // Keep your existing home screen
-      // Add the routes configuration
+      initialRoute: '/',
       routes: {
-        '/chat': (context) => const ChatScreen(),
-        '/contacts': (context) => const ContactsScreen(),
-        '/video-conference': (context) => const VideoConferenceScreen(),
-      },
-      // Handle routes with arguments
-      onGenerateRoute: (settings) {
-        switch (settings.name) {
-          case '/video-conference':
-            final args = settings.arguments as Map<String, dynamic>?;
-            return MaterialPageRoute(
-              builder: (context) => VideoConferenceScreen(
-                roomId: args?['roomId'],
-              ),
-              settings: settings,
+        '/': (context) => const MainScreen(),
+        '/video-conference': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+          if (args == null || !args.containsKey('contactId') || !args.containsKey('isIncoming') || !args.containsKey('isVideoCall')) {
+            // Handle error or navigate back if arguments are missing
+            return const Scaffold(
+              body: Center(child: Text('Error: Call details missing.')),
             );
-          default:
-            return null;
-        }
-      },
-      // Add fallback for unknown routes
-      onUnknownRoute: (settings) {
-        return MaterialPageRoute(
-          builder: (context) => Scaffold(
-            appBar: AppBar(
-              title: const Text('Page Not Found'),
-            ),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Route "${settings.name}" not found',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () =>
-                        Navigator.pushReplacementNamed(context, '/'),
-                    child: const Text('Go Home'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
+          }
+          return VideoConferenceScreen(
+            contactId: args['contactId'] as String,
+            isIncoming: args['isIncoming'] as bool,
+            isVideoCall: args['isVideoCall'] as bool,
+            videoCallService: _sharedVideoService, // Pass the shared service instance
+          );
+        },
       },
     );
   }

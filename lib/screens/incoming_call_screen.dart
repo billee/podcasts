@@ -1,11 +1,22 @@
 // lib/screens/incoming_call_screen.dart
+import 'package:flutter/material.dart';
+import 'package:kapwa_companion/models/ofw_contact.dart'; // Ensure this model exists
+import 'package:kapwa_companion/screens/video_conference_screen.dart'; // Import VideoConferenceScreen
+import 'package:kapwa_companion/services/video_conference_service.dart'; // Import the new service
+import 'package:flutter_webrtc/flutter_webrtc.dart'; // For RTCSessionDescription
+
 class IncomingCallScreen extends StatelessWidget {
   final OFWContact caller;
   final bool isVideoCall;
+  final RTCSessionDescription sdpOffer; // The SDP offer from the caller
+  final DirectVideoCallService videoCallService; // The video service instance
 
   const IncomingCallScreen({
+    super.key,
     required this.caller,
     required this.isVideoCall,
+    required this.sdpOffer,
+    required this.videoCallService, // Pass the service here
   });
 
   @override
@@ -37,30 +48,30 @@ class IncomingCallScreen extends StatelessWidget {
                       : null,
                   child: caller.profileImage == null
                       ? Text(caller.name[0].toUpperCase(),
-                          style: TextStyle(fontSize: 40))
+                          style: const TextStyle(fontSize: 40, color: Colors.white))
                       : null,
                 ),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
                 Text(
                   caller.name,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
                   isVideoCall ? 'Incoming video call...' : 'Incoming call...',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 18,
                   ),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
-                  caller.specialization,
-                  style: TextStyle(
+                  caller.specialization.isNotEmpty ? caller.specialization : 'Unknown', // Display specialization if available
+                  style: const TextStyle(
                     color: Colors.white60,
                     fontSize: 14,
                   ),
@@ -79,21 +90,21 @@ class IncomingCallScreen extends StatelessWidget {
               children: [
                 // Decline button
                 Container(
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: Colors.red,
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
                     onPressed: () => _declineCall(context),
-                    icon: Icon(Icons.call_end, color: Colors.white),
+                    icon: const Icon(Icons.call_end, color: Colors.white),
                     iconSize: 35,
-                    padding: EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(20),
                   ),
                 ),
 
                 // Accept button
                 Container(
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: Colors.green,
                     shape: BoxShape.circle,
                   ),
@@ -104,7 +115,7 @@ class IncomingCallScreen extends StatelessWidget {
                       color: Colors.white,
                     ),
                     iconSize: 35,
-                    padding: EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(20),
                   ),
                 ),
               ],
@@ -115,20 +126,26 @@ class IncomingCallScreen extends StatelessWidget {
     );
   }
 
-  void _acceptCall(BuildContext context) {
+  void _acceptCall(BuildContext context) async {
+    // Call the service method to accept the incoming call
+    await videoCallService.acceptIncomingCall(sdpOffer, isVideoCall);
+
+    // Navigate to the VideoConferenceScreen
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) => VideoConferenceScreen(
-          contactId: caller.id,
-          isIncoming: true,
+          contactId: caller.id, // The ID of the person we are connecting with
+          isIncoming: true, // We are accepting an incoming call
+          isVideoCall: isVideoCall,
+          videoCallService: videoCallService, // Pass the service instance
         ),
       ),
     );
   }
 
   void _declineCall(BuildContext context) {
-    // Handle call decline
-    Navigator.pop(context);
+    videoCallService.declineCall(); // Call the service method to decline
+    Navigator.pop(context); // Pop this screen
   }
 }
