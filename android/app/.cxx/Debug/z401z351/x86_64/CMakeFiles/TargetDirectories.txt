@@ -1,0 +1,2 @@
+C:/Users/sanme/AndroidStudioProjects/kapwa_companion/android/app/.cxx/Debug/z401z351/x86_64/CMakeFiles/edit_cache.dir
+C:/Users/sanme/AndroidStudioProjects/kapwa_companion/android/app/.cxx/Debug/z401z351/x86_64/CMakeFiles/rebuild_cache.dir

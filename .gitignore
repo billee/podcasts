@@ -43,3 +43,19 @@ serviceAccountKey.json
 data_sources/
 audio_sources/
 story_sources/
+signaling_server/node_modules/
+
+# Android build outputs and intermediate files
+android/.gradle/
+android/.cxx/
+android/build/
+android/app/build/
+android/app/.cxx/ # Explicitly ignore the .cxx folder
+android/app/build/
+android/app/release/
+android/app/debug/
+*.apk
+*.aab
+local.properties # Contains SDK path, specific to your machine
+.idea/ # For Android Studio/IntelliJ IDEA
+.gradle/ # Gradle specific files
