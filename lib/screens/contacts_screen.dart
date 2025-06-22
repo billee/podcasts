@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 // import 'package:kapwa_companion/services/contact_service.dart'; // No longer needed
 import 'package:kapwa_companion/services/video_conference_service.dart'; // Import the new direct call service
 import 'package:kapwa_companion/screens/incoming_call_screen.dart'; // Import IncomingCallScreen
+import 'package:kapwa_companion/screens/video_conference_screen.dart'; // ADD THIS IMPORT
 import 'package:kapwa_companion/models/ofw_contact.dart'; // Still needed for IncomingCallScreen
 import 'package:flutter_webrtc/flutter_webrtc.dart'; // Needed for RTCSessionDescription
 
@@ -82,21 +83,25 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
     _videoService.onCallAccepted = (partnerId) {
       // Navigate to the video conference screen once the call is accepted
-      Navigator.pushReplacementNamed(
+      // Remove the current VideoConferenceScreen and replace with the connected one
+      Navigator.pushReplacement(
         context,
-        '/video-conference',
-        arguments: {
-          'contactId': partnerId, // The ID of the person we are calling
-          'isIncoming': false, // We initiated this call
-        },
+        MaterialPageRoute(
+          builder: (context) => VideoConferenceScreen(
+            contactId: partnerId,
+            isIncoming: false,
+            isVideoCall: true, // You might want to track this separately
+            videoCallService: _videoService,
+          ),
+        ),
       );
     };
 
     _videoService.onPartnerDisconnected = (disconnectedUserId) {
-        if (Navigator.canPop(context)) {
-            Navigator.pop(context); // Pop the VideoConferenceScreen if it's open
-        }
-        _showSnackBar('$disconnectedUserId disconnected.');
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context); // Pop the VideoConferenceScreen if it's open
+      }
+      _showSnackBar('$disconnectedUserId disconnected.');
     };
 
     _videoService.onError = (message) {
@@ -139,56 +144,56 @@ class _ContactsScreenState extends State<ContactsScreen> {
       ),
       body: _loading
           ? const Center(
-              child: CircularProgressIndicator(),
-            )
+        child: CircularProgressIndicator(),
+      )
           : _contacts.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No contacts yet\nTap + to add family members',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: _contacts.length,
-                  itemBuilder: (context, index) {
-                    final contact = _contacts[index];
-                    // Do not show current user in contacts list
-                    if (contact['id'] == _currentUserId) {
-                      return const SizedBox.shrink(); // Hide current user
-                    }
-                    return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.blue,
-                          child: Text(
-                            contact['name']![0].toUpperCase(),
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                        title: Text('${contact['name']!} (ID: ${contact['id']})'), // Show ID for debugging
-                        subtitle: Text(contact['phone']!),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.call, color: Colors.green),
-                              onPressed: () => _makeCall(contact, false), // Voice call
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.videocam, color: Colors.blue),
-                              onPressed: () => _makeCall(contact, true), // Video call
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+          ? const Center(
+        child: Text(
+          'No contacts yet\nTap + to add family members',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.grey,
+          ),
+        ),
+      )
+          : ListView.builder(
+        itemCount: _contacts.length,
+        itemBuilder: (context, index) {
+          final contact = _contacts[index];
+          // Do not show current user in contacts list
+          if (contact['id'] == _currentUserId) {
+            return const SizedBox.shrink(); // Hide current user
+          }
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.blue,
+                child: Text(
+                  contact['name']![0].toUpperCase(),
+                  style: const TextStyle(color: Colors.white),
                 ),
+              ),
+              title: Text('${contact['name']!} (ID: ${contact['id']})'), // Show ID for debugging
+              subtitle: Text(contact['phone']!),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.call, color: Colors.green),
+                    onPressed: () => _makeCall(contact, false), // Voice call
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.videocam, color: Colors.blue),
+                    onPressed: () => _makeCall(contact, true), // Video call
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddContactDialog,
         backgroundColor: Colors.blue,

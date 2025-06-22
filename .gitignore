@@ -59,3 +59,7 @@ android/app/debug/
 local.properties # Contains SDK path, specific to your machine
 .idea/ # For Android Studio/IntelliJ IDEA
 .gradle/ # Gradle specific files
+
+anaconda_projects/
+*.ipynb
+

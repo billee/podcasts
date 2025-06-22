@@ -21,8 +21,8 @@ class DirectVideoCallService {
   String? _targetUserId; // The ID of the user being called or who called us
 
   // Callbacks for UI updates
-  Function(MediaStream)? onLocalStream;
-  Function(MediaStream)? onRemoteStream;
+  Function(MediaStream?)? onLocalStream;
+  Function(MediaStream?)? onRemoteStream;
   Function(bool)? onConnectionStateChanged;
   Function(String, String, bool, RTCSessionDescription)? onIncomingCall; // Added sdpOffer
   Function(String)? onError;
@@ -90,7 +90,7 @@ class DirectVideoCallService {
 
     _socket!.on('error', (data) {
       _logger.severe('Signaling error from server: $data');
-      onError?.call('Signaling error: $data['message']');
+      onError?.call('Signaling error: ${data['message']}');
     });
 
     // --- Direct Call Specific Events ---
@@ -429,13 +429,13 @@ class DirectVideoCallService {
       _localStream!.getTracks().forEach((track) => track.dispose());
       await _localStream!.dispose();
       _localStream = null;
-      onLocalStream?.call(MediaStream(null, [], '', '')); // Clear local stream in UI
+      onLocalStream?.call(null); // Now this will work
     }
     if (_remoteStream != null) {
       _remoteStream!.getTracks().forEach((track) => track.dispose());
       await _remoteStream!.dispose();
       _remoteStream = null;
-      onRemoteStream?.call(MediaStream(null, [], '', '')); // Clear remote stream in UI
+      onRemoteStream?.call(null); // Now this will work
     }
     if (_peerConnection != null) {
       await _peerConnection!.close();
@@ -445,7 +445,7 @@ class DirectVideoCallService {
     _isIncomingCall = false;
     _isMuted = false;
     _isVideoOff = false;
-    onConnectionStateChanged?.call(false); // Indicate disconnected
+    onConnectionStateChanged?.call(false);
   }
 
   void dispose() {

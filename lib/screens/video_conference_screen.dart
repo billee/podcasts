@@ -77,7 +77,7 @@ class _VideoConferenceScreenState extends State<VideoConferenceScreen> {
         _connectionStatus = isConnected ? 'Connected with ${widget.contactId}' : 'Connecting...';
       });
       // If connected, ensure the speaker is on for the remote audio
-      if (isConnected) {
+      if (isConnected && !_videoService.isSpeakerOn) {
         _videoService.toggleSpeaker(); // Ensure speaker is on when connected
       }
     };
@@ -169,26 +169,26 @@ class _VideoConferenceScreenState extends State<VideoConferenceScreen> {
         // Remote video (full screen) - Only show if video call and remote stream available
         widget.isVideoCall && _remoteRenderer.srcObject != null
             ? RTCVideoView(_remoteRenderer,
-                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover)
+            objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover)
             : Container(
-                color: Colors.grey[800],
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(widget.isVideoCall ? Icons.person : Icons.call, size: 80, color: Colors.white54),
-                      const SizedBox(height: 16),
-                      Text(
-                        _connectionStatus, // Show actual connection status
-                        style: const TextStyle(color: Colors.white70, fontSize: 16),
-                      ),
-                      const SizedBox(height: 8),
-                      if (!widget.isVideoCall) // Show voice call icon if it's a voice call
-                        const Icon(Icons.mic, size: 40, color: Colors.white54),
-                    ],
-                  ),
+          color: Colors.grey[800],
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(widget.isVideoCall ? Icons.person : Icons.call, size: 80, color: Colors.white54),
+                const SizedBox(height: 16),
+                Text(
+                  _connectionStatus, // Show actual connection status
+                  style: const TextStyle(color: Colors.white70, fontSize: 16),
                 ),
-              ),
+                const SizedBox(height: 8),
+                if (!widget.isVideoCall) // Show voice call icon if it's a voice call
+                  const Icon(Icons.mic, size: 40, color: Colors.white54),
+              ],
+            ),
+          ),
+        ),
 
         // Local video (picture-in-picture) - Only show if video call
         if (widget.isVideoCall)
@@ -207,10 +207,10 @@ class _VideoConferenceScreenState extends State<VideoConferenceScreen> {
                 child: _localRenderer.srcObject != null
                     ? RTCVideoView(_localRenderer, mirror: true)
                     : Container(
-                        color: Colors.grey[700],
-                        child:
-                            const Icon(Icons.videocam_off, color: Colors.white54),
-                      ),
+                  color: Colors.grey[700],
+                  child:
+                  const Icon(Icons.videocam_off, color: Colors.white54),
+                ),
               ),
             ),
           ),
