@@ -68,6 +68,7 @@ class DirectVideoCallService {
 
     _socket!.onConnect((_) {
       _logger.info('Connected to signaling server.');
+      _socket!.emit('register', _currentUserId);
       onConnectionStateChanged?.call(false); // Indicate connecting
     });
 
