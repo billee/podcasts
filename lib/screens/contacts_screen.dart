@@ -28,7 +28,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
   // For example, on Phone A, set 'phone1_user_id', on Phone B set 'phone2_user_id'.
   // Make sure these IDs are unique and known to each other for calling.
   // For demonstration, let's assume a static ID for now, which you should change.
-  final String _currentUserId = 'user_id_1'; // <<< CHANGE THIS FOR EACH DEVICE
+  final String _currentUserId = 'user_id_2'; // <<< CHANGE THIS FOR EACH DEVICE
 
   @override
   void initState() {
@@ -48,7 +48,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
     // For now, load some dummy contacts. In a real app, you'd fetch these from a database.
     setState(() {
       _contacts = [
-        {'id': 'user_id_2', 'name': 'Family Member 1', 'phone': '123-456-7890'},
+        {'id': 'user_id_2', 'name': 'Family Member 1', 'phone': '416-898-1292'},
         {'id': 'user_id_3', 'name': 'Family Member 2', 'phone': '098-765-4321'},
         // Add more contacts here, ensuring their 'id' matches the 'userId'
         // that another testing device will be using for its _currentUserId.

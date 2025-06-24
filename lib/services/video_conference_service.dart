@@ -7,7 +7,8 @@ import 'package:logging/logging.dart';
 
 // You will need to replace this with your deployed signaling server URL
 // For example: 'https://your-signaling-server.render.com/'
-const String _SIGNALING_SERVER_URL = 'http://localhost:3000'; // Placeholder, replace this!
+// const String _SIGNALING_SERVER_URL = 'http://localhost:3000'; // Placeholder, replace this!
+const String _SIGNALING_SERVER_URL = 'https://kapwa-signaling-server.onrender.com';
 
 class DirectVideoCallService {
   final Logger _logger = Logger('DirectVideoCallService');
