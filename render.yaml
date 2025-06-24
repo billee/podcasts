@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: kapwa-rag-server
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python rag_server.py
+    envVars:
+      - key: PORT
+        value: 10000
+    disk:
+      name: chroma-data
+      mountPath: /opt/render/project/src/chroma_db
+      sizeGB: 10

@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
 import re
+import os
 import chromadb
 from chromadb.utils import embedding_functions
 import logging
@@ -14,7 +15,7 @@ from seallm_generator import generate_seallm_response
 import tiktoken # <--- ADD THIS IMPORT for token counting
 from scoring_utils import filter_results_by_score
 
-
+PORT = int(os.environ.get('PORT', 5000))
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST"], "allow_headers": ["*"]}})
@@ -36,6 +37,7 @@ CHROMA_DB_PATH = "./chroma_db"
 MODEL = "gpt-4o-mini"
 SUMMARIZE_THRESHOLD_TOKENS = 2000
 SCORE_THRESHOLD = 0.15
+CHROMA_DB_PATH = os.environ.get('CHROMA_DB_PATH', './chroma_db')
 
 
 # Global variable for the collection - Initialize to None
@@ -528,5 +530,6 @@ def handle_query():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
+    # app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
+    app.run(host='0.0.0.0', port=PORT, debug=False, threaded=True)
 
