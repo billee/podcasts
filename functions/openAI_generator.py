@@ -1,10 +1,15 @@
 # openai_generator.py
 import openai
-from dotenv import load_dotenv
-load_dotenv()
 import os
 import logging
 import json
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available, use environment variables directly
+    pass
 
 # Set up basic logging for this module
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
