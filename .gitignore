@@ -33,10 +33,9 @@ Thumbs.db
 .env
 .env.prod
 
-# ignore chroma
-chroma_db/
-*bin
-chroma_db/chroma.sqlite3
+
+# *bin
+
 kapwa/
 devtools_options.yaml
 serviceAccountKey.json
