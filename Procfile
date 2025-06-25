@@ -1,1 +1,1 @@
-web: gunicorn functions.rag_server:app --host 0.0.0.0 --port $PORT
+web: gunicorn functions.rag_server:app --bind 0.0.0.0:$PORT
