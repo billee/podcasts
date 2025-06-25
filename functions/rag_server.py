@@ -1,10 +1,13 @@
 # rag_server.py
+import sys
+import os
+# Add the current directory to Python path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
 import re
-import os
 import chromadb
 from chromadb.utils import embedding_functions
 import logging
