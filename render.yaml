@@ -7,3 +7,6 @@ services:
     envVars:
       - key: CHROMA_DB_PATH
         value: /opt/render/project/src/kapwa_companion/chroma_db
+      - key: OPENAI_API_KEY
+        sync: false
+
