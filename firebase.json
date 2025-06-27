@@ -12,20 +12,22 @@
         "source": "**",
         "destination": "/index.html"
       }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          }
+        ]
+      }
     ]
   },
   "firestore": {
     "database": "(default)",
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
-  },
-  "functions": {
-    "source": "functions",
-    "runtime": "python310",
-    "ignore": [
-      ".git",
-      "venv",
-      "__pycache__"
-    ]
   }
 }

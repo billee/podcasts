@@ -1,25 +1,19 @@
 // lib/screens/chat_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+//import 'package:flutter_dotenv/flutter_dotenv.dart'; // Keep if you use other .env vars
 import 'package:http/http.dart' as http;
 import 'package:kapwa_companion/screens/video_conference_screen.dart';
-import 'package:kapwa_companion/services/video_conference_service.dart';
 import 'dart:convert';
 import 'dart:async'; // Import for TimeoutException
-import 'package:kapwa_companion/services/suggestion_service.dart'; 
+import 'package:kapwa_companion/services/suggestion_service.dart'; // Keep this import!
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion/widgets/audio_player_widget.dart';
 import 'package:kapwa_companion/services/audio_service.dart';
 import 'package:kapwa_companion/screens/contacts_screen.dart';
-import 'package:kapwa_companion/services/system_prompt_service.dart';
 
 class ChatScreen extends StatefulWidget {
-  final DirectVideoCallService videoService;
-  const ChatScreen({
-    super.key,
-    required this.videoService,
-  });
+  const ChatScreen({super.key});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -28,26 +22,16 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final Logger _logger = Logger('ChatScreen');
   final TextEditingController _messageController = TextEditingController();
-  final List<Map<String, dynamic>> _messages =[]; 
-  final List<Map<String, String>> _chatHistory = [];
-
-  // Define your system prompt variables here
-  final String _assistantName = "Tita Ai";
-  final String _userName = "Hilda";
-  final int _userAge = 26;
-  final String _userOccupation = "caregiver";
-  final String _workLocation = "Hong Kong";
-  final String _userEducation = "high school graduate";
-  final String _maritalStatus = "married";
-  final int _numberOfChildren = 2;
-  final String _childrenLocation = "Philippines";
-
-
+  final List<Map<String, dynamic>> _messages =
+      []; // Stores messages for display
 
   // Keep suggestion-related fields:
   List<String> _allSuggestions = [];
   List<String> _currentSuggestions = [];
   bool _suggestionsLoading = true;
+
+  // final List<Map<String, String>> _chatHistory = [];
+  // static const String _ragServerUrl = 'http://localhost:5000/query';
 
   @override
   void initState() {
@@ -120,88 +104,145 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages.add({"role": "user", "content": message});
       _messages.add({"role": "assistant", "content": "Generating response..."});
       _messageController.clear();
+      // Keep suggestion refresh:
+      // _refreshSuggestions(); // Refresh suggestions after sending a message
     });
 
-    _chatHistory.add({"role": "user", "content": message});
+    final llmResponse = await _callLLM(message);
 
-    try {
-      final response = await _callLLM(message);
-      
-      _chatHistory.add({"role": "assistant", "content": response});
-
-      setState(() {
-        _messages.removeLast();
-        _messages.add({"role": "assistant", "content": response});
-      });
-    } catch (e) {
-      setState(() {
-        _messages.removeLast();
-        _messages.add({
-          "role": "assistant", 
-          "content": "Error: ${e.toString()}"
-        });
-      });
-    }
+    // Add a loading message to display
+    setState(() {
+      _messages.removeLast();
+      _messages.add({"role": "assistant", "content": llmResponse});
+    });
   }
 
   Future<String> _callLLM(String message) async {
-    try {
-      await dotenv.load(fileName: '.env');
-      final apiKey = dotenv.env['OPENAI_API_KEY'] ?? '';
-      
-      if (apiKey.isEmpty) {
-        throw 'API key not configured';
-      }
-
-      List<Map<String, String>> messages = [];
-      
-      // Add system message for context (optional)
-      messages.add({
-        "role": "system", 
-        "content": SystemPromptService.getSystemPrompt(
-          assistantName: _assistantName,
-          userName: _userName,
-          userAge: _userAge,
-          userOccupation: _userOccupation,
-          workLocation: _workLocation,
-          userEducation: _userEducation,
-          maritalStatus: _maritalStatus,
-          numberOfChildren: _numberOfChildren,
-          childrenLocation: _childrenLocation,
-        ),
-      });
-      
-      // Add chat history (keep last 10 exchanges to avoid token limits)
-      if (_chatHistory.length > 20) {
-        messages.addAll(_chatHistory.sublist(_chatHistory.length - 20));
-      } else {
-        messages.addAll(_chatHistory);
-      }
-
-
-      final response = await http.post(
-        Uri.parse('https://api.openai.com/v1/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Content-Type': 'application/json'
-        },
-        body: jsonEncode({
-          "model": "gpt-4.1-nano",
-          "messages": messages,
-          "max_tokens": 500,
-        }),
-      ).timeout(const Duration(seconds: 30)); // Add timeout
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body)['choices'][0]['message']['content'];
-      } else {
-        throw 'API Error: ${response.statusCode} - ${response.body}';
-      }
-    } catch (e) {
-      _logger.severe('LLM Error: $e');
-      return "Sorry, I couldn't process that. Please try again later.";
-    }
+    // Implement direct API call to OpenAI/SealLM
+    // Example using OpenAI:
+    final response = await http.post(
+      Uri.parse('https://api.openai.com/v1/chat/completions'),
+      headers: {
+        'Authorization': 'Bearer YOUR_OPENAI_KEY',
+        'Content-Type': 'application/json'
+      },
+      body: jsonEncode({
+        "model": "gpt-4o-nano",
+        "messages": [{"role": "user", "content": message}]
+      }),
+    );
+    return jsonDecode(response.body)['choices'][0]['message']['content'];
   }
+
+  // String aiResponseContent;
+
+  //   try {
+  //     _logger.info(
+  //         "ChatScreen: Calling RAG server at $_ragServerUrl with query: $message");
+  //     final http.Response response = await http
+  //         .post(
+  //           Uri.parse(_ragServerUrl),
+  //           headers: {'Content-Type': 'application/json'},
+  //           body: jsonEncode({
+  //             'query': message, // Use the current message as the query
+  //             'chat_history': _chatHistory, // Pass the entire chat history
+  //           }),
+  //         )
+  //         .timeout(const Duration(
+  //             seconds:
+  //                 120)); // Set a reasonable timeout for the entire RAG + LLM process
+
+  //     if (response.statusCode == 200) {
+  //       final data = jsonDecode(utf8.decode(response.bodyBytes));
+  //       final List<dynamic> results = data['results'];
+
+  //       if (results.isNotEmpty && results[0].containsKey('content')) {
+  //         aiResponseContent = results[0]['content'];
+  //       } else {
+  //         _logger.info(
+  //             'ChatScreen: RAG server response missing expected content: $data');
+  //         aiResponseContent =
+  //             "Sorry, bro. The RAG server didn't provide a complete answer.";
+  //       }
+
+  //       if (data.containsKey('updated_chat_history') &&
+  //           data['updated_chat_history'] is List) {
+  //         // IMPORTANT: Replace the entire _chatHistory with the one provided by the server
+  //         _chatHistory.clear(); // Clear existing history
+  //         for (var item in data['updated_chat_history']) {
+  //           if (item is Map<String, dynamic> &&
+  //               item.containsKey('role') &&
+  //               item.containsKey('content')) {
+  //             _chatHistory.add({
+  //               "role": item['role'] as String,
+  //               "content": item['content'] as String
+  //             });
+  //           }
+  //         }
+  //         _logger
+  //             .info("ChatScreen: _chatHistory updated from server response.");
+  //       } else {
+  //         _logger.info(
+  //             "ChatScreen: Server did not return 'updated_chat_history'. Appending only AI response to local history.");
+  //         _chatHistory.add({
+  //           "role": "user",
+  //           "content": message
+  //         }); // Re-add user message if history not returned
+  //         _chatHistory.add({"role": "assistant", "content": aiResponseContent});
+  //       }
+  //     } else {
+  //       _logger.info(
+  //           'ChatScreen: RAG Server error ${response.statusCode}: ${response.body}');
+  //       String errorMessage = "Unknown server error.";
+  //       try {
+  //         final errorData = jsonDecode(utf8.decode(response.bodyBytes));
+  //         if (errorData.containsKey('results') &&
+  //             errorData['results'] is List &&
+  //             errorData['results'].isNotEmpty &&
+  //             errorData['results'][0].containsKey('content')) {
+  //           errorMessage = errorData['results'][0]['content'];
+  //         } else if (errorData.containsKey('error')) {
+  //           errorMessage = errorData['error'];
+  //         } else if (errorData.containsKey('message')) {
+  //           errorMessage = errorData['message'];
+  //         }
+  //       } catch (e) {
+  //         _logger.info(
+  //             "ChatScreen: Could not parse RAG server error response: $e");
+  //       }
+  //       aiResponseContent =
+  //           "Sorry, bro. There was an error from the RAG server (${response.statusCode}): $errorMessage. Please try again.";
+  //     }
+
+  //     // Remove loading message and add AI response to display and chat history
+  //     setState(() {
+  //       _messages.removeLast(); // Remove loading message
+  //       _messages.add({"role": "assistant", "content": aiResponseContent});
+  //       //_chatHistory.add({"role": "assistant", "content": aiResponseContent});
+  //     });
+  //   } on TimeoutException {
+  //     _logger.info("ChatScreen: Request to RAG server timed out.");
+  //     setState(() {
+  //       _messages.removeLast();
+  //       _messages.add({
+  //         "role": "assistant",
+  //         "content":
+  //             "Sorry, bro. The server took too long to respond. Please try again later."
+  //       });
+  //     });
+  //   } catch (e) {
+  //     _logger.info(
+  //         "ChatScreen: Fatal error when generating response from RAG server: $e");
+  //     setState(() {
+  //       _messages.removeLast(); // Remove loading message
+  //       _messages.add({
+  //         "role": "assistant",
+  //         "content":
+  //             "Sorry, bro. There was a problem getting the answer. Please check your connection or server status."
+  //       });
+  //     });
+  //   }
+  // }
 
   // Restore suggestion tap handler:
   void _handleSuggestionTap(String suggestion) {
@@ -217,28 +258,21 @@ class _ChatScreenState extends State<ChatScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.clear_all),
-            onPressed: _clearChatHistory,
-            tooltip: 'Clear Chat',
-          ),       
-          IconButton(
-            icon: const Icon(Icons.contacts),
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ContactsScreen(
-                    videoService: widget.videoService,
-                  ),
+                  builder: (context) => const ContactsScreen(),
                 ),
               );
             },
+            icon: const Icon(Icons.contacts),
             tooltip: 'OFW',
           ),
         ],
       ),
       body: Container(
-        color: Colors.grey[850],
+        color: Colors.grey[850], // Dark background for the chat screen
         child: Column(
           children: [
             Expanded(
@@ -254,11 +288,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 },
               ),
             ),
-            _buildSuggestionChips(),
+            // Restore _buildSuggestionChips() here:
+            _buildSuggestionChips(), // Display suggestions below the chat messages
             const AudioPlayerWidget(),
-            _buildMessageInput(),
+            _buildMessageInput(), // Input field at the bottom
             _buildDisclaimer(),
-            
           ],
         ),
       ),
@@ -270,14 +304,6 @@ class _ChatScreenState extends State<ChatScreen> {
     AudioService().dispose();
     super.dispose();
   }
-
-  void _clearChatHistory() {
-    setState(() {
-      _messages.clear();
-      _chatHistory.clear();
-    });
-  }
-
 
   // Restore _buildSuggestionChips() widget definition:
   Widget _buildSuggestionChips() {

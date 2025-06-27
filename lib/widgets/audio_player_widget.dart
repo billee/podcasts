@@ -32,7 +32,19 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     });
   }
 
+  void _debugAudioState() {
+    print('Current audio path: ${_audioService.currentAudioPath}');
+    print('Audio files: ${_audioService.currentAudioFiles}');
+    print('Is playing: ${_audioService.isPlaying}');
+    print('Audio loading: ${_audioService.audioLoading}');
+  }
+
+
   void _handleAudioTap(String audioPath) {
+    _debugAudioState();
+
+    print('Audio tap: $audioPath');
+
     if (_audioService.currentAudioPath == audioPath &&
         _audioService.isPlaying) {
       _audioService.pauseAudio();

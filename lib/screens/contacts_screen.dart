@@ -9,7 +9,11 @@ import 'package:kapwa_companion/models/ofw_contact.dart'; // Still needed for In
 import 'package:flutter_webrtc/flutter_webrtc.dart'; // Needed for RTCSessionDescription
 
 class ContactsScreen extends StatefulWidget {
-  const ContactsScreen({super.key});
+  final DirectVideoCallService videoService;
+  const ContactsScreen({
+    super.key,
+    required this.videoService,
+  });
 
   @override
   State<ContactsScreen> createState() => _ContactsScreenState();
