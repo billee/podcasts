@@ -21,16 +21,33 @@ jobs:
         with:
           flutter-version: '3.29.3'
           
+      - name: Prepare CI Environment
+        run: |
+          # Create minimal required assets
+          mkdir -p assets/audio_sources
+          touch assets/audio_sources/.keep
+          touch .env
+          
+          # Modify pubspec.yaml for CI
+          sed -i '/assets\/audio_sources/d' pubspec.yaml
+          sed -i '/\.env/d' pubspec.yaml
+          echo "  # CI-placeholder assets" >> pubspec.yaml
+          echo "  - assets/audio_sources/.keep" >> pubspec.yaml
+          
       - name: Install Dependencies
         run: flutter pub get
         
-      - name: Build Web (with secrets)
+      - name: Build Web
         run: |
           flutter build web --release \
             --dart-define=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
-            --dart-define=ASSETS_AUDIO_ENABLED=false
+            --dart-define=CI_ENVIRONMENT=true
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
           
       - name: Deploy to Firebase
-        run: firebase deploy --token "${{ secrets.FIREBASE_TOKEN }}" --project kapwa-companion-basic --only hosting
+        run: |
+          firebase deploy \
+            --token "${{ secrets.FIREBASE_TOKEN }}" \
+            --project kapwa-companion-basic \
+            --only hosting
