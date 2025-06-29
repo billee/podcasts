@@ -14,7 +14,7 @@ import 'package:kapwa_companion_basic/services/audio_service.dart';
 import 'package:kapwa_companion_basic/screens/contacts_screen.dart';
 import 'package:kapwa_companion_basic/services/system_prompt_service.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
-import './../../core/config.dart';
+import 'package:kapwa_companion_basic/core/config.dart';
 
 class ChatScreen extends StatefulWidget {
   final DirectVideoCallService videoService;

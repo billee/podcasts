@@ -3,6 +3,7 @@ import 'package:kapwa_companion_basic/screens/chat_screen.dart';
 import 'package:kapwa_companion_basic/screens/contacts_screen.dart';
 import 'package:kapwa_companion_basic/screens/profile_screen.dart';
 import 'package:kapwa_companion_basic/services/video_conference_service.dart';
+import 'package:kapwa_companion_basic/core/config.dart';
 
 class MainScreen extends StatefulWidget {
   final DirectVideoCallService videoService;
