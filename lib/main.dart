@@ -7,7 +7,7 @@ import 'package:kapwa_companion/screens/auth/auth_wrapper.dart'; // We'll create
 import 'package:kapwa_companion/services/video_conference_service.dart';
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion/screens/auth/login_screen.dart';
-import 'package:kapwa_companion/core/config.dart';
+import './core/config.dart';
 
 void main() async {
   // Mobile-specific initialization
