@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:kapwa_companion/screens/auth/signup_screen.dart';
-import 'package:kapwa_companion/services/auth_service.dart';
+import 'package:kapwa_companion_basic/screens/auth/signup_screen.dart';
+import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:logging/logging.dart';
 
 class LoginScreen extends StatefulWidget {

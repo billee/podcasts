@@ -1,7 +1,7 @@
 // lib/widgets/audio_player_widget.dart
 
 import 'package:flutter/material.dart';
-import 'package:kapwa_companion/services/audio_service.dart';
+import 'package:kapwa_companion_basic/services/audio_service.dart';
 //import 'package:logging/logging.dart';
 
 class AudioPlayerWidget extends StatefulWidget {

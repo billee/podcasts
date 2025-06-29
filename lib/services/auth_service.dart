@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logging/logging.dart';
-import 'package:kapwa_companion/models/user.dart';
+import 'package:kapwa_companion_basic/models/user.dart';
 
 class AuthService {
   static final Logger _logger = Logger('AuthService');

@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'package:kapwa_companion/screens/main_screen.dart';
-import 'package:kapwa_companion/screens/auth/auth_wrapper.dart'; // We'll create this next
-import 'package:kapwa_companion/services/video_conference_service.dart';
+import 'package:kapwa_companion_basic/screens/main_screen.dart';
+import 'package:kapwa_companion_basic/screens/auth/auth_wrapper.dart'; // We'll create this next
+import 'package:kapwa_companion_basic/services/video_conference_service.dart';
 import 'package:logging/logging.dart';
-import 'package:kapwa_companion/screens/auth/login_screen.dart';
-import './../core/config.dart';
+import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
+import 'package:kapwa_companion_basic/core/config.dart';
 
 void main() async {
   // Mobile-specific initialization

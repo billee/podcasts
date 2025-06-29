@@ -1,8 +1,8 @@
 // lib/screens/incoming_call_screen.dart
 import 'package:flutter/material.dart';
-import 'package:kapwa_companion/models/ofw_contact.dart'; // Ensure this model exists
-import 'package:kapwa_companion/screens/video_conference_screen.dart'; // Import VideoConferenceScreen
-import 'package:kapwa_companion/services/video_conference_service.dart'; // Import the new service
+import 'package:kapwa_companion_basic/models/ofw_contact.dart'; // Ensure this model exists
+import 'package:kapwa_companion_basic/screens/video_conference_screen.dart'; // Import VideoConferenceScreen
+import 'package:kapwa_companion_basic/services/video_conference_service.dart'; // Import the new service
 import 'package:flutter_webrtc/flutter_webrtc.dart'; // For RTCSessionDescription
 
 class IncomingCallScreen extends StatelessWidget {

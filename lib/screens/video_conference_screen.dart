@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Needed for Clipboard
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:kapwa_companion/services/video_conference_service.dart'; // Import the new direct call service
+import 'package:kapwa_companion_basic/services/video_conference_service.dart'; // Import the new direct call service
 //import 'package:logging/logging.dart'; // Uncomment if you use logging within this file
 
 class VideoConferenceScreen extends StatefulWidget {

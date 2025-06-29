@@ -3,17 +3,17 @@
 import 'package:flutter/material.dart';
 // import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
-import 'package:kapwa_companion/screens/video_conference_screen.dart';
-import 'package:kapwa_companion/services/video_conference_service.dart';
+import 'package:kapwa_companion_basic/screens/video_conference_screen.dart';
+import 'package:kapwa_companion_basic/services/video_conference_service.dart';
 import 'dart:convert';
 import 'dart:async'; // Import for TimeoutException
-import 'package:kapwa_companion/services/suggestion_service.dart'; 
+import 'package:kapwa_companion_basic/services/suggestion_service.dart'; 
 import 'package:logging/logging.dart';
-import 'package:kapwa_companion/widgets/audio_player_widget.dart';
-import 'package:kapwa_companion/services/audio_service.dart';
-import 'package:kapwa_companion/screens/contacts_screen.dart';
-import 'package:kapwa_companion/services/system_prompt_service.dart';
-import 'package:kapwa_companion/services/auth_service.dart';
+import 'package:kapwa_companion_basic/widgets/audio_player_widget.dart';
+import 'package:kapwa_companion_basic/services/audio_service.dart';
+import 'package:kapwa_companion_basic/screens/contacts_screen.dart';
+import 'package:kapwa_companion_basic/services/system_prompt_service.dart';
+import 'package:kapwa_companion_basic/services/auth_service.dart';
 import './../../core/config.dart';
 
 class ChatScreen extends StatefulWidget {

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:kapwa_companion/screens/main_screen.dart';
-import 'package:kapwa_companion/screens/auth/login_screen.dart';
-import 'package:kapwa_companion/services/video_conference_service.dart';
-import 'package:kapwa_companion/services/auth_service.dart'; // Add this import
+import 'package:kapwa_companion_basic/screens/main_screen.dart';
+import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
+import 'package:kapwa_companion_basic/services/video_conference_service.dart';
+import 'package:kapwa_companion_basic/services/auth_service.dart'; // Add this import
 
 class AuthWrapper extends StatefulWidget { // Changed from StatelessWidget to StatefulWidget
   final DirectVideoCallService videoService;

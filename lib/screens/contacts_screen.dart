@@ -1,11 +1,11 @@
 // lib/screens/contacts_screen.dart
 import 'package:flutter/material.dart';
-// import 'package:kapwa_companion/models/ofw_contact.dart'; // No longer strictly needed for this simplified version
-// import 'package:kapwa_companion/services/contact_service.dart'; // No longer needed
-import 'package:kapwa_companion/services/video_conference_service.dart'; // Import the new direct call service
-import 'package:kapwa_companion/screens/incoming_call_screen.dart'; // Import IncomingCallScreen
-import 'package:kapwa_companion/screens/video_conference_screen.dart'; // ADD THIS IMPORT
-import 'package:kapwa_companion/models/ofw_contact.dart'; // Still needed for IncomingCallScreen
+// import 'package:kapwa_companion_basic/models/ofw_contact.dart'; // No longer strictly needed for this simplified version
+// import 'package:kapwa_companion_basic/services/contact_service.dart'; // No longer needed
+import 'package:kapwa_companion_basic/services/video_conference_service.dart'; // Import the new direct call service
+import 'package:kapwa_companion_basic/screens/incoming_call_screen.dart'; // Import IncomingCallScreen
+import 'package:kapwa_companion_basic/screens/video_conference_screen.dart'; // ADD THIS IMPORT
+import 'package:kapwa_companion_basic/models/ofw_contact.dart'; // Still needed for IncomingCallScreen
 import 'package:flutter_webrtc/flutter_webrtc.dart'; // Needed for RTCSessionDescription
 
 class ContactsScreen extends StatefulWidget {

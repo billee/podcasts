@@ -1,6 +1,6 @@
 // lib/services/contact_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:kapwa_companion/models/ofw_contact.dart';
+import 'package:kapwa_companion_basic/models/ofw_contact.dart';
 
 class ContactService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
