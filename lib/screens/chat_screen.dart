@@ -206,7 +206,8 @@ class _ChatScreenState extends State<ChatScreen> {
           'Content-Type': 'application/json'
         },
         body: jsonEncode({
-          "model": "gpt-4.1-nano",
+          //"model": "gpt-4.1-nano",
+          "model": "",
           "messages": messages,
           "max_tokens": 500,
         }),
