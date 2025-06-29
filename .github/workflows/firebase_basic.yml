@@ -8,6 +8,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Verify Firebase Project
+        run: |
+          firebase use --project kapwa-companion-basic
+          firebase target:apply hosting prod kapwa-companion-basic
+          
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
