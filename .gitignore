@@ -17,6 +17,8 @@ android/local.properties
 android/key.properties
 ios/Runner/GoogleService-Info.plist
 ios/Runner/GeneratedPluginRegistrant.*
+android/app/google-services.json
+
 
 # IDE
 .idea/
@@ -31,7 +33,9 @@ Thumbs.db
 
 # Environment
 .env
-.env.prod
+.env.local
+.env.production
+.env.development
 *.env
 
 # *bin

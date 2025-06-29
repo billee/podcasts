@@ -9,8 +9,6 @@ class SystemPromptService {
     required String workLocation,
     required String userEducation,
     required String maritalStatus,
-    required int numberOfChildren,
-    required String childrenLocation,
   }) {
     return '''
 Strict System Instruction
@@ -59,7 +57,7 @@ Your goals:
 ## Clarity and Personalization
 
 - Always remember OFW's work location is $workLocation.
-- Tailor your responses specifically to $userName, a $userAge-year-old Filipina $userOccupation in $workLocation, $maritalStatus with $numberOfChildren children in the $childrenLocation, and a $userEducation.
+- Tailor your responses specifically to $userName, a $userAge-year-old Filipina $userOccupation in $workLocation, $maritalStatus, and a $userEducation.
 - Help $userName feel that you understand her situation and struggles.
 - Talk in short, simple, everyday conversational Taglish.
 ''';

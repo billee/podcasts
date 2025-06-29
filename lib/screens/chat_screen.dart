@@ -13,6 +13,7 @@ import 'package:kapwa_companion/widgets/audio_player_widget.dart';
 import 'package:kapwa_companion/services/audio_service.dart';
 import 'package:kapwa_companion/screens/contacts_screen.dart';
 import 'package:kapwa_companion/services/system_prompt_service.dart';
+import 'package:kapwa_companion/services/auth_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final DirectVideoCallService videoService;
@@ -32,17 +33,15 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<Map<String, String>> _chatHistory = [];
 
   // Define your system prompt variables here
-  final String _assistantName = "Tita Ai";
-  final String _userName = "Hilda";
-  final int _userAge = 26;
-  final String _userOccupation = "caregiver";
-  final String _workLocation = "Hong Kong";
-  final String _userEducation = "high school graduate";
-  final String _maritalStatus = "married";
-  final int _numberOfChildren = 2;
-  final String _childrenLocation = "Philippines";
+  String _assistantName = "Tita Ai";
+  String _userName = "Hilda";
+  int _userAge = 26;
+  String _userOccupation = "caregiver";
+  String _workLocation = "Hong Kong";
+  String _userEducation = "high school graduate";
+  String _maritalStatus = "married";
 
-
+  bool _profileLoaded = false;
 
   // Keep suggestion-related fields:
   List<String> _allSuggestions = [];
@@ -52,6 +51,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+     _loadUserProfile();
     // Keep suggestion loading:
     _loadSuggestions();
     AudioService().initialize();
@@ -144,6 +144,25 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _loadUserProfile() async {
+    try {
+      final userProfile = await AuthService.getCurrentUserProfile();
+      if (userProfile != null && mounted) {
+        setState(() {
+          _userName = userProfile['name'] ?? 'User';
+          _userAge = (DateTime.now().year - (userProfile['birthYear'] ?? DateTime.now().year - 25)).toInt();
+          _userOccupation = userProfile['occupation'] ?? 'worker';
+          _workLocation = userProfile['workLocation'] ?? '';
+          _userEducation = userProfile['educationalAttainment'] ?? '';
+          _maritalStatus = userProfile['isMarried'] == true ? 'married' : 'single';
+          _profileLoaded = true;
+        });
+      }
+    } catch (e) {
+      _logger.severe('Error loading user profile: $e');
+    }
+  }
+
   Future<String> _callLLM(String message) async {
     try {
       await dotenv.load(fileName: '.env');
@@ -166,8 +185,6 @@ class _ChatScreenState extends State<ChatScreen> {
           workLocation: _workLocation,
           userEducation: _userEducation,
           maritalStatus: _maritalStatus,
-          numberOfChildren: _numberOfChildren,
-          childrenLocation: _childrenLocation,
         ),
       });
       

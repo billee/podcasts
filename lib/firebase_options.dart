@@ -41,48 +41,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyD4NPZ22YVWlL4o_3zhOjHI5sOlJsoSZlQ',
-    appId: '1:980700289813:web:6ff0832e4f586da0ff271c',
-    messagingSenderId: '980700289813',
-    projectId: 'kapwa-companion',
-    authDomain: 'kapwa-companion.firebaseapp.com',
-    storageBucket: 'kapwa-companion.firebasestorage.app',
-    measurementId: 'G-D92058XXH8',
+    apiKey: 'AIzaSyDw0wkBUglPXZLPxN6jCwbpt6jhh7PXpQQ',
+    appId: '1:755824912207:web:8143b76ae35aa219a8473a',
+    messagingSenderId: '755824912207',
+    projectId: 'kapwa-companion-basic',
+    authDomain: 'kapwa-companion-basic.firebaseapp.com',
+    storageBucket: 'kapwa-companion-basic.firebasestorage.app',
+    measurementId: 'G-77MX06585H',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDg9DpVLhhsA9Ej5fNpn6lhH_UJXxwCr1s',
-    appId: '1:980700289813:android:727a37b09c61ea69ff271c',
-    messagingSenderId: '980700289813',
-    projectId: 'kapwa-companion',
-    storageBucket: 'kapwa-companion.firebasestorage.app',
+    apiKey: 'AIzaSyDcZuAsRRpNrNopWlLZY6-HKfa9B-F5LqU',
+    appId: '1:755824912207:android:193b7c8288490ca4a8473a',
+    messagingSenderId: '755824912207',
+    projectId: 'kapwa-companion-basic',
+    storageBucket: 'kapwa-companion-basic.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyB69a-l4wqwnbf0P-zORzGUlYF7CKoZrZQ',
-    appId: '1:980700289813:ios:27f3b76c690a70d4ff271c',
-    messagingSenderId: '980700289813',
-    projectId: 'kapwa-companion',
-    storageBucket: 'kapwa-companion.firebasestorage.app',
+    apiKey: 'AIzaSyByV0qWpv7WLBLU7_ILuYtALbbqqn6NaSs',
+    appId: '1:755824912207:ios:ed0aebd40bfb7f54a8473a',
+    messagingSenderId: '755824912207',
+    projectId: 'kapwa-companion-basic',
+    storageBucket: 'kapwa-companion-basic.firebasestorage.app',
     iosBundleId: 'com.example.kapwaCompanion',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyB69a-l4wqwnbf0P-zORzGUlYF7CKoZrZQ',
-    appId: '1:980700289813:ios:27f3b76c690a70d4ff271c',
-    messagingSenderId: '980700289813',
-    projectId: 'kapwa-companion',
-    storageBucket: 'kapwa-companion.firebasestorage.app',
+    apiKey: 'AIzaSyByV0qWpv7WLBLU7_ILuYtALbbqqn6NaSs',
+    appId: '1:755824912207:ios:ed0aebd40bfb7f54a8473a',
+    messagingSenderId: '755824912207',
+    projectId: 'kapwa-companion-basic',
+    storageBucket: 'kapwa-companion-basic.firebasestorage.app',
     iosBundleId: 'com.example.kapwaCompanion',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyD4NPZ22YVWlL4o_3zhOjHI5sOlJsoSZlQ',
-    appId: '1:980700289813:web:3f95d7c01eaa57ecff271c',
-    messagingSenderId: '980700289813',
-    projectId: 'kapwa-companion',
-    authDomain: 'kapwa-companion.firebaseapp.com',
-    storageBucket: 'kapwa-companion.firebasestorage.app',
-    measurementId: 'G-8CL386N87J',
+    apiKey: 'AIzaSyDw0wkBUglPXZLPxN6jCwbpt6jhh7PXpQQ',
+    appId: '1:755824912207:web:9b4bc0f1dd6e1336a8473a',
+    messagingSenderId: '755824912207',
+    projectId: 'kapwa-companion-basic',
+    authDomain: 'kapwa-companion-basic.firebaseapp.com',
+    storageBucket: 'kapwa-companion-basic.firebasestorage.app',
+    measurementId: 'G-QNT8Q4B16K',
   );
+
 }

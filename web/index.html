@@ -1,19 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
@@ -31,36 +18,38 @@
 
   <title>kapwa_companion</title>
   <link rel="manifest" href="manifest.json">
-</head>
-<body>
-  <script src="flutter_bootstrap.js" async></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
 
-  <script type="module">
-    // Import the functions you need from the SDKs you need
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-analytics.js";
-    // TODO: Add SDKs for Firebase products that you want to use
-    // https://firebase.google.com/docs/web/setup#available-libraries
+  
+  <!-- Use Firebase compat version for Flutter Web -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
 
+  <script>
     // Your web app's Firebase configuration
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
     const firebaseConfig = {
-      apiKey: "AIzaSyD4NPZ22YVWlL4o_3zhOjHI5sOlJsoSZlQ",
-      authDomain: "kapwa-companion.firebaseapp.com",
-      projectId: "kapwa-companion",
-      storageBucket: "kapwa-companion.firebasestorage.app",
-      messagingSenderId: "980700289813",
-      appId: "1:980700289813:android:727a37b09c61ea69ff271c",
-      measurementId: "G-LMNSFB598Q"
+      apiKey: "AIzaSyDw0wkBUglPXZLPxN6jCwbpt6jhh7PXpQQ",
+      authDomain: "kapwa-companion-basic.firebaseapp.com",
+      projectId: "kapwa-companion-basic",
+      storageBucket: "kapwa-companion-basic.firebasestorage.app",
+      messagingSenderId: "755824912207",
+      appId: "1:755824912207:web:8143b76ae35aa219a8473a",
+      measurementId: "G-77MX06585H"
     };
 
     // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
+    firebase.initializeApp(firebaseConfig);
+    
+    // Only initialize analytics if needed (comment out if causing issues)
+    try {
+      firebase.analytics();
+    } catch (e) {
+      console.warn('Analytics initialization failed:', e);
+    }
   </script>
-
+  </head>
+<body>
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
