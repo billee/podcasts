@@ -33,7 +33,13 @@ jobs:
           sed -i '/\.env/d' pubspec.yaml
           echo "  # CI-placeholder assets" >> pubspec.yaml
           echo "  - assets/audio_sources/.keep" >> pubspec.yaml
-          
+      
+      - name: Create Required Assets
+        run: |
+          mkdir -p assets/audio_sources
+          echo "dummy" > assets/audio_sources/placeholder.mp3
+          touch .env
+
       - name: Install Dependencies
         run: flutter pub get
         

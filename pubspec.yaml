@@ -36,5 +36,5 @@ flutter:
   
   # Assets are now loaded conditionally based on environment
   assets:
-    - $include_audio_sources
-    - $include_env
+    - .env
+    - assets/audio_sources/

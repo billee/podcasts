@@ -7,6 +7,7 @@ import 'package:kapwa_companion/screens/auth/auth_wrapper.dart'; // We'll create
 import 'package:kapwa_companion/services/video_conference_service.dart';
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion/screens/auth/login_screen.dart';
+import 'package:kapwa_companion/core/config.dart';
 
 void main() async {
   // Mobile-specific initialization
@@ -24,9 +25,9 @@ void main() async {
     );
     debugPrint('Firebase initialized successfully');
 
-    await dotenv.load(fileName: '.env'); // Store in assets for mobile
+    // Initialize environment configuration
+    await AppConfig.initialize();
     debugPrint('Environment loaded successfully');
-    debugPrint('API Key: ${dotenv.env['OPENAI_API_KEY']?.substring(0, 5)}...'); // First 5 chars only
     
     runApp(const MyApp());
   } catch (e) {
@@ -59,25 +60,9 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
         brightness: Brightness.dark,
-        useMaterial3: true, // Enable Material 3 for mobile
+        useMaterial3: true,
       ),
-      //home: MainScreen(videoService: videoService),
       home: AuthWrapper(videoService: videoService),
-      // initialRoute: '/',
-      // routes: {
-      //   '/': (context) => MainScreen(videoService: videoService),
-      //   '/video-conference': (context) {
-      //     final args = ModalRoute.of(context)?.settings.arguments 
-      //         as Map<String, dynamic>? ?? {};
-              
-      //     return VideoConferenceScreen(
-      //       contactId: args['contactId'] ?? 'default_contact',
-      //       isIncoming: args['isIncoming'] ?? false,
-      //       isVideoCall: args['isVideoCall'] ?? true,
-      //       videoCallService: videoService,
-      //     );
-      //   },
-      // },
     );
   }
 }

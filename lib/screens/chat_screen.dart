@@ -1,7 +1,7 @@
 // lib/screens/chat_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+// import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:kapwa_companion/screens/video_conference_screen.dart';
 import 'package:kapwa_companion/services/video_conference_service.dart';
@@ -14,6 +14,7 @@ import 'package:kapwa_companion/services/audio_service.dart';
 import 'package:kapwa_companion/screens/contacts_screen.dart';
 import 'package:kapwa_companion/services/system_prompt_service.dart';
 import 'package:kapwa_companion/services/auth_service.dart';
+import 'package:kapwa_companion/core/config.dart';
 
 class ChatScreen extends StatefulWidget {
   final DirectVideoCallService videoService;
@@ -165,9 +166,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<String> _callLLM(String message) async {
     try {
-      await dotenv.load(fileName: '.env');
-      final apiKey = dotenv.env['OPENAI_API_KEY'] ?? '';
+      // await dotenv.load(fileName: '.env');
+      //final apiKey = dotenv.env['OPENAI_API_KEY'] ?? '';
       
+      final apiKey = AppConfig.openAiKey;
+
       if (apiKey.isEmpty) {
         throw 'API key not configured';
       }
@@ -288,12 +291,10 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  void _clearChatHistory() {
-    setState(() {
-      _messages.clear();
-      _chatHistory.clear();
-    });
-  }
+  void _clearChatHistory() => setState(() {
+    _messages.clear();
+    _chatHistory.clear();
+  });
 
 
   // Restore _buildSuggestionChips() widget definition:
