@@ -7,29 +7,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
+          
       - name: Install Firebase Tools
         run: npm install -g firebase-tools
-      - name: Verify Firebase Config
-        run: |
-          ls -la firebase.json
-          cat firebase.json
-        continue-on-error: true
+        
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.29.3'
+          
       - name: Install Dependencies
         run: flutter pub get
-      - name: Build Web
+        
+      - name: Build Web (with secrets)
         run: |
           flutter build web --release \
-            --dart-define=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-          # Add more --dart-define flags for other secrets from .env as needed
+            --dart-define=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            --dart-define=ASSETS_AUDIO_ENABLED=false
         env:
-          # NODE_OPTIONS for large projects to prevent memory issues during build
           NODE_OPTIONS: "--max-old-space-size=4096"
+          
       - name: Deploy to Firebase
         run: firebase deploy --token "${{ secrets.FIREBASE_TOKEN }}" --project kapwa-companion-basic --only hosting
