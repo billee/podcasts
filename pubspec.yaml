@@ -48,6 +48,7 @@ dependencies:
 
 
 dev_dependencies:
+  flutterfire_cli: ^1.0.0
   flutter_test:
     sdk: flutter
 
@@ -58,8 +59,8 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^4.0.0
 
-dependency_overrides:
-  js: 0.7.2
+# dependency_overrides:
+#   js: 0.7.2
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -72,7 +73,7 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
-    # - .env
+    - .env
     - assets/audio_sources/
   
   # To add assets to your application, add an assets section, like this:

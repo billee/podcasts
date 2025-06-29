@@ -32,4 +32,4 @@ jobs:
           # NODE_OPTIONS for large projects to prevent memory issues during build
           NODE_OPTIONS: "--max-old-space-size=4096"
       - name: Deploy to Firebase
-        run: firebase deploy --token "${{ secrets.FIREBASE_TOKEN }}" --project kapwa-companion --only hosting
+        run: firebase deploy --token "${{ secrets.FIREBASE_TOKEN }}" --project kapwa-companion-basic --only hosting
