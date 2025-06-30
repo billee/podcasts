@@ -141,12 +141,16 @@ class _ContactsScreenState extends State<ContactsScreen> {
     _videoService.onCallAccepted = (partnerId) {
       // Navigate to the video conference screen once the call is accepted
       // Remove the current VideoConferenceScreen and replace with the connected one
-      Navigator.pushReplacement(
+      // This is crucial for the caller to transition from "Calling..." to the active call.
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context); // Pop the "Calling..." screen first
+      }
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => VideoConferenceScreen(
             contactId: partnerId,
-            isIncoming: false,
+            isIncoming: false, // This is the caller, so it's an outgoing call that was accepted
             isVideoCall: true, // This should ideally come from the initial makeCall
             videoCallService: _videoService,
           ),
@@ -347,13 +351,14 @@ class _ContactsScreenState extends State<ContactsScreen> {
       return;
     }
     // Navigate to a temporary screen to show "Calling..." while waiting for acceptance
+    // This screen will be replaced by the actual video conference screen on call acceptance.
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => VideoConferenceScreen(
           contactId: contact.id,
           isIncoming: false,
-          isVideoCall: isVideo,
+          isVideoCall: isVideo, // Pass the correct video/audio type
           videoCallService: _videoService, // Pass the service instance
         ),
       ),
@@ -361,8 +366,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
     // Make the direct call using the service
     await _videoService.makeCall(contact.id, contact.name, isVideo);
-    // Note: The actual navigation to the full call screen happens in
-    // _videoService.onCallAccepted callback if the callee accepts.
   }
 
   void _showAddContactDialog() {

@@ -75,6 +75,10 @@ class _VideoConferenceScreenState extends State<VideoConferenceScreen> {
     _videoService.onConnectionStateChanged = (isConnected) {
       setState(() {
         _connectionStatus = isConnected ? 'Connected with ${widget.contactId}' : 'Connecting...';
+        // If connected and it's a video call, ensure local video is shown
+        if (isConnected && widget.isVideoCall && _videoService.isVideoOff) {
+          _videoService.toggleVideo(); // Turn on local video if it was off
+        }
       });
       // If connected, ensure the speaker is on for the remote audio
       if (isConnected && !_videoService.isSpeakerOn) {
@@ -183,7 +187,7 @@ class _VideoConferenceScreenState extends State<VideoConferenceScreen> {
                   style: const TextStyle(color: Colors.white70, fontSize: 16),
                 ),
                 const SizedBox(height: 8),
-                if (!widget.isVideoCall) // Show voice call icon if it's a voice call
+                if (!widget.isVideoCall && _connectionStatus.contains('Connected')) // Show mic icon only if audio call and connected
                   const Icon(Icons.mic, size: 40, color: Colors.white54),
               ],
             ),

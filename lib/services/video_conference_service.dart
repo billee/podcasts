@@ -24,12 +24,12 @@ class DirectVideoCallService {
   // Callbacks for UI updates
   Function(MediaStream?)? onLocalStream;
   Function(MediaStream?)? onRemoteStream;
-  Function(bool)? onConnectionStateChanged;
+  Function(bool)? onConnectionStateChanged; // True when connected, false when disconnected/connecting
   Function(String, String, bool, RTCSessionDescription)? onIncomingCall; // Added sdpOffer
   Function(String)? onError;
   Function(String)? onCallEnded;
   Function(String)? onCallDeclined;
-  Function(String)? onCallAccepted; // For the caller
+  Function(String)? onCallAccepted; // For the caller, when callee accepts
   Function(String)? onPartnerDisconnected;
 
   bool _isMuted = false;
@@ -57,12 +57,19 @@ class DirectVideoCallService {
     _currentUserId = userId;
     _logger.info('Initializing DirectVideoCallService for user: $_currentUserId');
 
+    // Ensure socket is not already connected
+    if (_socket != null && _socket!.connected) {
+      _logger.info('Socket already connected. Re-registering.');
+      _socket!.emit('register', _currentUserId);
+      return;
+    }
+
     _socket = IO.io(
       _SIGNALING_SERVER_URL,
       IO.OptionBuilder()
           .setTransports(['websocket'])
           .setQuery({'userId': _currentUserId})
-          .enableForceNew()
+          .enableForceNew() // Ensures a new connection is established
           .enableReconnection()
           .build(),
     );
@@ -107,14 +114,22 @@ class DirectVideoCallService {
       }
     });
 
+    // This 'offer' event is for when the callee accepts and the caller needs to set the remote description.
     _socket!.on('offer', (data) async {
       _logger.info('Received SDP Offer from: ${data['fromUserId']}');
+      // This case should ideally be handled by 'incoming-direct-call'
+      // or if there's a re-negotiation. For initial setup, 'incoming-direct-call'
+      // is the primary trigger for the callee.
+      // If this is received by the caller after sending an offer, it's likely a re-offer.
       await _handleOffer(data['sdpOffer']);
     });
 
+    // This 'answer' event is for the caller to receive the callee's answer.
     _socket!.on('answer', (data) async {
       _logger.info('Received SDP Answer from: ${data['fromUserId']}');
       await _handleAnswer(data['sdpAnswer']);
+      // Once the answer is received and set, the connection is typically established for the caller.
+      onConnectionStateChanged?.call(true);
     });
 
     _socket!.on('candidate', (data) async {
@@ -125,10 +140,8 @@ class DirectVideoCallService {
     _socket!.on('call-accepted-by-callee', (data) async {
       _logger.info('Call accepted by callee: ${data['calleeId']}');
       onCallAccepted?.call(data['calleeId']);
-      // Handle the initial SDP answer from the callee to finalize connection
-      final sdpAnswer = RTCSessionDescription(data['sdpAnswer']['sdp'], data['sdpAnswer']['type']);
-      await _peerConnection!.setRemoteDescription(sdpAnswer);
-      onConnectionStateChanged?.call(true); // Call is now truly connected
+      // The SDP answer is already handled by the 'answer' event.
+      // This event is primarily for UI feedback on the caller's side.
     });
 
     _socket!.on('call-declined-by-callee', (data) {
@@ -264,7 +277,7 @@ class DirectVideoCallService {
       };
 
       _peerConnection!.onAddStream = (stream) {
-        _logger.info('Remote stream added.');
+        _logger.info('Remote stream added. (onAddStream)');
         _remoteStream = stream;
         onRemoteStream?.call(stream);
       };
@@ -273,12 +286,12 @@ class DirectVideoCallService {
         _logger.info('ICE connection state: $state');
         if (state == RTCIceConnectionState.RTCIceConnectionStateConnected) {
           _logger.info('WebRTC connection established!');
-          if (!_isIncomingCall) { // For caller, connection is established here
-              onConnectionStateChanged?.call(true);
-          }
+          // For both caller and callee, this is the final confirmation of connection.
+          onConnectionStateChanged?.call(true);
         } else if (state == RTCIceConnectionState.RTCIceConnectionStateFailed ||
-                  state == RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
-          _logger.warning('WebRTC connection failed or disconnected: $state');
+                  state == RTCIceConnectionState.RTCIceConnectionStateDisconnected ||
+                  state == RTCIceConnectionState.RTCIceConnectionStateClosed) {
+          _logger.warning('WebRTC connection failed, disconnected or closed: $state');
           onError?.call('WebRTC connection error: $state');
           _closePeerConnection();
           onConnectionStateChanged?.call(false);
@@ -290,14 +303,21 @@ class DirectVideoCallService {
       };
 
       _peerConnection!.onTrack = (RTCTrackEvent event) {
-        if (event.track.kind == 'video') {
-          _remoteStream = event.streams[0];
-          onRemoteStream?.call(event.streams[0]);
-        } else if (event.track.kind == 'audio') {
-          // Handle remote audio track if needed
+        _logger.info('Remote track added: ${event.track.kind}');
+        if (event.streams.isNotEmpty) {
+          // It's better to manage remote stream by tracks.
+          // If you have multiple tracks in one stream, you might need to handle them.
+          // For simplicity, assuming one video and one audio track per stream.
+          if (event.track.kind == 'video') {
+            _remoteStream = event.streams[0];
+            onRemoteStream?.call(event.streams[0]);
+          } else if (event.track.kind == 'audio') {
+            // If you need to expose remote audio stream separately, do it here.
+            // For now, it's part of the main remote stream.
+          }
         }
       };
-    } catch (e) { // This catch block now has its curly braces
+    } catch (e) {
       _logger.severe('Failed to create peer connection: $e');
       onError?.call('Failed to establish connection. Please try again.');
       await _closePeerConnection();
@@ -331,9 +351,12 @@ class DirectVideoCallService {
 
   Future<void> _handleOffer(Map<String, dynamic> sdpOfferMap) async {
     if (_peerConnection == null) {
-      // This case should ideally not happen if incoming-direct-call creates it
-      _logger.warning('Peer connection not created for handling offer.');
-      return;
+      _logger.warning('Peer connection not created for handling offer. Creating one.');
+      // This scenario might happen if an offer arrives before the UI has fully
+      // initialized the service or if the previous connection was closed.
+      // In a robust app, you might want to re-initialize or handle this more gracefully.
+      // For now, we'll create it, but the 'incoming-direct-call' should be the primary trigger.
+      await _createPeerConnection();
     }
     final RTCSessionDescription sdpOffer = RTCSessionDescription(
       sdpOfferMap['sdp'],
@@ -343,9 +366,11 @@ class DirectVideoCallService {
     _logger.info('Remote description (offer) set.');
   }
 
-
   Future<void> _handleAnswer(Map<String, dynamic> sdpAnswerMap) async {
-    if (_peerConnection == null) return;
+    if (_peerConnection == null) {
+      _logger.severe('Peer connection is null when trying to handle answer.');
+      return;
+    }
     final RTCSessionDescription sdpAnswer = RTCSessionDescription(
       sdpAnswerMap['sdp'],
       sdpAnswerMap['type'],
@@ -355,7 +380,10 @@ class DirectVideoCallService {
   }
 
   Future<void> _handleCandidate(Map<String, dynamic> candidateMap) async {
-    if (_peerConnection == null) return;
+    if (_peerConnection == null) {
+      _logger.warning('Peer connection is null when trying to add candidate. Ignoring.');
+      return;
+    }
     final RTCIceCandidate candidate = RTCIceCandidate(
       candidateMap['candidate'],
       candidateMap['sdpMid'],
@@ -434,17 +462,25 @@ class DirectVideoCallService {
 
   Future<void> _closePeerConnection() async {
     _logger.info('Closing peer connection and streams.');
+    // Stop all tracks in local stream
     if (_localStream != null) {
-      _localStream!.getTracks().forEach((track) => track.dispose());
+      _localStream!.getTracks().forEach((track) {
+        track.stop(); // Stop the track to release camera/mic
+        track.dispose();
+      });
       await _localStream!.dispose();
       _localStream = null;
-      onLocalStream?.call(null); // Now this will work
+      onLocalStream?.call(null); // Notify UI to clear local video
     }
+    // Stop all tracks in remote stream
     if (_remoteStream != null) {
-      _remoteStream!.getTracks().forEach((track) => track.dispose());
+      _remoteStream!.getTracks().forEach((track) {
+        track.stop(); // Stop the track
+        track.dispose();
+      });
       await _remoteStream!.dispose();
       _remoteStream = null;
-      onRemoteStream?.call(null); // Now this will work
+      onRemoteStream?.call(null); // Notify UI to clear remote video
     }
     if (_peerConnection != null) {
       await _peerConnection!.close();
@@ -454,12 +490,12 @@ class DirectVideoCallService {
     _isIncomingCall = false;
     _isMuted = false;
     _isVideoOff = false;
-    onConnectionStateChanged?.call(false);
+    onConnectionStateChanged?.call(false); // Indicate disconnected
   }
 
   void dispose() {
     _logger.info('Disposing DirectVideoCallService.');
-    _closePeerConnection();
+    _closePeerConnection(); // Ensure all WebRTC resources are released
     _socket?.disconnect();
     _socket?.dispose();
     _socket = null;
