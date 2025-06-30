@@ -14,8 +14,9 @@ class ContactService {
           .collection('family_contacts')
           .get();
 
+      // Use .fromMap now that it's correctly defined and matches Firestore structure
       return snapshot.docs
-          .map((doc) => OFWContact.fromJson({...doc.data(), 'id': doc.id}))
+          .map((doc) => OFWContact.fromMap(doc.data(), doc.id))
           .toList();
     } catch (e) {
       print('Error getting family contacts: $e');
@@ -33,15 +34,18 @@ class ContactService {
         .doc(contact.id)
         .set({
       'name': contact.name,
-      'relationship': contact.relationship,
-      'phoneNumber': contact.phoneNumber,
+      'relationship': contact.relationship, // Now correctly accessed
+      'phoneNumber': contact.phoneNumber,   // Now correctly accessed
       'profileImage': contact.profileImage,
-      'languages': contact.languages,
-      'status': contact.status,
+      'languages': contact.languages,       // Now correctly accessed
+      'status': contact.status,             // Now correctly accessed
+      'phone': contact.phone, // Also include the original 'phone' field if it's still relevant
+      'specialization': contact.specialization,
+      'isOnline': contact.isOnline, // Also store online status, though it's typically dynamic
     });
   }
 
-  // Update online status
+  // Update online status (this method already looks correct)
   static Future<void> updateOnlineStatus(String userId, bool isOnline) async {
     await _firestore.collection('users').doc(userId).update({
       'isOnline': isOnline,

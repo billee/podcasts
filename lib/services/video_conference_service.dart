@@ -248,54 +248,61 @@ class DirectVideoCallService {
   // --- WebRTC Core Logic ---
 
   Future<void> _createPeerConnection() async {
-    _logger.info('Creating peer connection...');
-    _peerConnection = await createPeerConnection(_iceServers);
+    try {
+      _logger.info('Creating peer connection...');
+      _peerConnection = await createPeerConnection(_iceServers);
 
-    _peerConnection!.onIceCandidate = (candidate) {
-      _logger.info('Sending ICE candidate to $_targetUserId');
-      if (_targetUserId != null && _currentUserId != null) {
-        _socket!.emit('candidate', {
-          'toUserId': _targetUserId,
-          'fromUserId': _currentUserId,
-          'candidate': candidate.toMap(),
-        });
-      }
-    };
-
-    _peerConnection!.onAddStream = (stream) {
-      _logger.info('Remote stream added.');
-      _remoteStream = stream;
-      onRemoteStream?.call(stream);
-    };
-
-    _peerConnection!.onIceConnectionState = (state) {
-      _logger.info('ICE connection state: $state');
-      if (state == RTCIceConnectionState.RTCIceConnectionStateConnected) {
-        _logger.info('WebRTC connection established!');
-        if (!_isIncomingCall) { // For caller, connection is established here
-            onConnectionStateChanged?.call(true);
+      _peerConnection!.onIceCandidate = (candidate) {
+        _logger.info('Sending ICE candidate to $_targetUserId');
+        if (_targetUserId != null && _currentUserId != null) {
+          _socket!.emit('candidate', {
+            'toUserId': _targetUserId,
+            'fromUserId': _currentUserId,
+            'candidate': candidate.toMap(),
+          });
         }
-      } else if (state == RTCIceConnectionState.RTCIceConnectionStateFailed ||
-                 state == RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
-        _logger.warning('WebRTC connection failed or disconnected: $state');
-        onError?.call('WebRTC connection error: $state');
-        _closePeerConnection();
-        onConnectionStateChanged?.call(false);
-      }
-    };
+      };
 
-    _peerConnection!.onSignalingState = (state) {
-      _logger.info('Signaling state: $state');
-    };
+      _peerConnection!.onAddStream = (stream) {
+        _logger.info('Remote stream added.');
+        _remoteStream = stream;
+        onRemoteStream?.call(stream);
+      };
 
-    _peerConnection!.onTrack = (RTCTrackEvent event) {
-      if (event.track.kind == 'video') {
-        _remoteStream = event.streams[0];
-        onRemoteStream?.call(event.streams[0]);
-      } else if (event.track.kind == 'audio') {
-        // Handle remote audio track if needed
-      }
-    };
+      _peerConnection!.onIceConnectionState = (state) {
+        _logger.info('ICE connection state: $state');
+        if (state == RTCIceConnectionState.RTCIceConnectionStateConnected) {
+          _logger.info('WebRTC connection established!');
+          if (!_isIncomingCall) { // For caller, connection is established here
+              onConnectionStateChanged?.call(true);
+          }
+        } else if (state == RTCIceConnectionState.RTCIceConnectionStateFailed ||
+                  state == RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
+          _logger.warning('WebRTC connection failed or disconnected: $state');
+          onError?.call('WebRTC connection error: $state');
+          _closePeerConnection();
+          onConnectionStateChanged?.call(false);
+        }
+      };
+
+      _peerConnection!.onSignalingState = (state) {
+        _logger.info('Signaling state: $state');
+      };
+
+      _peerConnection!.onTrack = (RTCTrackEvent event) {
+        if (event.track.kind == 'video') {
+          _remoteStream = event.streams[0];
+          onRemoteStream?.call(event.streams[0]);
+        } else if (event.track.kind == 'audio') {
+          // Handle remote audio track if needed
+        }
+      };
+    } catch (e) { // This catch block now has its curly braces
+      _logger.severe('Failed to create peer connection: $e');
+      onError?.call('Failed to establish connection. Please try again.');
+      await _closePeerConnection();
+      rethrow;
+    }
   }
 
   Future<void> _getUserMedia(bool isVideo) async {

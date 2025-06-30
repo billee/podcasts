@@ -5,6 +5,11 @@ const socketIo = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', users: users.size, activeCalls: activeCalls.size });
+});
+
 const io = socketIo(server, {
   cors: {
     origin: "*", // Allow all origins for development/testing
