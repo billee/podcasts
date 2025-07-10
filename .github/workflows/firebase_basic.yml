@@ -32,14 +32,7 @@ jobs:
         run: |
           # Create minimal required assets
           mkdir -p assets/audio_sources
-          touch assets/audio_sources/.keep
           touch .env
-          
-          # Modify pubspec.yaml for CI
-          sed -i '/assets\/audio_sources/d' pubspec.yaml
-          sed -i '/\.env/d' pubspec.yaml
-          echo "  # CI-placeholder assets" >> pubspec.yaml
-          echo "  - assets/audio_sources/.keep" >> pubspec.yaml
       
       - name: Create Required Assets
         run: |
