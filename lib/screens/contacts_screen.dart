@@ -1,23 +1,27 @@
 // lib/screens/contacts_screen.dart
+
 import 'package:flutter/material.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async'; // Import StreamSubscription
 import 'package:flutter/services.dart'; // Import for Clipboard
 
 import 'package:kapwa_companion_basic/models/ofw_contact.dart';
-import 'package:kapwa_companion_basic/screens/incoming_call_screen.dart';
-import 'package:kapwa_companion_basic/screens/video_conference_screen.dart';
-import 'package:kapwa_companion_basic/services/contact_service.dart';
-import 'package:kapwa_companion_basic/services/video_conference_service.dart';
-
+// REMOVED: import 'package:kapwa_companion_basic/screens/incoming_call_screen.dart';
+// REMOVED: import 'package:kapwa_companion_basic/screens/video_conference_screen.dart';
+import 'package:kapwa_companion_basic/services/contact_service.dart'; // Ensure this import is correct
+// REMOVED: import 'package:kapwa_companion_basic/services/video_conference_service.dart';
+import 'package:logging/logging.dart'; // Import logging
 
 class ContactsScreen extends StatefulWidget {
-  final DirectVideoCallService videoService;
+  // Now receives userId and username directly
+  final String? userId;
+  final String? username;
+
   const ContactsScreen({
     super.key,
-    required this.videoService,
+    this.userId, // Made optional as it might be null initially
+    this.username, // Made optional as it might be null initially
   });
 
   @override
@@ -25,347 +29,184 @@ class ContactsScreen extends StatefulWidget {
 }
 
 class _ContactsScreenState extends State<ContactsScreen> {
-  List<OFWContact> _contacts = []; // Change to use OFWContact model directly
+  final Logger _logger = Logger('ContactsScreen');
+  List<OFWContact> _contacts = [];
   bool _loading = true;
-  // Use the passed video service instance
-  late final DirectVideoCallService _videoService;
+  // Removed DirectVideoCallService
+  // late final DirectVideoCallService _videoService;
   final TextEditingController _contactIdController = TextEditingController();
   final TextEditingController _contactNameController = TextEditingController();
   final TextEditingController _contactPhoneController = TextEditingController();
-  final TextEditingController _contactSpecializationController = TextEditingController();
+  final TextEditingController _contactSpecializationController =
+      TextEditingController();
 
-
-  String? _currentUserId; // Will be set from Firebase Auth
-
-  // Firestore listener subscription
+  String? _currentUserId;
   StreamSubscription? _contactsSubscription;
+  // Removed incoming call subscription
+  // StreamSubscription? _incomingCallSubscription;
 
   @override
   void initState() {
     super.initState();
-    _videoService = widget.videoService; // Assign the passed service
-    _initializeUserAndContacts();
-    _setupVideoService();
-  }
-
-  Future<void> _initializeUserAndContacts() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      _currentUserId = user.uid;
-      _videoService.initialize(_currentUserId!); // Initialize video service with current user's ID
-      _listenToContacts(); // Start listening to contacts
-      _updateOnlineStatus(true); // Set user online when app starts
-    } else {
-      _showErrorDialog('User not logged in. Cannot load contacts.');
-      setState(() {
-        _loading = false;
-      });
-    }
-  }
-
-  void _listenToContacts() {
-    if (_currentUserId == null) return;
-
-    // Use a stream to listen for real-time updates to contacts
-    _contactsSubscription = FirebaseFirestore.instance
-        .collection('users')
-        .doc(_currentUserId!)
-        .collection('family_contacts')
-        .snapshots()
-        .listen((snapshot) {
-      setState(() {
-        _contacts = snapshot.docs
-            .map((doc) => OFWContact.fromMap(doc.data(), doc.id))
-            .where((contact) => contact.id != _currentUserId) // Don't show self in contacts
-            .toList();
-        _loading = false;
-      });
-    }, onError: (error) {
-      _showErrorDialog('Error loading contacts: $error');
-      setState(() {
-        _loading = false;
-      });
-    });
-  }
-
-  Future<void> _updateOnlineStatus(bool isOnline) async {
-    if (_currentUserId != null) {
-      await ContactService.updateOnlineStatus(_currentUserId!, isOnline);
-    }
+    _logger.info('ContactsScreen initState called.');
+    // Removed videoService assignment
+    // _videoService = widget.videoService;
+    _getCurrentUserId();
   }
 
   @override
   void dispose() {
-    _contactsSubscription?.cancel(); // Cancel the Firestore subscription
+    _logger.info('ContactsScreen dispose called.');
+    _contactsSubscription?.cancel();
+    // Removed incoming call listener dispose
+    // _incomingCallSubscription?.cancel();
     _contactIdController.dispose();
     _contactNameController.dispose();
     _contactPhoneController.dispose();
     _contactSpecializationController.dispose();
-    _updateOnlineStatus(false); // Set user offline when app disposes
-    _videoService.dispose(); // Dispose the video service
     super.dispose();
   }
 
-  void _setupVideoService() {
-    // _videoService.initialize is now called in _initializeUserAndContacts
-    // Set up callback for incoming calls
-    _videoService.onIncomingCall = (callerId, callerName, isVideo, sdpOffer) {
-      // Find the contact in our local list or create a dummy one for display
-      OFWContact? callerContact = _contacts.firstWhere(
-            (contact) => contact.id == callerId,
-        orElse: () => OFWContact(
-          id: callerId,
-          name: callerName.isNotEmpty ? callerName : 'Unknown Caller',
-          phone: '', // Phone number might not be available from signaling
-          specialization: '', // Specialization not available from signaling
-        ),
-      );
-      _showIncomingCallDialog(callerContact, isVideo, sdpOffer);
-    };
-
-    // Set up callbacks for call status updates
-    _videoService.onCallEnded = (partnerId) {
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context); // Pop the VideoConferenceScreen if it's open
-      }
-      _showSnackBar('$partnerId ended the call.');
-    };
-
-    _videoService.onCallDeclined = (partnerId) {
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context); // Pop the dialing screen or call screen
-      }
-      _showSnackBar('$partnerId declined your call.');
-    };
-
-    _videoService.onCallAccepted = (partnerId) {
-      // Navigate to the video conference screen once the call is accepted
-      // Remove the current VideoConferenceScreen and replace with the connected one
-      // This is crucial for the caller to transition from "Calling..." to the active call.
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context); // Pop the "Calling..." screen first
-      }
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VideoConferenceScreen(
-            contactId: partnerId,
-            isIncoming: false, // This is the caller, so it's an outgoing call that was accepted
-            isVideoCall: true, // This should ideally come from the initial makeCall
-            videoCallService: _videoService,
-          ),
-        ),
-      );
-    };
-
-    _videoService.onPartnerDisconnected = (disconnectedUserId) {
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context); // Pop the VideoConferenceScreen if it's open
-      }
-      _showSnackBar('$disconnectedUserId disconnected.');
-    };
-
-    _videoService.onError = (message) {
-      _showErrorDialog(message);
-    };
-  }
-
-  void _showIncomingCallDialog(
-      OFWContact caller, bool isVideo, RTCSessionDescription sdpOffer) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => IncomingCallScreen(
-          caller: caller,
-          isVideoCall: isVideo,
-          sdpOffer: sdpOffer, // Pass the SDP offer
-          videoCallService: _videoService, // Pass the service instance
-        ),
-      ),
-    );
-  }
-
-  // New method to copy user ID
-  void _copyUserIdToClipboard() {
-    if (_currentUserId != null) {
-      Clipboard.setData(ClipboardData(text: _currentUserId!));
-      _showSnackBar('Your User ID copied to clipboard!');
+  Future<void> _getCurrentUserId() async {
+    // Use widget.userId if available, otherwise fetch from Firebase
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      setState(() {
+        _currentUserId = user.uid;
+      });
+      _loadContacts();
+      // Removed incoming call listener
+      // _listenForIncomingCalls();
     } else {
-      _showSnackBar('User ID not available yet.');
+      _logger.warning('No user logged in.');
+      setState(() {
+        _loading = false;
+      });
     }
   }
+
+  void _loadContacts() async {
+    if (_currentUserId == null) return;
+    _logger.info('Loading contacts for user: $_currentUserId');
+    _contactsSubscription =
+        ContactServiceStream.getFamilyContactsStream(_currentUserId!).listen(
+            (contacts) {
+      setState(() {
+        _contacts = contacts;
+        _loading = false;
+      });
+      _logger.info('Contacts loaded: ${_contacts.length}');
+    }, onError: (e) {
+      _logger.severe('Error loading contacts: $e');
+      setState(() {
+        _loading = false;
+      });
+      _showSnackBar('Error loading contacts: $e');
+    });
+  }
+
+  // --- Removed all Daily.co and Firestore Invitation related methods ---
+  // _listenForIncomingCalls()
+  // _showIncomingCallScreen()
+  // _sendCallInvitation()
+  // _makeCall()
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Family Contacts'),
-        backgroundColor: Colors.blue,
+        title: const Text('Contacts'),
+        backgroundColor: Colors.blue[800],
         foregroundColor: Colors.white,
-      ),
-      body: _loading
-          ? const Center(
-        child: CircularProgressIndicator(),
-      )
-          : _contacts.isEmpty
-          ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'No contacts yet',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row( // Wrap in a Row for the ID and copy button
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Your User ID: ${_currentUserId ?? 'Loading...'}', // Display current user ID
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.bold,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_add),
+            onPressed: _showAddContactDialog,
+          ),
+          if (_currentUserId != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Center(
+                child: GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: _currentUserId!));
+                    _showSnackBar('Your User ID copied to clipboard!');
+                  },
+                  child: Tooltip(
+                    message: 'Tap to copy your User ID: $_currentUserId',
+                    child: Text(
+                      'Your ID: ${_currentUserId!.substring(0, 6)}...',
+                      style:
+                          const TextStyle(fontSize: 14, color: Colors.white70),
+                    ),
                   ),
-                ),
-                if (_currentUserId != null) // Only show copy button if ID is available
-                  IconButton(
-                    icon: const Icon(Icons.copy, size: 18, color: Colors.grey),
-                    onPressed: _copyUserIdToClipboard,
-                    tooltip: 'Copy your User ID',
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _showAddContactDialog,
-              icon: const Icon(Icons.person_add),
-              label: const Text('Add Family Member'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
             ),
-          ],
-        ),
-      )
-          : Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row( // Wrap in a Row for the ID and copy button
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Your User ID: ${_currentUserId ?? 'Loading...'}', // Display current user ID
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (_currentUserId != null) // Only show copy button if ID is available
-                  IconButton(
-                    icon: const Icon(Icons.copy, size: 18, color: Colors.grey),
-                    onPressed: _copyUserIdToClipboard,
-                    tooltip: 'Copy your User ID',
-                  ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _contacts.length,
-              itemBuilder: (context, index) {
-                final contact = _contacts[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: contact.isOnline ? Colors.green : Colors.blueGrey,
-                      child: Text(
-                        contact.name[0].toUpperCase(),
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ),
-                    title: Text('${contact.name} (ID: ${contact.id})'), // Show ID for debugging
-                    subtitle: Text(
-                        '${contact.phone}\n${contact.specialization.isNotEmpty ? contact.specialization : 'N/A'}'
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.call, color: Colors.green),
-                          onPressed: () => _makeCall(contact, false), // Voice call
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.videocam, color: Colors.blue),
-                          onPressed: () => _makeCall(contact, true), // Video call
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
         ],
       ),
-      floatingActionButton: _contacts.isNotEmpty
-          ? FloatingActionButton(
-        onPressed: _showAddContactDialog,
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add),
-      )
-          : null, // Only show FAB if contacts list is not empty for 'Add Family Member' button
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _contacts.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No contacts yet. Add some!',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _contacts.length,
+                  itemBuilder: (context, index) {
+                    final contact = _contacts[index];
+                    return Card(
+                      color: Colors.grey[850],
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.blue[700],
+                          child: Text(
+                            contact.name.substring(0, 1).toUpperCase(),
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        title: Text(
+                          contact.name,
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          contact.id,
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Removed call buttons
+                            // IconButton(
+                            //   icon: const Icon(Icons.call, color: Colors.green),
+                            //   onPressed: () => _makeCall(contact, false), // Audio call
+                            // ),
+                            // IconButton(
+                            //   icon: const Icon(Icons.videocam,
+                            //       color: Colors.blue),
+                            //   onPressed: () => _makeCall(contact, true), // Video call
+                            // ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteContact(contact.id),
+                            ),
+                          ],
+                        ),
+                        onTap: () {
+                          _showSnackBar('Tapped on ${contact.name}');
+                        },
+                      ),
+                    );
+                  },
+                ),
+      backgroundColor: Colors.grey[900],
     );
-  }
-
-  Future<void> _addContact(OFWContact contact) async {
-    if (_currentUserId == null) {
-      _showErrorDialog('User not authenticated. Cannot add contact.');
-      return;
-    }
-    try {
-      await ContactService.addFamilyContact(_currentUserId!, contact);
-      _showSnackBar('Contact added successfully!');
-    } catch (e) {
-      _showErrorDialog('Failed to add contact: $e');
-    }
-  }
-
-  void _makeCall(OFWContact contact, bool isVideo) async {
-    if (_currentUserId == null) {
-      _showErrorDialog('User not authenticated. Cannot make call.');
-      return;
-    }
-    // Navigate to a temporary screen to show "Calling..." while waiting for acceptance
-    // This screen will be replaced by the actual video conference screen on call acceptance.
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => VideoConferenceScreen(
-          contactId: contact.id,
-          isIncoming: false,
-          isVideoCall: isVideo, // Pass the correct video/audio type
-          videoCallService: _videoService, // Pass the service instance
-        ),
-      ),
-    );
-
-    // Make the direct call using the service
-    await _videoService.makeCall(contact.id, contact.name, isVideo);
   }
 
   void _showAddContactDialog() {
@@ -374,82 +215,111 @@ class _ContactsScreenState extends State<ContactsScreen> {
     _contactPhoneController.clear();
     _contactSpecializationController.clear();
 
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Family Member'),
-        content: SingleChildScrollView( // Added SingleChildScrollView
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _contactIdController,
-                decoration: const InputDecoration(
-                  hintText: 'Enter unique ID (e.g., user_id_X)',
-                  border: OutlineInputBorder(),
-                ),
+        backgroundColor: Colors.grey[800],
+        title: const Text('Add New Contact',
+            style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _contactIdController,
+              decoration: InputDecoration(
+                labelText: 'User ID',
+                labelStyle: TextStyle(color: Colors.white70),
+                enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.blue[700]!)),
+                focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.blue[400]!)),
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _contactNameController,
-                decoration: const InputDecoration(
-                  hintText: 'Enter contact name',
-                  border: OutlineInputBorder(),
-                ),
+              style: const TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _contactNameController,
+              decoration: InputDecoration(
+                labelText: 'Name',
+                labelStyle: TextStyle(color: Colors.white70),
+                enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.blue[700]!)),
+                focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.blue[400]!)),
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _contactPhoneController,
-                decoration: const InputDecoration(
-                  hintText: 'Enter phone number (optional)',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.phone,
+              style: const TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _contactPhoneController,
+              decoration: InputDecoration(
+                labelText: 'Phone Number (Optional)',
+                labelStyle: TextStyle(color: Colors.white70),
+                enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.blue[700]!)),
+                focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.blue[400]!)),
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _contactSpecializationController,
-                decoration: const InputDecoration(
-                  hintText: 'Enter specialization (e.g., OFW, Doctor)',
-                  border: OutlineInputBorder(),
-                ),
+              keyboardType: TextInputType.phone,
+              style: const TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _contactSpecializationController,
+              decoration: InputDecoration(
+                labelText: 'Specialization (Optional)',
+                labelStyle: TextStyle(color: Colors.white70),
+                enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.blue[700]!)),
+                focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.blue[400]!)),
               ),
-            ],
-          ),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
           ),
-          TextButton(
-            onPressed: () {
-              String contactId = _contactIdController.text.trim();
-              String contactName = _contactNameController.text.trim();
-              String contactPhone = _contactPhoneController.text.trim();
-              String contactSpecialization = _contactSpecializationController.text.trim();
-
+          ElevatedButton(
+            onPressed: () async {
+              final contactId = _contactIdController.text.trim();
+              final contactName = _contactNameController.text.trim();
+              final contactPhone = _contactPhoneController.text.trim();
+              final contactSpecialization =
+                  _contactSpecializationController.text.trim();
 
               if (contactId.isNotEmpty && contactName.isNotEmpty) {
-                _addContact(OFWContact(
-                  id: contactId,
-                  name: contactName,
-                  phone: contactPhone, // Use 'phone' field as defined in OFWContact
-                  specialization: contactSpecialization,
-                  profileImage: null,
-                  lastSeen: null,
-                  isOnline: false, // Default to false, will be updated by other user's presence
-                  // Provide values for new fields, or null if not explicitly entered
-                  relationship: null,
-                  phoneNumber: contactPhone, // Use 'phoneNumber' for consistency with contact_service expectations
-                  languages: null,
-                  status: null,
-                ));
+                if (_contacts.any((c) => c.id == contactId)) {
+                  _showSnackBar('Contact with this User ID already exists!');
+                  return;
+                }
+
+                await ContactService.addFamilyContact(
+                  _currentUserId!,
+                  OFWContact(
+                    id: contactId,
+                    name: contactName,
+                    phone: contactPhone.isNotEmpty ? contactPhone : null,
+                    specialization: contactSpecialization.isNotEmpty
+                        ? contactSpecialization
+                        : '',
+                    profileImage: null,
+                    lastSeen: null,
+                    isOnline: false,
+                    relationship: null,
+                    phoneNumber: contactPhone.isNotEmpty ? contactPhone : null,
+                    languages: null,
+                    status: null,
+                  ),
+                );
                 Navigator.pop(context);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter a unique ID and name')),
+                  const SnackBar(
+                      content: Text('Please enter a unique ID and name')),
                 );
               }
             },
@@ -460,6 +330,18 @@ class _ContactsScreenState extends State<ContactsScreen> {
     );
   }
 
+  void _deleteContact(String contactId) async {
+    if (_currentUserId == null) return;
+    _logger.info('Deleting contact: $contactId');
+    try {
+      await ContactService.deleteFamilyContact(_currentUserId!, contactId);
+      _showSnackBar('Contact deleted!');
+    } catch (e) {
+      _logger.severe('Error deleting contact: $e');
+      _showSnackBar('Failed to delete contact: $e');
+    }
+  }
+
   void _showSnackBar(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -467,22 +349,17 @@ class _ContactsScreenState extends State<ContactsScreen> {
       );
     }
   }
+}
 
-  void _showErrorDialog(String message) {
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Error'),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    }
+extension ContactServiceStream on ContactService {
+  static Stream<List<OFWContact>> getFamilyContactsStream(String userId) {
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('family_contacts')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => OFWContact.fromMap(doc.data(), doc.id))
+            .toList());
   }
 }

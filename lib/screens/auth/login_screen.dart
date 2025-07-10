@@ -13,9 +13,10 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final Logger _logger = Logger('LoginScreen');
   final _formKey = GlobalKey<FormState>();
-  final _loginController = TextEditingController(); // Changed from _usernameController
+  final _loginController =
+      TextEditingController(); // Changed from _usernameController
   final _passwordController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
@@ -37,10 +38,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final loginInput = _loginController.text.trim();
-      
+
       // Determine if input is email or username
       bool isEmail = loginInput.contains('@') && loginInput.contains('.');
-      
+
       if (isEmail) {
         // Sign in with email
         await AuthService.signInWithEmailAndPassword(
@@ -54,10 +55,9 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text,
         );
       }
-      
+
       // Navigation is handled by AuthWrapper
       _logger.info('User signed in successfully');
-      
     } catch (e) {
       setState(() {
         _errorMessage = _extractErrorMessage(e.toString());
@@ -69,9 +69,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String _extractErrorMessage(String error) {
     // Extract user-friendly error messages
-    if (error.contains('user-not-found') || error.contains('username-not-found') || error.contains('Username not found')) {
+    if (error.contains('user-not-found') ||
+        error.contains('username-not-found') ||
+        error.contains('Username not found')) {
       return 'Account not found. Please check your username or email.';
-    } else if (error.contains('wrong-password') || error.contains('invalid-password')) {
+    } else if (error.contains('wrong-password') ||
+        error.contains('invalid-password')) {
       return 'Incorrect password.';
     } else if (error.contains('user-disabled')) {
       return 'This account has been disabled.';
@@ -99,11 +102,11 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final loginInput = _loginController.text.trim();
       bool isEmail = loginInput.contains('@') && loginInput.contains('.');
-      
+
       if (isEmail) {
         // Reset password using email
         await AuthService.resetPassword(loginInput);
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -116,11 +119,12 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         // Reset password using username
         await AuthService.resetPasswordByUsername(loginInput);
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Password reset request submitted. Our support team will contact you soon.'),
+              content: Text(
+                  'Password reset request submitted. Our support team will contact you soon.'),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 4),
             ),
@@ -151,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(height: 60),
-              
+
               // App Logo/Title
               Icon(
                 Icons.chat_bubble_outline,
@@ -159,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 color: Colors.blue[800],
               ),
               const SizedBox(height: 16),
-              
+
               Text(
                 'Kapwa Companion',
                 style: TextStyle(
@@ -168,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: Colors.blue[800],
                 ),
               ),
-              
+
               const SizedBox(height: 8),
               const Text(
                 'Welcome back! Please sign in to continue.',
@@ -178,9 +182,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              
+
               const SizedBox(height: 48),
-              
+
               // Login Form
               Form(
                 key: _formKey,
@@ -196,7 +200,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: InputDecoration(
                         labelText: 'Username or Email',
                         hintText: 'Enter your username or email',
-                        prefixIcon: const Icon(Icons.person, color: Colors.white70),
+                        prefixIcon:
+                            const Icon(Icons.person, color: Colors.white70),
                         filled: true,
                         fillColor: Colors.grey[800],
                         border: OutlineInputBorder(
@@ -217,9 +222,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         return null;
                       },
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // Password Field
                     TextFormField(
                       controller: _passwordController,
@@ -229,10 +234,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       enableSuggestions: false,
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        prefixIcon: const Icon(Icons.lock, color: Colors.white70),
+                        prefixIcon:
+                            const Icon(Icons.lock, color: Colors.white70),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                            _obscurePassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
                             color: Colors.white70,
                           ),
                           onPressed: () {
@@ -260,9 +268,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         return null;
                       },
                     ),
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     // Forgot Password
                     Align(
                       alignment: Alignment.centerRight,
@@ -274,9 +282,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 24),
-                    
+
                     // Error Message
                     if (_errorMessage != null)
                       Container(
@@ -284,16 +292,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         padding: const EdgeInsets.all(12),
                         margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
+                          // ignore: deprecated_member_use
                           color: Colors.red.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.withOpacity(0.3)),
+                          border:
+                              Border.all(color: Colors.red.withOpacity(0.3)),
                         ),
                         child: Text(
                           _errorMessage!,
                           style: const TextStyle(color: Colors.red),
                         ),
                       ),
-                    
+
                     // Sign In Button
                     SizedBox(
                       width: double.infinity,
@@ -313,21 +323,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                 width: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
                                 ),
                               )
                             : const Text(
                                 'Sign In',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                       ),
                     ),
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 32),
-              
+
               // Sign Up Link
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,

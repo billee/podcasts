@@ -1,51 +1,37 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'package:kapwa_companion_basic/screens/main_screen.dart';
-import 'package:kapwa_companion_basic/screens/auth/auth_wrapper.dart'; // We'll create this next
-import 'package:kapwa_companion_basic/services/video_conference_service.dart';
-import 'package:logging/logging.dart';
-import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
-import 'package:kapwa_companion_basic/core/config.dart';
+import 'package:logging/logging.dart'; // Ensure this import is present
+import 'package:kapwa_companion_basic/screens/auth/auth_wrapper.dart';
+import 'package:kapwa_companion_basic/core/config.dart'; // Make sure this import is present for AppConfig
 
 void main() async {
-  // Mobile-specific initialization
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Configure logger for mobile
-  Logger.root.level = Level.ALL;
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // --- MODIFIED LOGGING CONFIGURATION ---
+  Logger.root.level = Level.ALL; // Ensure this is set to ALL or INFO
   Logger.root.onRecord.listen((record) {
-    debugPrint('MOBILE [${record.level.name}]: ${record.message}');
+    // Change debugPrint to print
+    print(
+        '${record.level.name}: ${record.time}: ${record.loggerName}: ${record.message}');
+    if (record.error != null) {
+      print('  Error: ${record.error}');
+    }
+    if (record.stackTrace != null) {
+      print('  StackTrace: ${record.stackTrace}');
+    }
   });
+  // --- END MODIFIED LOGGING CONFIGURATION ---
 
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    debugPrint('Firebase initialized successfully');
+  // Initialize environment configuration
+  await AppConfig.initialize(); // Ensure AppConfig is initialized before runApp
+  debugPrint(
+      'Environment loaded successfully'); // This debugPrint will also now appear
 
-    // Initialize environment configuration
-    await AppConfig.initialize();
-    debugPrint('Environment loaded successfully');
-    
-    runApp(const MyApp());
-  } catch (e) {
-    debugPrint('Initialization error: $e');
-    runApp(
-      const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: Text(
-              'Initialization Failed\nPlease restart the app',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -53,7 +39,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final videoService = DirectVideoCallService();
     return MaterialApp(
       title: 'Kapwa Companion Basic',
       debugShowCheckedModeBanner: false,
@@ -62,7 +47,9 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.dark,
         useMaterial3: true,
       ),
-      home: AuthWrapper(videoService: videoService),
+      // THIS IS THE CRUCIAL CHANGE:
+      // Set AuthWrapper as the home, so it can decide which screen to show.
+      home: const AuthWrapper(),
     );
   }
 }

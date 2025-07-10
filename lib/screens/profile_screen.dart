@@ -18,48 +18,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _logger.info('ProfileScreen initState called.');
     _loadUserProfile();
   }
 
   Future<void> _loadUserProfile() async {
+    _logger.info('Attempting to load user profile...');
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
+        _logger.info('Firebase currentUser found: UID = ${user.uid}');
         // Try to get profile from Firestore
         final doc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .get();
-        
+
         if (doc.exists) {
+          _logger.info('User profile found in Firestore for UID: ${user.uid}');
           setState(() {
             _userProfile = doc.data();
             _isLoading = false;
           });
         } else {
+          _logger.warning(
+              'User profile NOT found in Firestore for UID: ${user.uid}. Falling back to basic Firebase Auth info.');
           // Fallback to basic Firebase Auth info
           setState(() {
             _userProfile = {
               'name': user.displayName ?? 'User',
               'email': user.email ?? '',
+              'uid': user.uid, // Add UID for debugging
             };
             _isLoading = false;
           });
         }
+      } else {
+        _logger.warning(
+            'No Firebase currentUser found. User is not authenticated.');
+        setState(() {
+          _userProfile = null; // Ensure profile is null if not logged in
+          _isLoading = false;
+        });
       }
     } catch (e) {
       _logger.severe('Error loading user profile: $e');
       setState(() {
         _isLoading = false;
+        _userProfile = null; // Clear profile on error
       });
     }
   }
 
   Future<void> _signOut() async {
+    _logger.info('Attempting to sign out...');
     try {
       await FirebaseAuth.instance.signOut();
+      _logger.info('User signed out successfully.');
       // Navigation is handled by AuthWrapper
     } catch (e) {
+      _logger.severe('Error signing out: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -71,7 +89,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Rest of your build method stays the same...
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -92,9 +109,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _userProfile == null
               ? const Center(
-                  child: Text(
-                    'Failed to load profile',
-                    style: TextStyle(color: Colors.white),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'User not logged in or profile failed to load.',
+                        style: TextStyle(color: Colors.white),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Please log in to view your profile.',
+                        style: TextStyle(color: Colors.white70),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 )
               : SingleChildScrollView(
@@ -115,7 +144,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               radius: 40,
                               backgroundColor: Colors.blue[800],
                               child: Text(
-                                (_userProfile!['name']?.toString() ?? 'U').substring(0, 1).toUpperCase(),
+                                (_userProfile!['name']?.toString() ?? 'U')
+                                    .substring(0, 1)
+                                    .toUpperCase(),
                                 style: const TextStyle(
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
@@ -125,7 +156,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              _userProfile!['name']?.toString() ?? 'Unknown User',
+                              _userProfile!['name']?.toString() ??
+                                  'Unknown User',
                               style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -140,25 +172,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 color: Colors.white70,
                               ),
                             ),
+                            if (_userProfile!['uid'] !=
+                                null) // Display UID for debugging
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  'UID: ${_userProfile!['uid']}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white54,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
-                      
+
                       const SizedBox(height: 20),
-                      
+
                       // Show available profile information
                       if (_userProfile!.isNotEmpty) ...[
-                        _buildInfoCard('Profile Information', 
+                        _buildInfoCard(
+                          'Profile Information',
                           _userProfile!.entries
-                              .where((entry) => entry.key != 'name' && entry.key != 'email')
+                              .where((entry) =>
+                                  entry.key != 'name' &&
+                                  entry.key != 'email' &&
+                                  entry.key != 'uid')
                               .map((entry) => _buildInfoRow(
-                                  _formatFieldName(entry.key), 
-                                  entry.value))
+                                  _formatFieldName(entry.key), entry.value))
                               .toList(),
                         ),
                         const SizedBox(height: 16),
                       ],
-                      
+
                       // Sign Out Button
                       SizedBox(
                         width: double.infinity,
@@ -179,7 +226,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               SizedBox(width: 8),
                               Text(
                                 'Sign Out',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -196,14 +244,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return fieldName
         .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
         .split(' ')
-        .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1))
+        .map((word) =>
+            word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1))
         .join(' ')
         .trim();
   }
 
   Widget _buildInfoCard(String title, List<Widget> children) {
     if (children.isEmpty) return const SizedBox.shrink();
-    
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -233,7 +282,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (value == null || value.toString().isEmpty) {
       return const SizedBox.shrink();
     }
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(

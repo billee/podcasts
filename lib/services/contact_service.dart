@@ -1,55 +1,59 @@
 // lib/services/contact_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kapwa_companion_basic/models/ofw_contact.dart';
+import 'package:logging/logging.dart';
 
 class ContactService {
+  static final Logger _logger = Logger('ContactService');
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Get user's family contacts
-  static Future<List<OFWContact>> getFamilyContacts(String userId) async {
+  // Method to add a family contact
+  static Future<void> addFamilyContact(
+      String userId, OFWContact contact) async {
     try {
-      final snapshot = await _firestore
+      await _firestore
           .collection('users')
           .doc(userId)
           .collection('family_contacts')
-          .get();
-
-      // Use .fromMap now that it's correctly defined and matches Firestore structure
-      return snapshot.docs
-          .map((doc) => OFWContact.fromMap(doc.data(), doc.id))
-          .toList();
+          .doc(contact.id)
+          .set(contact.toMap());
+      _logger.info('Contact added: ${contact.id} for user $userId');
     } catch (e) {
-      print('Error getting family contacts: $e');
-      return [];
+      _logger.severe('Error adding contact: $e');
+      rethrow;
     }
   }
 
-  // Add a family member
-  static Future<void> addFamilyContact(
-      String userId, OFWContact contact) async {
-    await _firestore
+  // Method to delete a family contact
+  static Future<void> deleteFamilyContact(
+      String userId, String contactId) async {
+    try {
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('family_contacts')
+          .doc(contactId)
+          .delete();
+      _logger.info('Contact deleted: $contactId for user $userId');
+    } catch (e) {
+      _logger.severe('Error deleting contact: $e');
+      rethrow;
+    }
+  }
+
+  // You might have other methods here, e.g., getContactDetails, updateContact, etc.
+}
+
+// This extension provides the stream for real-time updates
+extension ContactServiceStream on ContactService {
+  static Stream<List<OFWContact>> getFamilyContactsStream(String userId) {
+    return FirebaseFirestore.instance
         .collection('users')
         .doc(userId)
         .collection('family_contacts')
-        .doc(contact.id)
-        .set({
-      'name': contact.name,
-      'relationship': contact.relationship, // Now correctly accessed
-      'phoneNumber': contact.phoneNumber,   // Now correctly accessed
-      'profileImage': contact.profileImage,
-      'languages': contact.languages,       // Now correctly accessed
-      'status': contact.status,             // Now correctly accessed
-      'phone': contact.phone, // Also include the original 'phone' field if it's still relevant
-      'specialization': contact.specialization,
-      'isOnline': contact.isOnline, // Also store online status, though it's typically dynamic
-    });
-  }
-
-  // Update online status (this method already looks correct)
-  static Future<void> updateOnlineStatus(String userId, bool isOnline) async {
-    await _firestore.collection('users').doc(userId).update({
-      'isOnline': isOnline,
-      'lastSeen': isOnline ? null : FieldValue.serverTimestamp(),
-    });
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => OFWContact.fromMap(doc.data(), doc.id))
+            .toList());
   }
 }

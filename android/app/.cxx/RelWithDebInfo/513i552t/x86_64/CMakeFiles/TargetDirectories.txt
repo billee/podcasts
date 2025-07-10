@@ -1,2 +1,0 @@
-C:/Users/sanme/AndroidStudioProjects/kapwa_companion/android/app/.cxx/RelWithDebInfo/513i552t/x86_64/CMakeFiles/edit_cache.dir
-C:/Users/sanme/AndroidStudioProjects/kapwa_companion/android/app/.cxx/RelWithDebInfo/513i552t/x86_64/CMakeFiles/rebuild_cache.dir
