@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/models/user.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   static final Logger _logger = Logger('AuthService');
@@ -37,7 +38,8 @@ class AuthService {
       final User? user = result.user;
       if (user != null) {
         // Create user profile in Firestore
-        await _createUserProfile(userId: user.uid, email: email, userProfile: userProfile);
+        await _createUserProfile(
+            userId: user.uid, email: email, userProfile: userProfile);
 
         _logger.info('User created successfully: ${user.uid}');
         return user;
@@ -199,12 +201,14 @@ class AuthService {
         smsCode: smsCode,
       );
 
-      final UserCredential result = await _auth.signInWithCredential(credential);
+      final UserCredential result =
+          await _auth.signInWithCredential(credential);
       final User? user = result.user;
 
       if (user != null) {
         // Check if this is a new user
-        if (result.additionalUserInfo?.isNewUser == true && userProfile != null) {
+        if (result.additionalUserInfo?.isNewUser == true &&
+            userProfile != null) {
           // Create profile for new phone user
           await _createUserProfile(
             userId: user.uid,
@@ -235,6 +239,8 @@ class AuthService {
     try {
       _logger.info('Attempting to sign out user');
       await _auth.signOut();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isLoggedIn', false);
       _logger.info('User signed out successfully');
     } catch (e) {
       _logger.severe('Error during sign out: $e');
@@ -313,7 +319,8 @@ class AuthService {
   }
 
   // Update user profile
-  static Future<void> updateUserProfile(String userId, Map<String, dynamic> updates) async {
+  static Future<void> updateUserProfile(
+      String userId, Map<String, dynamic> updates) async {
     try {
       await _firestore.collection('users').doc(userId).update({
         ...updates,
@@ -362,7 +369,8 @@ class AuthService {
       await _auth.sendPasswordResetEmail(email: email);
       _logger.info('Password reset email sent to: $email');
     } on FirebaseAuthException catch (e) {
-      _logger.severe('Error sending password reset email: ${e.code} - ${e.message}');
+      _logger.severe(
+          'Error sending password reset email: ${e.code} - ${e.message}');
       throw _handleAuthException(e);
     } catch (e) {
       _logger.severe('Unexpected error sending password reset email: $e');
@@ -421,7 +429,8 @@ class AuthService {
       }
 
       // Use real email if provided, otherwise use temp email
-      final authEmail = email?.isNotEmpty == true ? email! : '$username@kapwa.local';
+      final authEmail =
+          email?.isNotEmpty == true ? email! : '$username@kapwa.local';
 
       // Create user profile data
       final profileData = userProfile.toJson();
@@ -489,7 +498,6 @@ class AuthService {
       });
 
       _logger.info('Password reset request submitted for username: $username');
-
     } catch (e) {
       _logger.severe('Error submitting password reset request: $e');
       if (e is String) {
