@@ -38,4 +38,4 @@ flutter:
   assets:
     - .env
     - assets/images/typing_dots.gif
-    - assets/audio_sources/
+    - assets/podcast_sources/

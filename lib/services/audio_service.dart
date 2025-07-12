@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:logging/logging.dart';
+import 'package:kapwa_companion_basic/data/app_assets.dart';
 
 class AudioService {
   static final AudioService _instance = AudioService._internal();
@@ -32,22 +33,11 @@ class AudioService {
   String? get currentAudioPath => _currentAudioPath;
   AudioPlayer get audioPlayer => _audioPlayer;
 
-  static const String _audioSourcesPath = './audio_sources';
+  static const String _audioSourcesPath = './podcast_sources';
 
-  // Predefined audio assets for web
-  static const List<String> _audioAssets = [
-    'assets/audio_sources/ang_kulturang_filipino_sa_saudi_arabia.wav',
-    'assets/audio_sources/buhay_hamon_at_pag-angkop.wav',
-    'assets/audio_sources/higit_pa_sa_padala.wav',
-    'assets/audio_sources/kainipan_at_pangungulila.wav',
-    'assets/audio_sources/kalusugan_ng_kababaihang_OFW.wav',
-    'assets/audio_sources/Kultural_na_Kapistahan_Abu_Dhabi.wav',
-    'assets/audio_sources/mag-isa_sa_ibang_bansa.wav',
-    'assets/audio_sources/mahalagang_kalusugan_ng_isip.wav',
-    'assets/audio_sources/mga_pista_ng _pilipinas.wav',
-    'assets/audio_sources/Pilipinong_nasa_30s_sa_ibang_bansa.wav',
-    'assets/audio_sources/regalo_at_tradisyon_sa_pilipinas.wav',
-  ];
+  // Use the list from AppAssets, now named podcastAssets
+  static const List<String> _podcastAssets =
+      AppAssets.podcastAssets; // Renamed variable
 
   Future<void> initialize() async {
     _logger.info('Initializing AudioService...');
@@ -79,11 +69,13 @@ class AudioService {
 
       if (kIsWeb) {
         // Web platform: use predefined assets
-        _logger.info('Running on web - using predefined audio assets');
-        _allAudioFiles = List.from(_audioAssets);
+        _logger.info(
+            'Running on web - using predefined podcast assets'); // Updated log
+        _allAudioFiles = List.from(_podcastAssets); // Use _podcastAssets
         _audioLoading = false;
         _refreshAudioFiles();
-        _logger.info('Loaded ${_allAudioFiles.length} audio files from assets');
+        _logger.info(
+            'Loaded ${_allAudioFiles.length} podcast files from assets'); // Updated log
         return;
       }
 
@@ -100,13 +92,14 @@ class AudioService {
 
       if (!await directory.exists()) {
         _logger.warning(
-            'Audio sources directory does not exist: $_audioSourcesPath');
+            'Podcast sources directory does not exist: $_audioSourcesPath'); // Updated log
 
-        final altPath1 = Directory('./audio_sources');
-        final altPath2 = Directory('audio_sources');
+        final altPath1 = Directory('./podcast_sources');
+        final altPath2 = Directory('podcast_sources');
         print(
-            'Alt path 1 (./audio_sources) exists: ${await altPath1.exists()}');
-        print('Alt path 2 (audio_sources) exists: ${await altPath2.exists()}');
+            'Alt path 1 (./podcast_sources) exists: ${await altPath1.exists()}');
+        print(
+            'Alt path 2 (podcast_sources) exists: ${await altPath2.exists()}');
 
         _audioLoading = false;
         return;
@@ -127,9 +120,9 @@ class AudioService {
           // Support common audio formats
           if (['wav', 'mp3', 'ogg', 'aac', 'm4a'].contains(extension)) {
             audioFiles.add(entity.path);
-            print('✓ Added audio file: $fileName');
+            print('✓ Added podcast file: $fileName'); // Updated log
           } else {
-            print('✗ Skipping non-audio file: $fileName');
+            print('✗ Skipping non-podcast file: $fileName'); // Updated log
           }
         }
       }
@@ -138,12 +131,13 @@ class AudioService {
       _audioLoading = false;
       _refreshAudioFiles();
 
-      print('Final result: ${_allAudioFiles.length} audio files loaded');
+      print(
+          'Final result: ${_allAudioFiles.length} podcast files loaded'); // Updated log
       print('Current audio files: $_currentAudioFiles');
       print('=== End Debug ===');
     } catch (e) {
       print('ERROR in _loadAudioFiles: $e');
-      _logger.severe('Error loading audio files: $e');
+      _logger.severe('Error loading podcast files: $e'); // Updated log
       _audioLoading = false;
       // Fallback - empty list
       _allAudioFiles = [];
@@ -168,7 +162,7 @@ class AudioService {
 
   Future<void> playAudio(String filePath) async {
     try {
-      _logger.info('Playing audio: $filePath');
+      _logger.info('Playing podcast: $filePath'); // Updated log
       _currentAudioPath = filePath;
 
       // Stop current audio if playing
@@ -185,7 +179,7 @@ class AudioService {
         await _audioPlayer.play(DeviceFileSource(filePath));
       }
     } catch (e) {
-      _logger.severe('Error playing audio: $e');
+      _logger.severe('Error playing podcast: $e'); // Updated log
     }
   }
 
@@ -193,7 +187,7 @@ class AudioService {
     try {
       await _audioPlayer.pause();
     } catch (e) {
-      _logger.severe('Error pausing audio: $e');
+      _logger.severe('Error pausing podcast: $e'); // Updated log
     }
   }
 
@@ -201,7 +195,7 @@ class AudioService {
     try {
       await _audioPlayer.resume();
     } catch (e) {
-      _logger.severe('Error resuming audio: $e');
+      _logger.severe('Error resuming podcast: $e'); // Updated log
     }
   }
 
@@ -211,7 +205,7 @@ class AudioService {
       _currentPosition = Duration.zero;
       _currentAudioPath = null;
     } catch (e) {
-      _logger.severe('Error stopping audio: $e');
+      _logger.severe('Error stopping podcast: $e'); // Updated log
     }
   }
 
@@ -219,7 +213,7 @@ class AudioService {
     try {
       await _audioPlayer.seek(position);
     } catch (e) {
-      _logger.severe('Error seeking audio: $e');
+      _logger.severe('Error seeking podcast: $e'); // Updated log
     }
   }
 
