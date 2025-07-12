@@ -1,10 +1,11 @@
 // lib/services/audio_service.dart
 
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show kIsWeb; // Keep kIsWeb if you differentiate other logic
 import 'package:audioplayers/audioplayers.dart';
 import 'package:logging/logging.dart';
-import 'package:kapwa_companion_basic/data/app_assets.dart';
+// You might need to import your AppAssets if you move the list there
+import 'package:kapwa_companion_basic/data/app_assets.dart'; // Uncomment if using AppAssets
 
 class AudioService {
   static final AudioService _instance = AudioService._internal();
@@ -33,7 +34,8 @@ class AudioService {
   String? get currentAudioPath => _currentAudioPath;
   AudioPlayer get audioPlayer => _audioPlayer;
 
-  static const String _audioSourcesPath = './podcast_sources';
+  // No longer needed if all assets are from _podcastAssets
+  // static const String _audioSourcesPath = './podcast_sources';
 
   // Use the list from AppAssets, now named podcastAssets
   static const List<String> _podcastAssets =
@@ -66,75 +68,13 @@ class AudioService {
   Future<void> _loadAudioFiles() async {
     try {
       _audioLoading = true;
+      _logger.info('Loading audio files from assets (for both web and mobile)');
 
-      if (kIsWeb) {
-        // Web platform: use predefined assets
-        _logger.info(
-            'Running on web - using predefined podcast assets'); // Updated log
-        _allAudioFiles = List.from(_podcastAssets); // Use _podcastAssets
-        _audioLoading = false;
-        _refreshAudioFiles();
-        _logger.info(
-            'Loaded ${_allAudioFiles.length} podcast files from assets'); // Updated log
-        return;
-      }
-
-      // Desktop platform: use file system
-      _logger.info('Running on desktop - scanning file system');
-      print('=== AudioService Debug ===');
-      print('Current working directory: ${Directory.current.path}');
-      print('Looking for: $_audioSourcesPath');
-
-      final directory = Directory(_audioSourcesPath);
-      final absolutePath = directory.absolute.path;
-      print('Absolute path: $absolutePath');
-      print('Directory exists: ${await directory.exists()}');
-
-      if (!await directory.exists()) {
-        _logger.warning(
-            'Podcast sources directory does not exist: $_audioSourcesPath'); // Updated log
-
-        final altPath1 = Directory('./podcast_sources');
-        final altPath2 = Directory('podcast_sources');
-        print(
-            'Alt path 1 (./podcast_sources) exists: ${await altPath1.exists()}');
-        print(
-            'Alt path 2 (podcast_sources) exists: ${await altPath2.exists()}');
-
-        _audioLoading = false;
-        return;
-      }
-
-      print('Directory found! Listing contents...');
-
-      final List<String> audioFiles = [];
-      await for (final entity in directory.list()) {
-        print('Found entity: ${entity.path} (type: ${entity.runtimeType})');
-
-        if (entity is File) {
-          final fileName = entity.path.split(Platform.pathSeparator).last;
-          final extension = fileName.toLowerCase().split('.').last;
-
-          print('File: $fileName, Extension: $extension');
-
-          // Support common audio formats
-          if (['wav', 'mp3', 'ogg', 'aac', 'm4a'].contains(extension)) {
-            audioFiles.add(entity.path);
-            print('✓ Added podcast file: $fileName'); // Updated log
-          } else {
-            print('✗ Skipping non-podcast file: $fileName'); // Updated log
-          }
-        }
-      }
-
-      _allAudioFiles = audioFiles;
+      // Use the predefined list for all platforms for bundled assets
+      _allAudioFiles = List.from(_podcastAssets);
       _audioLoading = false;
       _refreshAudioFiles();
-
-      print(
-          'Final result: ${_allAudioFiles.length} podcast files loaded'); // Updated log
-      print('Current audio files: $_currentAudioFiles');
-      print('=== End Debug ===');
+      _logger.info('Loaded ${_allAudioFiles.length} podcast files from assets');
     } catch (e) {
       print('ERROR in _loadAudioFiles: $e');
       _logger.severe('Error loading podcast files: $e'); // Updated log
@@ -162,7 +102,7 @@ class AudioService {
 
   Future<void> playAudio(String filePath) async {
     try {
-      _logger.info('Playing podcast: $filePath'); // Updated log
+      _logger.info('Playing podcast: $filePath');
       _currentAudioPath = filePath;
 
       // Stop current audio if playing
@@ -170,14 +110,14 @@ class AudioService {
         await _audioPlayer.stop();
       }
 
-      if (kIsWeb) {
-        // Web: use AssetSource
-        final assetPath = filePath.replaceFirst('assets/', '');
-        await _audioPlayer.play(AssetSource(assetPath));
-      } else {
-        // Desktop: use DeviceFileSource
-        await _audioPlayer.play(DeviceFileSource(filePath));
-      }
+      // For bundled assets (which filePath now represents), always use AssetSource
+      final assetPath = filePath.replaceFirst('assets/',
+          ''); // Remove 'assets/' prefix if AssetSource expects path relative to assets/
+      await _audioPlayer.play(AssetSource(assetPath));
+
+      // If you still have scenarios for playing local device files (e.g., downloaded files),
+      // you would need separate logic here, perhaps based on the `filePath` format.
+      // But for bundled assets, AssetSource is the way.
     } catch (e) {
       _logger.severe('Error playing podcast: $e'); // Updated log
     }
@@ -218,12 +158,9 @@ class AudioService {
   }
 
   String getAudioFileName(String filePath) {
-    String fileName;
-    if (kIsWeb) {
-      fileName = filePath.split('/').last;
-    } else {
-      fileName = filePath.split(Platform.pathSeparator).last;
-    }
+    // This logic is now unified for all platforms, as filePath will always be an asset path.
+    // Asset paths use forward slashes.
+    String fileName = filePath.split('/').last;
 
     return fileName
         .replaceAll('.wav', '')
