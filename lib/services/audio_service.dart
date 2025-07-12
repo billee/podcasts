@@ -36,12 +36,17 @@ class AudioService {
 
   // Predefined audio assets for web
   static const List<String> _audioAssets = [
-    'assets/audio_sources/alone_abroad.wav',
-    'assets/audio_sources/beyond_remittances.wav',
-    'assets/audio_sources/essential_mental_health.wav',
-    'assets/audio_sources/boredom_homesickness.wav',
-    'assets/audio_sources/cultural_festival_abu_dhabi.wav',
-    'assets/audio_sources/filipinos_abroad_in_their_30s.wav',
+    'assets/audio_sources/ang_kulturang_filipino_sa_saudi_arabia.wav',
+    'assets/audio_sources/buhay_hamon_at_pag-angkop.wav',
+    'assets/audio_sources/higit_pa_sa_padala.wav',
+    'assets/audio_sources/kainipan_at_pangungulila.wav',
+    'assets/audio_sources/kalusugan_ng_kababaihang_OFW.wav',
+    'assets/audio_sources/Kultural_na_Kapistahan_Abu_Dhabi.wav',
+    'assets/audio_sources/mag-isa_sa_ibang_bansa.wav',
+    'assets/audio_sources/mahalagang_kalusugan_ng_isip.wav',
+    'assets/audio_sources/mga_pista_ng _pilipinas.wav',
+    'assets/audio_sources/Pilipinong_nasa_30s_sa_ibang_bansa.wav',
+    'assets/audio_sources/regalo_at_tradisyon_sa_pilipinas.wav',
   ];
 
   Future<void> initialize() async {
