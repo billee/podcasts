@@ -374,7 +374,7 @@ class _ChatScreenState extends State<ChatScreen> {
             headers: {'Content-Type': 'application/json'},
             body: json.encode({'messages': messagesForLLM}),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
