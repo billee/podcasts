@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/screens/chat_screen.dart';
-import 'package:kapwa_companion_basic/screens/contacts_screen.dart';
+import 'package:kapwa_companion_basic/screens/contacts_screen.dart'; // Keep if still needed for other purposes or future plans
 import 'package:kapwa_companion_basic/screens/profile_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
 import 'dart:async';
@@ -89,10 +89,10 @@ class _MainScreenState extends State<MainScreen> {
               userId: _currentUserId,
               username: _currentUsername,
             ),
-            ContactsScreen(
-              userId: _currentUserId,
-              username: _currentUsername,
-            ),
+            // Placeholder for Podcast screen
+            const Center(child: Text('Podcast Screen Content')),
+            // Placeholder for Story screen
+            const Center(child: Text('Story Screen Content')),
             const ProfileScreen(),
           ];
           _logger.info(
@@ -108,10 +108,10 @@ class _MainScreenState extends State<MainScreen> {
               userId: _currentUserId,
               username: _currentUsername,
             ),
-            ContactsScreen(
-              userId: _currentUserId,
-              username: _currentUsername,
-            ),
+            // Placeholder for Podcast screen
+            const Center(child: Text('Podcast Screen Content')),
+            // Placeholder for Story screen
+            const Center(child: Text('Story Screen Content')),
             const ProfileScreen(),
           ];
           _logger.warning(
@@ -211,12 +211,16 @@ class _MainScreenState extends State<MainScreen> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat),
+            icon: Icon(Icons.chat_bubble), // Changed icon
             label: 'Chat',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.contacts),
-            label: 'Contacts',
+            icon: Icon(Icons.mic), // New item
+            label: 'Podcast',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.book), // New item
+            label: 'Story',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
