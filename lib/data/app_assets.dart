@@ -14,5 +14,6 @@ class AppAssets {
     'assets/podcast_sources/mga_pista_ng _pilipinas.wav',
     'assets/podcast_sources/Pilipinong_nasa_30s_sa_ibang_bansa.wav',
     'assets/podcast_sources/regalo_at_tradisyon_sa_pilipinas.wav',
+    'assets/podcast_sources/oportunidad_para_sa_mga_OFW.wav',
   ];
 }
