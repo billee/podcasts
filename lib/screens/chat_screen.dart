@@ -61,18 +61,18 @@ class _ChatScreenState extends State<ChatScreen> {
     _logger.info('ChatScreen initState called.');
     _loadLatestSummary();
     _loadSuggestions();
-    // Removed _initializeAudioService() call, as it's handled in main.dart
+    // IMPORTANT: Removed _initializeAudioService() call, as it's handled globally in main.dart
   }
 
-  // Removed _initializeAudioService method entirely from ChatScreen,
-  // as it should not manage the AudioService lifecycle.
+  // IMPORTANT: Removed _initializeAudioService method entirely from ChatScreen,
+  // as this screen should NOT manage the AudioService lifecycle.
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    // Removed _audioService.dispose() call, as it's handled globally in main.dart
-    _logger.info('ChatScreen dispose called.');
+    // IMPORTANT: Removed _audioService.dispose() call, as it's handled globally in main.dart
+    _logger.info('ChatScreen dispose called. AudioService NOT disposed here.');
     super.dispose();
   }
 
@@ -428,7 +428,7 @@ class _ChatScreenState extends State<ChatScreen> {
       onClearChat: clearChat,
       conversationPairs: _conversationPairs,
       assistantName: _assistantName,
-      username: widget.username, // Pass the username to the view for ChatBubble
+      username: widget.username,
     );
   }
 }

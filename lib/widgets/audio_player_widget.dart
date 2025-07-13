@@ -39,7 +39,6 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     print('Audio loading: ${_audioService.audioLoading}');
   }
 
-
   void _handleAudioTap(String audioPath) {
     _debugAudioState();
 
@@ -91,8 +90,8 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   }
 
   Widget _buildAudioChips() {
-    print('Audio loading: ${_audioService.audioLoading}');
-    print('Audio files count: ${_audioService.currentAudioFiles.length}');
+    //print('Audio loading: ${_audioService.audioLoading}');
+    //print('Audio files count: ${_audioService.currentAudioFiles.length}');
 
     if (_audioService.audioLoading) {
       return const Padding(

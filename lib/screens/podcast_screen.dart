@@ -22,22 +22,25 @@ class _PodcastScreenState extends State<PodcastScreen> {
   void initState() {
     super.initState();
     _logger.info('PodcastScreen initState called.');
-    // Removed _initializeAudioService() call, as it's handled in main.dart
-    // The player listeners are already set up in AudioService's initialize method
+    // IMPORTANT: Removed _initializeAudioService() call, as it's handled globally in main.dart
+    // Player listeners should ideally be set up once in AudioService's initialize method
+    // and not repeatedly here. If any specific PodcastScreen UI depends on player completion,
+    // you might listen to _audioService.audioPlayer.onPlayerComplete, but the stop logic
+    // should be handled within AudioService itself for consistency.
     _audioService.audioPlayer.onPlayerComplete.listen((_) {
-      _logger.info('Audio player completed playback in PodcastScreen.');
-      setState(() {
-        _audioService.stopAudio();
-      });
+      _logger
+          .info('Audio player completed playback in PodcastScreen listener.');
+      // You might want to update local UI state if needed, but not stop the global service.
     });
-    _logger.info('PodcastScreen initialized and listeners set up.');
+    _logger.info('PodcastScreen initialized and listeners (if any) set up.');
   }
 
   @override
   void dispose() {
     _logger
         .info('PodcastScreen dispose called. AudioService NOT disposed here.');
-    // Removed _audioService.dispose() call, as it's handled globally in main.dart
+    // IMPORTANT: Removed _audioService.dispose() call.
+    // AudioService is a global singleton, its lifecycle is managed by main.dart.
     super.dispose();
   }
 
@@ -59,7 +62,7 @@ class _PodcastScreenState extends State<PodcastScreen> {
               style: TextStyle(fontSize: 18),
             ),
             const SizedBox(height: 32),
-            // No need to pass audioService, as AudioPlayerWidget will get the singleton
+            // AudioPlayerWidget will get the singleton AudioService instance directly
             AudioPlayerWidget(),
           ],
         ),
