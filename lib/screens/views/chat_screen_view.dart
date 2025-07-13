@@ -1,7 +1,6 @@
 // lib/screens/views/chat_screen_view.dart
 
 import 'package:flutter/material.dart';
-// import 'package:kapwa_companion_basic/widgets/audio_player_widget.dart'; // REMOVED
 import 'package:kapwa_companion_basic/widgets/typing_indicator.dart';
 
 // This is a stateless widget that takes the necessary data and callbacks
@@ -18,6 +17,7 @@ class ChatScreenView extends StatelessWidget {
   final int conversationPairs;
   final String assistantName;
   final String? username; // Pass username to ChatBubble if needed
+  final Function(String) onSuggestionSelected; // <--- ADD THIS LINE
 
   const ChatScreenView({
     super.key,
@@ -32,6 +32,7 @@ class ChatScreenView extends StatelessWidget {
     required this.conversationPairs,
     required this.assistantName,
     this.username,
+    required this.onSuggestionSelected, // <--- ADD THIS LINE to the constructor
   });
 
   Widget _buildSuggestionChips() {
@@ -51,7 +52,8 @@ class ChatScreenView extends StatelessWidget {
             child: ActionChip(
               label: Text(suggestion),
               onPressed: () {
-                onSendMessage(suggestion);
+                onSuggestionSelected(
+                    suggestion); // <--- ENSURE THIS CALLS THE PASSED FUNCTION
               },
               backgroundColor: Colors.blue[700],
               labelStyle: const TextStyle(color: Colors.white),
@@ -102,17 +104,14 @@ class ChatScreenView extends StatelessWidget {
                   return ChatBubble(
                     message: message['content'],
                     isUser: message['role'] == 'user',
-                    // Pass the correct sender name based on the role
-                    senderName: message['role'] == 'user'
-                        ? username // Use the actual username for user messages
-                        : assistantName, // Use the assistant's name for assistant messages
+                    senderName:
+                        message['role'] == 'user' ? username : assistantName,
                   );
                 }
                 return const SizedBox.shrink();
               },
             ),
           ),
-          // AudioPlayerWidget(), // REMOVED from here
           _buildSuggestionChips(),
           isTyping ? const TypingIndicator() : const SizedBox.shrink(),
           Padding(
@@ -152,7 +151,6 @@ class ChatScreenView extends StatelessWidget {
   }
 }
 
-// ChatBubble remains the same as it's a UI component
 class ChatBubble extends StatelessWidget {
   final String message;
   final bool isUser;
@@ -180,8 +178,7 @@ class ChatBubble extends StatelessWidget {
           crossAxisAlignment:
               isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            if (senderName != null &&
-                !isUser) // Only show sender name for non-user messages
+            if (senderName != null && !isUser)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4.0),
                 child: Text(

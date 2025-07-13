@@ -27,6 +27,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   final Logger _logger = Logger('MainScreen');
   int _currentIndex = 0;
+  final PageController _pageController = PageController(); // Add PageController
 
   StreamSubscription<User?>? _authStateSubscription;
 
@@ -86,34 +87,40 @@ class _MainScreenState extends State<MainScreen> {
 
         setState(() {
           _currentUsername = username;
-          _screens = [
-            ChatScreen(
-              userId: _currentUserId,
-              username: _currentUsername,
-            ),
-            const PodcastScreen(), // Use the new PodcastScreen
-            const StoryScreen(), // Use the new StoryScreen
-            const ProfileScreen(),
-          ];
-          _logger.info(
-              'Screens initialized with user info for $_currentUsername.');
+          // Only initialize screens if they haven't been created yet or if user changed
+          if (_screens.isEmpty || _screens.length < 4) {
+            _screens = [
+              ChatScreen(
+                userId: _currentUserId,
+                username: _currentUsername,
+              ),
+              const PodcastScreen(), // Use the new PodcastScreen
+              const StoryScreen(), // Use the new StoryScreen
+              const ProfileScreen(),
+            ];
+            _logger.info(
+                'Screens initialized with user info for $_currentUsername.');
+          }
         });
       } catch (e) {
         _logger
             .severe('Error fetching username/profile for $_currentUserId: $e');
         setState(() {
           _currentUsername = null;
-          _screens = [
-            ChatScreen(
-              userId: _currentUserId,
-              username: _currentUsername,
-            ),
-            const PodcastScreen(), // Use the new PodcastScreen
-            const StoryScreen(), // Use the new StoryScreen
-            const ProfileScreen(),
-          ];
-          _logger.warning(
-              'Screens initialized with partial user info due to error.');
+          // Only initialize screens if they haven't been created yet or if user changed
+          if (_screens.isEmpty || _screens.length < 4) {
+            _screens = [
+              ChatScreen(
+                userId: _currentUserId,
+                username: _currentUsername,
+              ),
+              const PodcastScreen(), // Use the new PodcastScreen
+              const StoryScreen(), // Use the new StoryScreen
+              const ProfileScreen(),
+            ];
+            _logger.warning(
+                'Screens initialized with partial user info due to error.');
+          }
         });
       }
     } else {
@@ -131,6 +138,7 @@ class _MainScreenState extends State<MainScreen> {
   void dispose() {
     _logger.info('MainScreen dispose called. Disposing auth subscription.');
     _authStateSubscription?.cancel();
+    _pageController.dispose(); // Dispose the page controller
     super.dispose();
   }
 
@@ -202,10 +210,19 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
-      body: _screens[_currentIndex],
+      // Use PageView instead of directly showing _screens[_currentIndex]
+      body: PageView(
+        controller: _pageController,
+        physics:
+            const NeverScrollableScrollPhysics(), // Disable swipe navigation
+        children: _screens,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          setState(() => _currentIndex = index);
+          _pageController.jumpToPage(index); // Navigate to the selected page
+        },
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(

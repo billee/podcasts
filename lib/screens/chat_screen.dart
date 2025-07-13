@@ -26,7 +26,9 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+// class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen>
+    with AutomaticKeepAliveClientMixin<ChatScreen> {
   final Logger _logger = Logger('ChatScreen');
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -75,6 +77,10 @@ class _ChatScreenState extends State<ChatScreen> {
     _logger.info('ChatScreen dispose called. AudioService NOT disposed here.');
     super.dispose();
   }
+
+  // <--- ADD THIS GETTER (REQUIRED by AutomaticKeepAliveClientMixin)
+  @override
+  bool get wantKeepAlive => true; // Set to true to keep the state alive
 
   Future<void> _loadLatestSummary() async {
     if (widget.userId == null) return;
@@ -417,6 +423,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return ChatScreenView(
       messageController: _messageController,
       scrollController: _scrollController,
@@ -429,6 +436,10 @@ class _ChatScreenState extends State<ChatScreen> {
       conversationPairs: _conversationPairs,
       assistantName: _assistantName,
       username: widget.username,
+      onSuggestionSelected: (suggestion) {
+        _messageController.text = suggestion;
+        _sendMessage(suggestion);
+      },
     );
   }
 }
