@@ -3,9 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/screens/chat_screen.dart';
-import 'package:kapwa_companion_basic/screens/contacts_screen.dart'; // Keep if still needed for other purposes or future plans
+// import 'package:kapwa_companion_basic/screens/contacts_screen.dart'; // No longer directly used in nav
 import 'package:kapwa_companion_basic/screens/profile_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
+import 'package:kapwa_companion_basic/screens/podcast_screen.dart'; // Import the new PodcastScreen
+import 'package:kapwa_companion_basic/screens/story_screen.dart'; // Import the new StoryScreen
 import 'dart:async';
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
@@ -89,10 +91,8 @@ class _MainScreenState extends State<MainScreen> {
               userId: _currentUserId,
               username: _currentUsername,
             ),
-            // Placeholder for Podcast screen
-            const Center(child: Text('Podcast Screen Content')),
-            // Placeholder for Story screen
-            const Center(child: Text('Story Screen Content')),
+            const PodcastScreen(), // Use the new PodcastScreen
+            const StoryScreen(), // Use the new StoryScreen
             const ProfileScreen(),
           ];
           _logger.info(
@@ -108,10 +108,8 @@ class _MainScreenState extends State<MainScreen> {
               userId: _currentUserId,
               username: _currentUsername,
             ),
-            // Placeholder for Podcast screen
-            const Center(child: Text('Podcast Screen Content')),
-            // Placeholder for Story screen
-            const Center(child: Text('Story Screen Content')),
+            const PodcastScreen(), // Use the new PodcastScreen
+            const StoryScreen(), // Use the new StoryScreen
             const ProfileScreen(),
           ];
           _logger.warning(
@@ -211,15 +209,15 @@ class _MainScreenState extends State<MainScreen> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble), // Changed icon
+            icon: Icon(Icons.chat_bubble),
             label: 'Chat',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.mic), // New item
+            icon: Icon(Icons.mic),
             label: 'Podcast',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.book), // New item
+            icon: Icon(Icons.book),
             label: 'Story',
           ),
           BottomNavigationBarItem(

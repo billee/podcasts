@@ -6,16 +6,10 @@ import 'dart:convert';
 import 'dart:async'; // Import for TimeoutException
 import 'package:kapwa_companion_basic/services/suggestion_service.dart';
 import 'package:logging/logging.dart';
-// import 'package:kapwa_companion_basic/widgets/audio_player_widget.dart'; // No longer directly used here
-import 'package:kapwa_companion_basic/services/audio_service.dart';
-// import 'package:kapwa_companion_basic/screens/contacts_screen.dart'; // Not used in this file's logic
+import 'package:kapwa_companion_basic/services/audio_service.dart'; // Keep import
 import 'package:kapwa_companion_basic/services/system_prompt_service.dart';
-// import 'package:kapwa_companion_basic/services/auth_service.dart'; // Not used in this file's logic
 import 'package:kapwa_companion_basic/core/config.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:kapwa_companion_basic/widgets/typing_indicator.dart'; // No longer directly used here
-
-// Import the new view file
 import 'package:kapwa_companion_basic/screens/views/chat_screen_view.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -38,7 +32,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isTyping = false;
 
-  // Initialize AudioService (it's a singleton, so this is fine)
+  // Obtain the singleton AudioService instance. It's initialized in main.dart.
   final AudioService _audioService = AudioService();
 
   // Chat state variables
@@ -67,27 +61,18 @@ class _ChatScreenState extends State<ChatScreen> {
     _logger.info('ChatScreen initState called.');
     _loadLatestSummary();
     _loadSuggestions();
-    _initializeAudioService();
+    // Removed _initializeAudioService() call, as it's handled in main.dart
   }
 
-  Future<void> _initializeAudioService() async {
-    _logger.info('Initializing AudioService in ChatScreen...');
-    await _audioService.initialize();
-    _audioService.audioPlayer.onPlayerComplete.listen((_) {
-      _logger.info('Audio player completed playback.');
-      setState(() {
-        _audioService.stopAudio();
-      });
-    });
-    _logger.info('AudioService initialized and listeners set up.');
-  }
+  // Removed _initializeAudioService method entirely from ChatScreen,
+  // as it should not manage the AudioService lifecycle.
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    _audioService.dispose();
-    _logger.info('ChatScreen dispose called. AudioService disposed.');
+    // Removed _audioService.dispose() call, as it's handled globally in main.dart
+    _logger.info('ChatScreen dispose called.');
     super.dispose();
   }
 

@@ -1,7 +1,7 @@
 // lib/screens/views/chat_screen_view.dart
 
 import 'package:flutter/material.dart';
-import 'package:kapwa_companion_basic/widgets/audio_player_widget.dart';
+// import 'package:kapwa_companion_basic/widgets/audio_player_widget.dart'; // REMOVED
 import 'package:kapwa_companion_basic/widgets/typing_indicator.dart';
 
 // This is a stateless widget that takes the necessary data and callbacks
@@ -112,7 +112,7 @@ class ChatScreenView extends StatelessWidget {
               },
             ),
           ),
-          AudioPlayerWidget(),
+          // AudioPlayerWidget(), // REMOVED from here
           _buildSuggestionChips(),
           isTyping ? const TypingIndicator() : const SizedBox.shrink(),
           Padding(
