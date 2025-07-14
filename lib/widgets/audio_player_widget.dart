@@ -12,7 +12,6 @@ class AudioPlayerWidget extends StatefulWidget {
 }
 
 class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
-  //final Logger _logger = Logger('AudioPlayerWidget');
   final AudioService _audioService = AudioService();
 
   @override
@@ -28,6 +27,10 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     });
 
     _audioService.audioPlayer.onDurationChanged.listen((_) {
+      if (mounted) setState(() {});
+    });
+
+    _audioService.audioPlayer.onPlayerComplete.listen((_) {
       if (mounted) setState(() {});
     });
   }
@@ -84,7 +87,10 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     return Column(
       children: [
         _buildAudioChips(),
-        if (_audioService.currentAudioPath != null) _buildAudioControls(),
+        if (_audioService.currentAudioPath != null &&
+            (_audioService.isPlaying ||
+                _audioService.currentPosition > Duration.zero))
+          _buildAudioControls(),
       ],
     );
   }

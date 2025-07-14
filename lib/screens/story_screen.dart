@@ -19,13 +19,16 @@ class _StoryScreenState extends State<StoryScreen> {
   void initState() {
     super.initState();
     // Set the story audio files when the screen initializes
+    // This will automatically stop any playing podcast audio
+    _audioService.stopAudio();
     _audioService.setCurrentAudioFiles(AppAssets.storyAssets);
   }
 
   @override
   void dispose() {
     // Reset to podcast assets when leaving the story screen
-    _audioService.setCurrentAudioFiles(AppAssets.podcastAssets);
+    // This will automatically stop any playing story audio
+    _audioService.stopAudio();
     super.dispose();
   }
 

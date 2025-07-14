@@ -85,6 +85,14 @@ class AudioService {
   // NEW METHOD: Set current audio files to a specific list
   void setCurrentAudioFiles(List<String> audioFiles) {
     _logger.info('Setting current audio files to: $audioFiles');
+
+    // Stop current audio if playing when switching audio sources
+    if (_isPlaying || _currentAudioPath != null) {
+      _logger
+          .info('Stopping current audio before switching to new audio source');
+      stopAudio();
+    }
+
     _allAudioFiles = List.from(audioFiles);
     _audioLoading = false;
     _refreshAudioFiles();
@@ -149,6 +157,7 @@ class AudioService {
       await _audioPlayer.stop();
       _currentPosition = Duration.zero;
       _currentAudioPath = null;
+      _isPlaying = false;
     } catch (e) {
       _logger.severe('Error stopping audio: $e'); // Updated log
     }

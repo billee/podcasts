@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:kapwa_companion_basic/widgets/audio_player_widget.dart';
 import 'package:kapwa_companion_basic/services/audio_service.dart';
 import 'package:logging/logging.dart';
+import 'package:kapwa_companion_basic/data/app_assets.dart';
 
 class PodcastScreen extends StatefulWidget {
   // Removed audioService parameter as it will get the singleton directly
@@ -22,17 +23,8 @@ class _PodcastScreenState extends State<PodcastScreen> {
   void initState() {
     super.initState();
     _logger.info('PodcastScreen initState called.');
-    // IMPORTANT: Removed _initializeAudioService() call, as it's handled globally in main.dart
-    // Player listeners should ideally be set up once in AudioService's initialize method
-    // and not repeatedly here. If any specific PodcastScreen UI depends on player completion,
-    // you might listen to _audioService.audioPlayer.onPlayerComplete, but the stop logic
-    // should be handled within AudioService itself for consistency.
-    _audioService.audioPlayer.onPlayerComplete.listen((_) {
-      _logger
-          .info('Audio player completed playback in PodcastScreen listener.');
-      // You might want to update local UI state if needed, but not stop the global service.
-    });
-    _logger.info('PodcastScreen initialized and listeners (if any) set up.');
+    _audioService.stopAudio();
+    _audioService.setCurrentAudioFiles(AppAssets.podcastAssets);
   }
 
   @override
@@ -41,6 +33,7 @@ class _PodcastScreenState extends State<PodcastScreen> {
         .info('PodcastScreen dispose called. AudioService NOT disposed here.');
     // IMPORTANT: Removed _audioService.dispose() call.
     // AudioService is a global singleton, its lifecycle is managed by main.dart.
+    _audioService.stopAudio();
     super.dispose();
   }
 
