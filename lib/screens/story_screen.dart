@@ -18,16 +18,12 @@ class _StoryScreenState extends State<StoryScreen> {
   @override
   void initState() {
     super.initState();
-    // Set the story audio files when the screen initializes
-    // This will automatically stop any playing podcast audio
     _audioService.stopAudio();
     _audioService.setCurrentAudioFiles(AppAssets.storyAssets);
   }
 
   @override
   void dispose() {
-    // Reset to podcast assets when leaving the story screen
-    // This will automatically stop any playing story audio
     _audioService.stopAudio();
     super.dispose();
   }
@@ -47,43 +43,37 @@ class _StoryScreenState extends State<StoryScreen> {
       ),
       body: Column(
         children: [
-          // Main content area
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.book,
-                    size: 80,
-                    color: Colors.greenAccent,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Mga Kuwento',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Listen to inspiring stories',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white70,
-                    ),
-                  ),
-                ],
-              ),
+          const SizedBox(height: 32),
+          Icon(
+            Icons.book,
+            size: 80,
+            color: Colors.greenAccent,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Mga Kuwento',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
           ),
-          // Audio player widget at the bottom
-          Container(
-            color: Colors.grey[850],
-            child: const AudioPlayerWidget(),
+          const SizedBox(height: 8),
+          const Text(
+            'Listen to inspiring stories',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.white70,
+            ),
           ),
+          const SizedBox(height: 32),
+          // Centered AudioPlayerWidget
+          Expanded(
+            child: Center(
+              child: AudioPlayerWidget(),
+            ),
+          ),
+          const SizedBox(height: 32),
         ],
       ),
     );

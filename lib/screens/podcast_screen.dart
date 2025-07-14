@@ -7,7 +7,6 @@ import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/data/app_assets.dart';
 
 class PodcastScreen extends StatefulWidget {
-  // Removed audioService parameter as it will get the singleton directly
   const PodcastScreen({super.key});
 
   @override
@@ -29,10 +28,7 @@ class _PodcastScreenState extends State<PodcastScreen> {
 
   @override
   void dispose() {
-    _logger
-        .info('PodcastScreen dispose called. AudioService NOT disposed here.');
-    // IMPORTANT: Removed _audioService.dispose() call.
-    // AudioService is a global singleton, its lifecycle is managed by main.dart.
+    _logger.info('PodcastScreen dispose called.');
     _audioService.stopAudio();
     super.dispose();
   }
@@ -44,21 +40,24 @@ class _PodcastScreenState extends State<PodcastScreen> {
         title: const Text('Podcast'),
         backgroundColor: Colors.grey[900],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.mic, size: 80, color: Colors.blueAccent),
-            const SizedBox(height: 16),
-            const Text(
-              'Podcast content will go here.',
-              style: TextStyle(fontSize: 18),
+      body: Column(
+        children: [
+          const SizedBox(height: 32),
+          const Icon(Icons.mic, size: 80, color: Colors.blueAccent),
+          const SizedBox(height: 16),
+          const Text(
+            'Podcast',
+            style: TextStyle(fontSize: 18),
+          ),
+          const SizedBox(height: 32),
+          // Centered AudioPlayerWidget
+          Expanded(
+            child: Center(
+              child: AudioPlayerWidget(),
             ),
-            const SizedBox(height: 32),
-            // AudioPlayerWidget will get the singleton AudioService instance directly
-            AudioPlayerWidget(),
-          ],
-        ),
+          ),
+          const SizedBox(height: 32),
+        ],
       ),
     );
   }
