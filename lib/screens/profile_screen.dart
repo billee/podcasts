@@ -13,6 +13,13 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final Logger _logger = Logger('ProfileScreen');
   Map<String, dynamic>? _userProfile;
+  final List<String> _genders = ['Male', 'Female'];
+  final List<String> _maritalStatuses = ['Married', 'Single'];
+  final List<String> _educationLevels = [
+    'Elementary',
+    'High School',
+    'University'
+  ];
   bool _isLoading = true;
   bool _isEditing = false;
   final _formKey = GlobalKey<FormState>();
@@ -29,7 +36,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'deviceInfo',
     'loginCount',
     'uid',
-    'email'
+    'email',
+    'preferences', // Add these
+    'language',
   ];
 
   @override
@@ -90,9 +99,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _initializeControllers(Map<String, dynamic> profile) {
     for (var entry in profile.entries) {
       if (!_nonEditableFields.contains(entry.key)) {
-        _controllers[entry.key] = TextEditingController(
-          text: entry.value?.toString() ?? '',
-        );
+        // Special handling for boolean fields
+        if (entry.key == 'isMarried') {
+          _controllers[entry.key] = TextEditingController(
+            text: entry.value?.toString() ?? 'false', // default to false/Single
+          );
+        } else {
+          _controllers[entry.key] = TextEditingController(
+            text: entry.value?.toString() ?? '',
+          );
+        }
       }
     }
   }
@@ -149,6 +165,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildEditableField(String label, String fieldName) {
+    if (fieldName == 'gender') {
+      return _buildDropdownField(
+        label: label,
+        value: _controllers[fieldName]?.text ?? '',
+        items: _genders,
+        onChanged: (value) {
+          _controllers[fieldName]?.text = value ?? '';
+        },
+      );
+    } else if (fieldName == 'isMarried') {
+      // Handle boolean to string conversion
+      final currentValue = _controllers[fieldName]?.text ?? '';
+      final displayValue = currentValue == 'true'
+          ? 'Married'
+          : currentValue == 'false'
+              ? 'Single'
+              : '';
+
+      return _buildDropdownField(
+        label: label,
+        value: displayValue,
+        items: _maritalStatuses,
+        onChanged: (value) {
+          final boolValue = value == 'Married' ? 'true' : 'false';
+          _controllers[fieldName]?.text = boolValue;
+        },
+      );
+    } else if (fieldName == 'educationalAttainment') {
+      return _buildDropdownField(
+        label: label,
+        value: _controllers[fieldName]?.text ?? '',
+        items: _educationLevels,
+        onChanged: (value) {
+          _controllers[fieldName]?.text = value ?? '';
+        },
+      );
+    }
+
     final controller = _controllers[fieldName] ??= TextEditingController();
 
     return Padding(
@@ -171,6 +225,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
           return null;
         },
+      ),
+    );
+  }
+
+  Widget _buildDropdownField({
+    required String label,
+    required String value,
+    required List<String> items,
+    required Function(String?) onChanged,
+  }) {
+    String? dropdownValue = value.isEmpty ? null : value;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[700],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: DropdownButtonFormField<String>(
+              value: dropdownValue,
+              items: [
+                DropdownMenuItem(
+                  value: null,
+                  child: Text(
+                    'Select $label',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+                ...items.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(
+                      value,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  );
+                }).toList(),
+              ],
+              onChanged: onChanged,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+              ),
+              dropdownColor: Colors.grey[800],
+              style: const TextStyle(color: Colors.white),
+              icon: Icon(Icons.arrow_drop_down, color: Colors.white70),
+            ),
+          ),
+        ],
       ),
     );
   }
