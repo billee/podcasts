@@ -14,6 +14,10 @@ class AppAssets {
     'assets/podcast_sources/pilipinong_nasa_30s_sa_ibang_bansa.wav',
     'assets/podcast_sources/regalo_at_tradisyon_sa_pilipinas.wav',
     'assets/podcast_sources/oportunidad_para_sa_mga_OFW.wav',
+    'assets/podcast_sources/pagkaing_filipino_lasang_bahay_sa_ibayong_dagat.wav',
+    'assets/podcast_sources/buhay_trabaho_at_katatagan_ng_OFW.wav',
+    'assets/podcast_sources/ang_pamumuhay_ng_mga_pilipino_sa_UAE.wav',
+    'assets/podcast_sources/hamakin_ang_paglalakbay_OFW_sa_ibang_bansa.wav',
   ];
 
   static const List<String> storyAssets = [

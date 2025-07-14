@@ -14,83 +14,226 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final Logger _logger = Logger('ProfileScreen');
   Map<String, dynamic>? _userProfile;
   bool _isLoading = true;
+  bool _isEditing = false;
+  final _formKey = GlobalKey<FormState>();
+  final Map<String, TextEditingController> _controllers = {};
+  final List<String> _nonEditableFields = [
+    'userType',
+    'profileCompleted',
+    'createdAt',
+    'isOnline',
+    'lastSeen',
+    'lastLoginAt',
+    'lastActiveAt',
+    'isActive',
+    'deviceInfo',
+    'loginCount',
+    'uid',
+    'email'
+  ];
 
   @override
   void initState() {
     super.initState();
-    _logger.info('ProfileScreen initState called.');
     _loadUserProfile();
   }
 
+  @override
+  void dispose() {
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
   Future<void> _loadUserProfile() async {
-    _logger.info('Attempting to load user profile...');
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        _logger.info('Firebase currentUser found: UID = ${user.uid}');
-        // Try to get profile from Firestore
         final doc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .get();
 
         if (doc.exists) {
-          _logger.info('User profile found in Firestore for UID: ${user.uid}');
           setState(() {
             _userProfile = doc.data();
+            _initializeControllers(_userProfile!);
             _isLoading = false;
           });
         } else {
-          _logger.warning(
-              'User profile NOT found in Firestore for UID: ${user.uid}. Falling back to basic Firebase Auth info.');
-          // Fallback to basic Firebase Auth info
+          final basicProfile = {
+            'name': user.displayName ?? 'User',
+            'email': user.email ?? '',
+            'uid': user.uid,
+          };
           setState(() {
-            _userProfile = {
-              'name': user.displayName ?? 'User',
-              'email': user.email ?? '',
-              'uid': user.uid, // Add UID for debugging
-            };
+            _userProfile = basicProfile;
+            _initializeControllers(basicProfile);
             _isLoading = false;
           });
         }
       } else {
-        _logger.warning(
-            'No Firebase currentUser found. User is not authenticated.');
         setState(() {
-          _userProfile = null; // Ensure profile is null if not logged in
+          _userProfile = null;
           _isLoading = false;
         });
       }
     } catch (e) {
-      _logger.severe('Error loading user profile: $e');
       setState(() {
         _isLoading = false;
-        _userProfile = null; // Clear profile on error
+        _userProfile = null;
       });
     }
   }
 
-  Future<void> _signOut() async {
-    _logger.info('Attempting to sign out...');
-    try {
-      await FirebaseAuth.instance.signOut();
-      _logger.info('User signed out successfully.');
-      // Navigation is handled by AuthWrapper
-    } catch (e) {
-      _logger.severe('Error signing out: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error signing out: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+  void _initializeControllers(Map<String, dynamic> profile) {
+    for (var entry in profile.entries) {
+      if (!_nonEditableFields.contains(entry.key)) {
+        _controllers[entry.key] = TextEditingController(
+          text: entry.value?.toString() ?? '',
         );
       }
     }
   }
 
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      setState(() => _isLoading = true);
+
+      final updateData = <String, dynamic>{};
+      for (var entry in _controllers.entries) {
+        if (!_nonEditableFields.contains(entry.key)) {
+          updateData[entry.key] = entry.value.text;
+        }
+      }
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set(updateData, SetOptions(merge: true));
+
+      await _loadUserProfile();
+
+      setState(() => _isEditing = false);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving profile: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Widget _buildEditableField(String label, String fieldName) {
+    final controller = _controllers[fieldName] ??= TextEditingController();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          filled: true,
+          fillColor: Colors.grey[700],
+          labelStyle: TextStyle(color: Colors.white70),
+        ),
+        style: const TextStyle(color: Colors.white),
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Please enter $label';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  Widget _buildNonEditableInfo(String label, dynamic value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[800],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              value?.toString() ?? 'N/A',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_userProfile == null) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'User not logged in or profile failed to load.',
+              style: TextStyle(color: Colors.white),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Please log in to view your profile.',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey[850],
       appBar: AppBar(
@@ -98,149 +241,212 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: Colors.blue[800],
         foregroundColor: Colors.white,
         actions: [
+          if (!_isLoading)
+            IconButton(
+              icon: Icon(_isEditing ? Icons.save : Icons.edit),
+              onPressed: () {
+                if (_isEditing) {
+                  _saveProfile();
+                } else {
+                  setState(() => _isEditing = true);
+                }
+              },
+              tooltip: _isEditing ? 'Save Changes' : 'Edit Profile',
+            ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: _signOut,
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+            },
             tooltip: 'Sign Out',
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _userProfile == null
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'User not logged in or profile failed to load.',
-                        style: TextStyle(color: Colors.white),
-                        textAlign: TextAlign.center,
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Please log in to view your profile.',
-                        style: TextStyle(color: Colors.white70),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: _isEditing ? _buildEditView() : _buildViewOnly(),
+      ),
+    );
+  }
+
+  Widget _buildEditView() {
+    final editableEntries = _userProfile!.entries
+        .where((entry) => !_nonEditableFields.contains(entry.key))
+        .toList();
+
+    final nonEditableEntries = _userProfile!.entries
+        .where((entry) => _nonEditableFields.contains(entry.key))
+        .toList();
+
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Edit Profile',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue[800],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Column(
+            children: editableEntries
+                .map((entry) =>
+                    _buildEditableField(_formatFieldName(entry.key), entry.key))
+                .toList(),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Non-Editable Information Section
+          Text(
+            'Account Information',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue[800],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Column(
+            children: nonEditableEntries
+                .map((entry) => _buildNonEditableInfo(
+                    _formatFieldName(entry.key), entry.value))
+                .toList(),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Save/Cancel Buttons
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() => _isEditing = false);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey[600],
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      // Profile Header
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[800],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: [
-                            CircleAvatar(
-                              radius: 40,
-                              backgroundColor: Colors.blue[800],
-                              child: Text(
-                                (_userProfile!['name']?.toString() ?? 'U')
-                                    .substring(0, 1)
-                                    .toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _userProfile!['name']?.toString() ??
-                                  'Unknown User',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _userProfile!['email']?.toString() ?? '',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: Colors.white70,
-                              ),
-                            ),
-                            if (_userProfile!['uid'] !=
-                                null) // Display UID for debugging
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: Text(
-                                  'UID: ${_userProfile!['uid']}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white54,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _saveProfile,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[600],
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text('Save Changes'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-                      const SizedBox(height: 20),
+  Widget _buildViewOnly() {
+    final editableEntries = _userProfile!.entries
+        .where((entry) => !_nonEditableFields.contains(entry.key))
+        .toList();
 
-                      // Show available profile information
-                      if (_userProfile!.isNotEmpty) ...[
-                        _buildInfoCard(
-                          'Profile Information',
-                          _userProfile!.entries
-                              .where((entry) =>
-                                  entry.key != 'name' &&
-                                  entry.key != 'email' &&
-                                  entry.key != 'uid')
-                              .map((entry) => _buildInfoRow(
-                                  _formatFieldName(entry.key), entry.value))
-                              .toList(),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+    final nonEditableEntries = _userProfile!.entries
+        .where((entry) => _nonEditableFields.contains(entry.key))
+        .toList();
 
-                      // Sign Out Button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton(
-                          onPressed: _signOut,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red[600],
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.logout),
-                              SizedBox(width: 8),
-                              Text(
-                                'Sign Out',
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Profile Information Section
+        Text(
+          'Profile Information',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue[800],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Column(
+          children: editableEntries
+              .map((entry) =>
+                  _buildInfoRow(_formatFieldName(entry.key), entry.value))
+              .toList(),
+        ),
+
+        const SizedBox(height: 24),
+
+        // Account Information Section
+        Text(
+          'Account Information',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue[800],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Column(
+          children: nonEditableEntries
+              .map((entry) =>
+                  _buildInfoRow(_formatFieldName(entry.key), entry.value))
+              .toList(),
+        ),
+
+        const SizedBox(height: 20),
+
+        // Sign Out Button
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[600],
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.logout),
+                SizedBox(width: 8),
+                Text(
+                  'Sign Out',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   String _formatFieldName(String fieldName) {
-    // Convert camelCase to readable format
     return fieldName
         .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
         .split(' ')
@@ -250,41 +456,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .trim();
   }
 
-  Widget _buildInfoCard(String title, List<Widget> children) {
-    if (children.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[800],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue[800],
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...children,
-        ],
-      ),
-    );
-  }
-
   Widget _buildInfoRow(String label, dynamic value) {
     if (value == null || value.toString().isEmpty) {
       return const SizedBox.shrink();
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
