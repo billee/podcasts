@@ -2,7 +2,6 @@
 
 class AppAssets {
   static const List<String> podcastAssets = [
-    // Renamed to podcastAssets
     'assets/podcast_sources/ang_kulturang_filipino_sa_saudi_arabia.wav',
     'assets/podcast_sources/buhay_hamon_at_pag_angkop.wav',
     'assets/podcast_sources/higit_pa_sa_padala.wav',
@@ -15,5 +14,10 @@ class AppAssets {
     'assets/podcast_sources/pilipinong_nasa_30s_sa_ibang_bansa.wav',
     'assets/podcast_sources/regalo_at_tradisyon_sa_pilipinas.wav',
     'assets/podcast_sources/oportunidad_para_sa_mga_OFW.wav',
+  ];
+
+  static const List<String> storyAssets = [
+    'assets/story_sources/ang_kakaibang_araw.wav',
+    'assets/story_sources/ang_kakaibang_araw_copy.wav',
   ];
 }

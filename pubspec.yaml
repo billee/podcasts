@@ -39,3 +39,4 @@ flutter:
     - .env
     - assets/images/typing_dots.gif
     - assets/podcast_sources/
+    - assets/story_sources/

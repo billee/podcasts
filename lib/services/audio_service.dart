@@ -34,9 +34,6 @@ class AudioService {
   String? get currentAudioPath => _currentAudioPath;
   AudioPlayer get audioPlayer => _audioPlayer;
 
-  // No longer needed if all assets are from _podcastAssets
-  // static const String _audioSourcesPath = './podcast_sources';
-
   // Use the list from AppAssets, now named podcastAssets
   static const List<String> _podcastAssets =
       AppAssets.podcastAssets; // Renamed variable
@@ -85,6 +82,14 @@ class AudioService {
     }
   }
 
+  // NEW METHOD: Set current audio files to a specific list
+  void setCurrentAudioFiles(List<String> audioFiles) {
+    _logger.info('Setting current audio files to: $audioFiles');
+    _allAudioFiles = List.from(audioFiles);
+    _audioLoading = false;
+    _refreshAudioFiles();
+  }
+
   void _refreshAudioFiles() {
     if (_allAudioFiles.isNotEmpty) {
       _allAudioFiles.shuffle();
@@ -102,7 +107,7 @@ class AudioService {
 
   Future<void> playAudio(String filePath) async {
     try {
-      _logger.info('Playing podcast: $filePath');
+      _logger.info('Playing audio: $filePath');
       _currentAudioPath = filePath;
 
       // Stop current audio if playing
@@ -119,7 +124,7 @@ class AudioService {
       // you would need separate logic here, perhaps based on the `filePath` format.
       // But for bundled assets, AssetSource is the way.
     } catch (e) {
-      _logger.severe('Error playing podcast: $e'); // Updated log
+      _logger.severe('Error playing audio: $e'); // Updated log
     }
   }
 
@@ -127,7 +132,7 @@ class AudioService {
     try {
       await _audioPlayer.pause();
     } catch (e) {
-      _logger.severe('Error pausing podcast: $e'); // Updated log
+      _logger.severe('Error pausing audio: $e'); // Updated log
     }
   }
 
@@ -135,7 +140,7 @@ class AudioService {
     try {
       await _audioPlayer.resume();
     } catch (e) {
-      _logger.severe('Error resuming podcast: $e'); // Updated log
+      _logger.severe('Error resuming audio: $e'); // Updated log
     }
   }
 
@@ -145,7 +150,7 @@ class AudioService {
       _currentPosition = Duration.zero;
       _currentAudioPath = null;
     } catch (e) {
-      _logger.severe('Error stopping podcast: $e'); // Updated log
+      _logger.severe('Error stopping audio: $e'); // Updated log
     }
   }
 
@@ -153,7 +158,7 @@ class AudioService {
     try {
       await _audioPlayer.seek(position);
     } catch (e) {
-      _logger.severe('Error seeking podcast: $e'); // Updated log
+      _logger.severe('Error seeking audio: $e'); // Updated log
     }
   }
 
