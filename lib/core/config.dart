@@ -25,16 +25,17 @@ class AppConfig {
     if (kIsWeb) {
       _backendBaseUrl = 'http://localhost:5000'; // For web app development
     } else if (defaultTargetPlatform == TargetPlatform.android) {
-      // FOR PHYSICAL ANDROID PHONE, THIS MUST BE YOUR DEVELOPMENT MACHINE'S REAL IP
-      // Based on your ipconfig, this is 10.0.0.93
-      _backendBaseUrl = 'http://10.0.0.93:5000';
-      // If you were using an Android EMULATOR, 10.0.2.2 would be correct:
-      // _backendBaseUrl = 'http://10.0.2.2:5000';
+      // FOR PRODUCTION: Use your Render deployment URL
+      _backendBaseUrl = 'https://backend-kapwa.onrender.com';
+
+      // FOR LOCAL DEVELOPMENT: Uncomment the line below and comment the line above
+      // _backendBaseUrl = 'http://10.0.0.93:5000';
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      // For iOS simulator, localhost often works. For physical iOS devices,
-      // you would also need your development machine's actual local IP address.
-      // If your physical iOS device is connecting to this machine:
-      _backendBaseUrl = 'http://10.0.0.93:5000';
+      // FOR PRODUCTION: Use your Render deployment URL
+      _backendBaseUrl = 'https://backend-kapwa.onrender.com';
+
+      // FOR LOCAL DEVELOPMENT: Uncomment the line below and comment the line above
+      // _backendBaseUrl = 'http://10.0.0.93:5000';
     } else {
       _backendBaseUrl = 'http://localhost:5000'; // Fallback
     }
