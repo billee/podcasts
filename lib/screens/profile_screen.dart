@@ -37,8 +37,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'loginCount',
     'uid',
     'email',
-    'preferences', // Add these
+    'preferences',
     'language',
+    'subscription', // Added to non-editable fields
   ];
 
   @override
@@ -99,10 +100,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _initializeControllers(Map<String, dynamic> profile) {
     for (var entry in profile.entries) {
       if (!_nonEditableFields.contains(entry.key)) {
-        // Special handling for boolean fields
         if (entry.key == 'isMarried') {
           _controllers[entry.key] = TextEditingController(
-            text: entry.value?.toString() ?? 'false', // default to false/Single
+            text: entry.value?.toString() ?? 'false',
           );
         } else {
           _controllers[entry.key] = TextEditingController(
@@ -175,7 +175,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       );
     } else if (fieldName == 'isMarried') {
-      // Handle boolean to string conversion
       final currentValue = _controllers[fieldName]?.text ?? '';
       final displayValue = currentValue == 'true'
           ? 'Married'
@@ -324,6 +323,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // Subscription card widget
+  Widget _buildSubscriptionCard(Map<String, dynamic>? subscriptionData) {
+    if (subscriptionData == null) {
+      return Card(
+        color: Colors.grey[800],
+        margin: const EdgeInsets.only(top: 16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'No subscription information available',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
+      );
+    }
+
+    // Helper function to format Firestore timestamps
+    String formatTimestamp(dynamic timestamp) {
+      if (timestamp is Timestamp) {
+        final date = timestamp.toDate();
+        return '${date.day}/${date.month}/${date.year}';
+      }
+      return timestamp?.toString() ?? 'N/A';
+    }
+
+    final isTrialActive = subscriptionData['isTrialActive'] ?? false;
+    final plan = subscriptionData['plan']?.toString().toUpperCase() ?? 'N/A';
+    final queriesUsed = subscriptionData['gptQueriesUsed']?.toString() ?? '0';
+    final videoMinutesUsed =
+        subscriptionData['videoMinutesUsed']?.toString() ?? '0';
+    final trialStartDate = formatTimestamp(subscriptionData['trialStartDate']);
+    final lastResetDate = formatTimestamp(subscriptionData['lastResetDate']);
+
+    return Card(
+      color: Colors.grey[800],
+      margin: const EdgeInsets.only(top: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.credit_card,
+                  color: Colors.blue[300],
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'SUBSCRIPTION STATUS',
+                  style: TextStyle(
+                    color: Colors.blue[300],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildSubscriptionRow('Plan:', plan),
+            _buildSubscriptionRow(
+                'Status:', isTrialActive ? 'ACTIVE TRIAL' : 'INACTIVE'),
+            _buildSubscriptionRow('Queries Used:', '$queriesUsed'),
+            _buildSubscriptionRow(
+                'Video Minutes Used:', '$videoMinutesUsed min'),
+            _buildSubscriptionRow('Trial Start Date:', trialStartDate),
+            _buildSubscriptionRow('Last Reset Date:', lastResetDate),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper for subscription rows
+  Widget _buildSubscriptionRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -389,8 +492,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .where((entry) => !_nonEditableFields.contains(entry.key))
         .toList();
 
+    // EXCLUDE SUBSCRIPTION FROM ACCOUNT INFO
     final nonEditableEntries = _userProfile!.entries
-        .where((entry) => _nonEditableFields.contains(entry.key))
+        .where((entry) =>
+            _nonEditableFields.contains(entry.key) &&
+            entry.key != 'subscription')
         .toList();
 
     return Form(
@@ -416,7 +522,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           const SizedBox(height: 24),
 
-          // Non-Editable Information Section
+          // Account Information Section (without subscription)
           Text(
             'Account Information',
             style: TextStyle(
@@ -432,6 +538,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _formatFieldName(entry.key), entry.value))
                 .toList(),
           ),
+
+          // Subscription card (separate section)
+          _buildSubscriptionCard(_userProfile?['subscription']),
 
           const SizedBox(height: 20),
 
@@ -481,8 +590,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .where((entry) => !_nonEditableFields.contains(entry.key))
         .toList();
 
+    // EXCLUDE SUBSCRIPTION FROM ACCOUNT INFO
     final nonEditableEntries = _userProfile!.entries
-        .where((entry) => _nonEditableFields.contains(entry.key))
+        .where((entry) =>
+            _nonEditableFields.contains(entry.key) &&
+            entry.key != 'subscription')
         .toList();
 
     return Column(
@@ -507,7 +619,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         const SizedBox(height: 24),
 
-        // Account Information Section
+        // Account Information Section (without subscription)
         Text(
           'Account Information',
           style: TextStyle(
@@ -523,6 +635,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildInfoRow(_formatFieldName(entry.key), entry.value))
               .toList(),
         ),
+
+        // Subscription card (separate section)
+        _buildSubscriptionCard(_userProfile?['subscription']),
 
         const SizedBox(height: 20),
 

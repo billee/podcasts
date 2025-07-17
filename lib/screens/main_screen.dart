@@ -59,13 +59,15 @@ class _MainScreenState extends State<MainScreen> {
       return {'name': cachedUsername, 'fromCache': true};
     }
     final userProfile = await AuthService.getUserProfile(userId);
-    final username = userProfile?['name'] as String?;
+    final username = userProfile?['name'];
     if (username != null) {
       await prefs.setString('cached_username_$userId', username);
       // Cache preferences for offline support
       if (userProfile?['preferences'] != null) {
-        await prefs.setString('cached_preferences_$userId',
-            jsonEncode(userProfile?['preferences']));
+        await prefs.setString(
+          'cached_preferences_$userId',
+          jsonEncode(userProfile?['preferences']),
+        );
       }
     }
     return {'name': username, 'fromCache': false, 'profile': userProfile};

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:kapwa_companion_basic/models/user.dart';
 import 'package:logging/logging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -45,18 +46,57 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   // Dropdown options
   final List<String> _workLocations = [
-    'Saudi Arabia', 'UAE', 'Qatar', 'Kuwait', 'Bahrain', 'Oman',
-    'Hong Kong', 'Singapore', 'Taiwan', 'Japan', 'South Korea',
-    'Italy', 'Germany', 'UK', 'Canada', 'Australia', 'New Zealand',
-    'USA', 'Other'
+    'Saudi Arabia',
+    'UAE',
+    'Qatar',
+    'Kuwait',
+    'Bahrain',
+    'Oman',
+    'Hong Kong',
+    'Singapore',
+    'Taiwan',
+    'Japan',
+    'South Korea',
+    'Italy',
+    'Germany',
+    'UK',
+    'Canada',
+    'Australia',
+    'New Zealand',
+    'USA',
+    'Other'
   ];
 
   final List<String> _genders = ['Male', 'Female', 'Prefer not to say'];
-  final List<String> _languages = ['English', 'Tagalog', 'Bisaya', 'Ilocano', 'Other'];
-  final List<String> _educationLevels = [
-    'Elementary', 'High School', 'Vocational/Technical',
-    'College Graduate', 'Post Graduate', 'Other'
+  final List<String> _languages = [
+    'English',
+    'Tagalog',
+    'Bisaya',
+    'Ilocano',
+    'Other'
   ];
+  final List<String> _educationLevels = [
+    'Elementary',
+    'High School',
+    'Vocational/Technical',
+    'College Graduate',
+    'Post Graduate',
+    'Other'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Set default values for dropdowns
+    _selectedWorkLocation = _workLocations.first;
+    _selectedGender = _genders.first;
+    _selectedEducation = _educationLevels.first;
+    _selectedLanguage = _languages.first; // Also set default for language
+    // Set reasonable birth year default
+    _birthYear = DateTime.now().year - 25;
+    _isMarried = false;
+    _hasChildren = false;
+  }
 
   @override
   void dispose() {
@@ -72,7 +112,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   String _extractErrorMessage(String error) {
-    if (error.contains('username-already-exists') || error.contains('Username already exists')) {
+    if (error.contains('username-already-exists') ||
+        error.contains('Username already exists')) {
       return 'Username already taken. Please choose a different username.';
     } else if (error.contains('email-already-in-use')) {
       return 'Email already registered. Please use a different email.';
@@ -88,43 +129,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   Future<void> _handleSignUp() async {
-    // This is a comprehensive check for all required fields across all pages
-    // before proceeding with the signup logic.
-    if (_nameController.text.isEmpty ||
-        _usernameController.text.isEmpty ||
-        _passwordController.text.isEmpty ||
-        _confirmPasswordController.text.isEmpty ||
-        _passwordController.text != _confirmPasswordController.text ||
-        (_hasEmail && _emailController.text.isEmpty) ||
-        _phoneController.text.isEmpty)
-    {
-      setState(() {
-        _errorMessage = 'Please fill in all required fields on the first two pages.';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields on the first two pages.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-    
-    // Validate the fields on the final page (page 2)
-    if (_occupationController.text.isEmpty ||
-        _selectedWorkLocation == null ||
-        _selectedGender == null ||
-        _selectedEducation == null)
-    {
-      setState(() {
-        _errorMessage = 'Please fill in all required fields on the last page.';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields on the last page.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+    if (!_validateAllPages()) {
       return;
     }
 
@@ -134,43 +139,37 @@ class _SignUpScreenState extends State<SignUpScreen> {
     });
 
     try {
-      // Create user profile object, using the null-aware operator '??' to provide
-      // a default empty string if the dropdowns are not selected.
-      final userProfile = UserProfile(
-        name: _nameController.text.trim(),
-        username: _usernameController.text.trim(),
-        phoneNumber: _phoneController.text.trim(),
-        workLocation: _selectedWorkLocation!, // Now we can use '!' since we validated it
-        occupation: _occupationController.text.trim(),
-        gender: _selectedGender!, // Now we can use '!' since we validated it
-        language: _selectedLanguage.toLowerCase(),
-        educationalAttainment: _selectedEducation!, // Now we can use '!' since we validated it
-        isMarried: _isMarried,
-        hasChildren: _hasChildren,
-        birthYear: _birthYear,
-      );
+      final userProfileData = {
+        'name': _nameController.text.trim(),
+        'username': _usernameController.text.trim(),
+        'phoneNumber': _phoneController.text.trim(),
+        'workLocation': _selectedWorkLocation!,
+        'occupation': _occupationController.text.trim(),
+        'gender': _selectedGender!,
+        'language': _selectedLanguage.toLowerCase(),
+        'educationalAttainment': _selectedEducation!,
+        'isMarried': _isMarried,
+        'hasChildren': _hasChildren,
+        'birthYear': _birthYear,
+      };
 
-      // Use flexible signup method
       await AuthService.signUpFlexible(
         username: _usernameController.text.trim(),
         password: _passwordController.text,
-        userProfile: userProfile,
+        userProfile: userProfileData,
         email: _hasEmail ? _emailController.text.trim() : null,
       );
 
       _logger.info('User registered successfully');
 
-      // Show success message and navigate
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_hasEmail
-                ? 'Account created successfully! Welcome to Kapwa Companion.'
-                : 'Account created successfully! Remember your username for login.'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_hasEmail
+              ? 'Account created successfully! Welcome to Kapwa Companion.'
+              : 'Account created successfully! Remember your username for login.'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ));
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
@@ -182,8 +181,96 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
+  bool _validateAllPages() {
+    // Manually trigger form save
+    if (_currentPage == 0) {
+      _formKey.currentState?.save();
+    }
+
+    // Page 0: Personal Info
+    if (_nameController.text.isEmpty) {
+      _pageController.jumpToPage(0);
+      _showValidationError('Please enter your full name');
+      return false;
+    }
+
+    if (_usernameController.text.isEmpty) {
+      _pageController.jumpToPage(0);
+      _showValidationError('Please enter a username');
+      return false;
+    } else if (_usernameController.text.length < 3) {
+      _pageController.jumpToPage(0);
+      _showValidationError('Username must be at least 3 characters');
+      return false;
+    } else if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(_usernameController.text)) {
+      _pageController.jumpToPage(0);
+      _showValidationError(
+          'Username can only contain letters, numbers, and underscores');
+      return false;
+    }
+
+    if (_hasEmail && _emailController.text.isEmpty) {
+      _pageController.jumpToPage(0);
+      _showValidationError('Please enter your email');
+      return false;
+    } else if (_hasEmail &&
+        !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+            .hasMatch(_emailController.text)) {
+      _pageController.jumpToPage(0);
+      _showValidationError('Please enter a valid email');
+      return false;
+    }
+
+    if (_phoneController.text.isEmpty) {
+      _pageController.jumpToPage(0);
+      _showValidationError('Please enter your phone number');
+      return false;
+    }
+
+    // Page 1: Security
+    if (_passwordController.text.isEmpty ||
+        _passwordController.text.length < 6) {
+      _pageController.jumpToPage(1);
+      _showValidationError('Password must be at least 6 characters');
+      return false;
+    }
+
+    if (_confirmPasswordController.text != _passwordController.text) {
+      _pageController.jumpToPage(1);
+      _showValidationError('Passwords do not match');
+      return false;
+    }
+
+    // Page 2: Work Info
+    if (_occupationController.text.isEmpty) {
+      _pageController.jumpToPage(2);
+      _showValidationError('Please enter your occupation');
+      return false;
+    }
+
+    if (_selectedWorkLocation == null) {
+      _pageController.jumpToPage(2);
+      _showValidationError('Please select your work location');
+      return false;
+    }
+
+    if (_selectedGender == null) {
+      _pageController.jumpToPage(2);
+      _showValidationError('Please select your gender');
+      return false;
+    }
+
+    if (_selectedEducation == null) {
+      _pageController.jumpToPage(2);
+      _showValidationError('Please select your education level');
+      return false;
+    }
+
+    return true;
+  }
+
   void _nextPage() {
-    if (_currentPage < 2) {
+    if (_currentPage < 2 && _validateCurrentPage()) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -201,30 +288,45 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   bool _validateCurrentPage() {
-    // For page 0 (Personal Info), validate the form
     if (_currentPage == 0) {
       return _formKey.currentState!.validate();
     }
-    // For page 1 (Security), we don't have a separate form key,
-    // so we can check controller values directly.
     if (_currentPage == 1) {
-      // Validate password and confirm password fields
-      if (_passwordController.text.isEmpty || _passwordController.text.length < 6) {
+      if (_passwordController.text.isEmpty ||
+          _passwordController.text.length < 6) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Password must be at least 6 characters'),
+            backgroundColor: Colors.orange,
+          ),
+        );
         return false;
       }
       if (_confirmPasswordController.text != _passwordController.text) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Passwords do not match'),
+            backgroundColor: Colors.orange,
+          ),
+        );
         return false;
       }
       return true;
     }
-    // For page 2 (Work Info), check if dropdowns and occupation are selected
     if (_currentPage == 2) {
-      return _occupationController.text.isNotEmpty &&
-             _selectedWorkLocation != null &&
-             _selectedGender != null &&
-             _selectedEducation != null;
+      return true; // Final validation happens in _handleSignUp
     }
-    return false; // Should not happen
+    return false;
+  }
+
+  void _showValidationError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -240,7 +342,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
         ),
         title: Text(
           'Create Account',
-          style: TextStyle(color: Colors.blue[800], fontWeight: FontWeight.bold),
+          style:
+              TextStyle(color: Colors.blue[800], fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
@@ -255,9 +358,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   return Expanded(
                     child: Container(
                       height: 4,
-                      margin: EdgeInsets.symmetric(horizontal: 2),
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
                       decoration: BoxDecoration(
-                        color: index <= _currentPage ? Colors.blue[800] : Colors.grey[600],
+                        color: index <= _currentPage
+                            ? Colors.blue[800]
+                            : Colors.grey[600],
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -275,6 +380,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     _currentPage = page;
                   });
                 },
+                physics:
+                    const NeverScrollableScrollPhysics(), // Prevent swiping
                 children: [
                   _buildPersonalInfoPage(),
                   _buildSecurityPage(),
@@ -320,28 +427,25 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         child: const Text('Previous'),
                       ),
                     ),
-
                   if (_currentPage > 0) const SizedBox(width: 16),
-
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : () {
-                        if (_currentPage < 2) {
-                          if (_validateCurrentPage()) {
-                            _nextPage();
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Please fill in all required fields'),
-                                backgroundColor: Colors.orange,
-                              ),
-                            );
-                          }
-                        } else {
-                          // This is the final page, so call the sign up handler
-                          _handleSignUp();
-                        }
-                      },
+                      onPressed: _isLoading
+                          ? null
+                          : () async {
+                              if (_currentPage < 2) {
+                                _nextPage();
+                              } else {
+                                // Manually save form state before validation
+                                if (_currentPage == 0) {
+                                  _formKey.currentState?.save();
+                                }
+
+                                if (_validateAllPages()) {
+                                  await _handleSignUp();
+                                }
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue[800],
                         foregroundColor: Colors.white,
@@ -356,7 +460,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               width: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
                           : Text(_currentPage < 2 ? 'Next' : 'Create Account'),
@@ -426,7 +531,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 labelText: 'Username *',
                 helperText: 'This will be used to log in',
                 helperStyle: const TextStyle(color: Colors.white54),
-                prefixIcon: const Icon(Icons.alternate_email, color: Colors.white70),
+                prefixIcon:
+                    const Icon(Icons.alternate_email, color: Colors.white70),
                 filled: true,
                 fillColor: Colors.grey[800],
                 border: OutlineInputBorder(
@@ -503,8 +609,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   if (_hasEmail && (value == null || value.trim().isEmpty)) {
                     return 'Please enter your email or uncheck the email option';
                   }
-                  if (value != null && value.isNotEmpty &&
-                      !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                  if (value != null &&
+                      value.isNotEmpty &&
+                      !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                          .hasMatch(value)) {
                     return 'Please enter a valid email';
                   }
                   return null;
@@ -595,15 +703,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
               labelStyle: const TextStyle(color: Colors.white70),
             ),
             style: const TextStyle(color: Colors.white),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter a password';
-              }
-              if (value.length < 6) {
-                return 'Password must be at least 6 characters';
-              }
-              return null;
-            },
           ),
 
           const SizedBox(height: 16),
@@ -617,7 +716,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
               prefixIcon: const Icon(Icons.lock_outline, color: Colors.white70),
               suffixIcon: IconButton(
                 icon: Icon(
-                  _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                  _obscureConfirmPassword
+                      ? Icons.visibility
+                      : Icons.visibility_off,
                   color: Colors.white70,
                 ),
                 onPressed: () {
@@ -635,15 +736,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
               labelStyle: const TextStyle(color: Colors.white70),
             ),
             style: const TextStyle(color: Colors.white),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please confirm your password';
-              }
-              if (value != _passwordController.text) {
-                return 'Passwords do not match';
-              }
-              return null;
-            },
           ),
 
           const SizedBox(height: 24),
@@ -729,12 +821,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 _selectedWorkLocation = value;
               });
             },
-            validator: (value) {
-              if (value == null) {
-                return 'Please select your work location';
-              }
-              return null;
-            },
           ),
 
           const SizedBox(height: 16),
@@ -754,12 +840,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
               labelStyle: const TextStyle(color: Colors.white70),
             ),
             style: const TextStyle(color: Colors.white),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter your occupation';
-              }
-              return null;
-            },
           ),
 
           const SizedBox(height: 16),
@@ -769,7 +849,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
             value: _selectedGender,
             decoration: InputDecoration(
               labelText: 'Gender *',
-              prefixIcon: const Icon(Icons.person_outline, color: Colors.white70),
+              prefixIcon:
+                  const Icon(Icons.person_outline, color: Colors.white70),
               filled: true,
               fillColor: Colors.grey[800],
               border: OutlineInputBorder(
@@ -790,12 +871,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
               setState(() {
                 _selectedGender = value;
               });
-            },
-            validator: (value) {
-              if (value == null) {
-                return 'Please select your gender';
-              }
-              return null;
             },
           ),
 
@@ -859,12 +934,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 _selectedEducation = value;
               });
             },
-            validator: (value) {
-              if (value == null) {
-                return 'Please select your educational attainment';
-              }
-              return null;
-            },
           ),
 
           const SizedBox(height: 16),
@@ -897,7 +966,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     Text(
                       _birthYear.toString(),
-                      style: TextStyle(color: Colors.blue[300], fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: Colors.blue[300], fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
