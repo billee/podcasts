@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logging/logging.dart';
+import 'package:kapwa_companion_basic/screens/views/profile_view.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -20,6 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'High School',
     'University'
   ];
+  final List<String> _booleanOptions = ['Yes', 'No'];
   bool _isLoading = true;
   bool _isEditing = false;
   final _formKey = GlobalKey<FormState>();
@@ -39,7 +41,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'email',
     'preferences',
     'language',
-    'subscription', // Added to non-editable fields
+    'subscription',
+    'hasRealEmail', // Added this field to non-editable list
   ];
 
   @override
@@ -100,7 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _initializeControllers(Map<String, dynamic> profile) {
     for (var entry in profile.entries) {
       if (!_nonEditableFields.contains(entry.key)) {
-        if (entry.key == 'isMarried') {
+        if (entry.key == 'isMarried' || entry.key == 'hasChildren') {
           _controllers[entry.key] = TextEditingController(
             text: entry.value?.toString() ?? 'false',
           );
@@ -125,7 +128,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final updateData = <String, dynamic>{};
       for (var entry in _controllers.entries) {
         if (!_nonEditableFields.contains(entry.key)) {
-          updateData[entry.key] = entry.value.text;
+          // Convert boolean string values back to actual booleans
+          if (entry.key == 'isMarried' || entry.key == 'hasChildren') {
+            updateData[entry.key] = entry.value.text == 'true';
+          } else {
+            updateData[entry.key] = entry.value.text;
+          }
         }
       }
 
@@ -188,6 +196,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         items: _maritalStatuses,
         onChanged: (value) {
           final boolValue = value == 'Married' ? 'true' : 'false';
+          _controllers[fieldName]?.text = boolValue;
+        },
+      );
+    } else if (fieldName == 'hasChildren') {
+      final currentValue = _controllers[fieldName]?.text ?? '';
+      final displayValue = currentValue == 'true'
+          ? 'Yes'
+          : currentValue == 'false'
+              ? 'No'
+              : '';
+
+      return _buildDropdownField(
+        label: label,
+        value: displayValue,
+        items: _booleanOptions,
+        onChanged: (value) {
+          final boolValue = value == 'Yes' ? 'true' : 'false';
           _controllers[fieldName]?.text = boolValue;
         },
       );
@@ -289,403 +314,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildNonEditableInfo(String label, dynamic value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[800],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              value?.toString() ?? 'N/A',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Subscription card widget
-  Widget _buildSubscriptionCard(Map<String, dynamic>? subscriptionData) {
-    if (subscriptionData == null) {
-      return Card(
-        color: Colors.grey[800],
-        margin: const EdgeInsets.only(top: 16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            'No subscription information available',
-            style: TextStyle(color: Colors.white70),
-          ),
-        ),
-      );
-    }
-
-    // Helper function to format Firestore timestamps
-    String formatTimestamp(dynamic timestamp) {
-      if (timestamp is Timestamp) {
-        final date = timestamp.toDate();
-        return '${date.day}/${date.month}/${date.year}';
-      }
-      return timestamp?.toString() ?? 'N/A';
-    }
-
-    final isTrialActive = subscriptionData['isTrialActive'] ?? false;
-    final plan = subscriptionData['plan']?.toString().toUpperCase() ?? 'N/A';
-    final queriesUsed = subscriptionData['gptQueriesUsed']?.toString() ?? '0';
-    final videoMinutesUsed =
-        subscriptionData['videoMinutesUsed']?.toString() ?? '0';
-    final trialStartDate = formatTimestamp(subscriptionData['trialStartDate']);
-    final lastResetDate = formatTimestamp(subscriptionData['lastResetDate']);
-
-    return Card(
-      color: Colors.grey[800],
-      margin: const EdgeInsets.only(top: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.credit_card,
-                  color: Colors.blue[300],
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'SUBSCRIPTION STATUS',
-                  style: TextStyle(
-                    color: Colors.blue[300],
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildSubscriptionRow('Plan:', plan),
-            _buildSubscriptionRow(
-                'Status:', isTrialActive ? 'ACTIVE TRIAL' : 'INACTIVE'),
-            _buildSubscriptionRow('Queries Used:', '$queriesUsed'),
-            _buildSubscriptionRow(
-                'Video Minutes Used:', '$videoMinutesUsed min'),
-            _buildSubscriptionRow('Trial Start Date:', trialStartDate),
-            _buildSubscriptionRow('Last Reset Date:', lastResetDate),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Helper for subscription rows
-  Widget _buildSubscriptionRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 140,
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_userProfile == null) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'User not logged in or profile failed to load.',
-              style: TextStyle(color: Colors.white),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Please log in to view your profile.',
-              style: TextStyle(color: Colors.white70),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.grey[850],
-      appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: Colors.blue[800],
-        foregroundColor: Colors.white,
-        actions: [
-          if (!_isLoading)
-            IconButton(
-              icon: Icon(_isEditing ? Icons.save : Icons.edit),
-              onPressed: () {
-                if (_isEditing) {
-                  _saveProfile();
-                } else {
-                  setState(() => _isEditing = true);
-                }
-              },
-              tooltip: _isEditing ? 'Save Changes' : 'Edit Profile',
-            ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-            },
-            tooltip: 'Sign Out',
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: _isEditing ? _buildEditView() : _buildViewOnly(),
-      ),
-    );
-  }
-
-  Widget _buildEditView() {
-    final editableEntries = _userProfile!.entries
-        .where((entry) => !_nonEditableFields.contains(entry.key))
-        .toList();
-
-    // EXCLUDE SUBSCRIPTION FROM ACCOUNT INFO
-    final nonEditableEntries = _userProfile!.entries
-        .where((entry) =>
-            _nonEditableFields.contains(entry.key) &&
-            entry.key != 'subscription')
-        .toList();
-
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Edit Profile',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue[800],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Column(
-            children: editableEntries
-                .map((entry) =>
-                    _buildEditableField(_formatFieldName(entry.key), entry.key))
-                .toList(),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Account Information Section (without subscription)
-          Text(
-            'Account Information',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue[800],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Column(
-            children: nonEditableEntries
-                .map((entry) => _buildNonEditableInfo(
-                    _formatFieldName(entry.key), entry.value))
-                .toList(),
-          ),
-
-          // Subscription card (separate section)
-          _buildSubscriptionCard(_userProfile?['subscription']),
-
-          const SizedBox(height: 20),
-
-          // Save/Cancel Buttons
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    setState(() => _isEditing = false);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[600],
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('Cancel'),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _saveProfile,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[600],
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('Save Changes'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildViewOnly() {
-    final editableEntries = _userProfile!.entries
-        .where((entry) => !_nonEditableFields.contains(entry.key))
-        .toList();
-
-    // EXCLUDE SUBSCRIPTION FROM ACCOUNT INFO
-    final nonEditableEntries = _userProfile!.entries
-        .where((entry) =>
-            _nonEditableFields.contains(entry.key) &&
-            entry.key != 'subscription')
-        .toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Profile Information Section
-        Text(
-          'Profile Information',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue[800],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Column(
-          children: editableEntries
-              .map((entry) =>
-                  _buildInfoRow(_formatFieldName(entry.key), entry.value))
-              .toList(),
-        ),
-
-        const SizedBox(height: 24),
-
-        // Account Information Section (without subscription)
-        Text(
-          'Account Information',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue[800],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Column(
-          children: nonEditableEntries
-              .map((entry) =>
-                  _buildInfoRow(_formatFieldName(entry.key), entry.value))
-              .toList(),
-        ),
-
-        // Subscription card (separate section)
-        _buildSubscriptionCard(_userProfile?['subscription']),
-
-        const SizedBox(height: 20),
-
-        // Sign Out Button
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: ElevatedButton(
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[600],
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.logout),
-                SizedBox(width: 8),
-                Text(
-                  'Sign Out',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _formatFieldName(String fieldName) {
-    return fieldName
-        .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
-        .split(' ')
-        .map((word) =>
-            word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1))
-        .join(' ')
-        .trim();
-  }
-
   Widget _buildInfoRow(String label, dynamic value) {
     if (value == null || value.toString().isEmpty) {
       return const SizedBox.shrink();
@@ -716,6 +344,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  String _formatFieldName(String fieldName) {
+    return fieldName
+        .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
+        .split(' ')
+        .map((word) =>
+            word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1))
+        .join(' ')
+        .trim();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final editableEntries = _userProfile?.entries
+            .where((entry) =>
+                !_nonEditableFields.contains(entry.key) &&
+                entry.key != 'subscription')
+            .toList() ??
+        [];
+
+    final nonEditableEntries = _userProfile?.entries
+            .where((entry) =>
+                _nonEditableFields.contains(entry.key) &&
+                entry.key != 'subscription')
+            .toList() ??
+        [];
+
+    return ProfileView(
+      isLoading: _isLoading,
+      userProfile: _userProfile,
+      isEditing: _isEditing,
+      formKey: _formKey,
+      controllers: _controllers,
+      editableEntries: editableEntries,
+      nonEditableEntries: nonEditableEntries,
+      subscriptionData: _userProfile?['subscription'],
+      onEditPressed: () {
+        if (_isEditing) {
+          _saveProfile();
+        } else {
+          setState(() => _isEditing = true);
+        }
+      },
+      onSavePressed: _saveProfile,
+      onCancelPressed: () => setState(() => _isEditing = false),
+      onLogoutPressed: () async {
+        await FirebaseAuth.instance.signOut();
+      },
+      buildEditableField: _buildEditableField,
+      buildInfoRow: _buildInfoRow,
+      formatFieldName: _formatFieldName,
     );
   }
 }

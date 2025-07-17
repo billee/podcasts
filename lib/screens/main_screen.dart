@@ -8,6 +8,7 @@ import 'package:kapwa_companion_basic/screens/profile_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
 import 'package:kapwa_companion_basic/screens/podcast_screen.dart'; // Import the new PodcastScreen
 import 'package:kapwa_companion_basic/screens/story_screen.dart'; // Import the new StoryScreen
+import 'package:kapwa_companion_basic/screens/payment_screen.dart'; // Import the PaymentScreen
 import 'dart:async';
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
@@ -160,6 +161,18 @@ class _MainScreenState extends State<MainScreen> {
         title: const Text('Kapwa Companion'),
         backgroundColor: Colors.grey[900],
         actions: [
+          IconButton(
+            icon: const Icon(Icons.upgrade),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PaymentScreen(),
+                ),
+              );
+            },
+            tooltip: 'Upgrade',
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
