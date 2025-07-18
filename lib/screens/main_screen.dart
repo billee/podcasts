@@ -8,6 +8,7 @@ import 'package:kapwa_companion_basic/screens/profile_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
 import 'package:kapwa_companion_basic/screens/podcast_screen.dart'; // Import the new PodcastScreen
 import 'package:kapwa_companion_basic/screens/story_screen.dart'; // Import the new StoryScreen
+import 'package:kapwa_companion_basic/screens/video_screen.dart'; // Import the new VideoScreen
 import 'package:kapwa_companion_basic/screens/payment_screen.dart'; // Import the PaymentScreen
 import 'dart:async';
 import 'package:logging/logging.dart';
@@ -91,7 +92,8 @@ class _MainScreenState extends State<MainScreen> {
         setState(() {
           _currentUsername = username;
           // Only initialize screens if they haven't been created yet or if user changed
-          if (_screens.isEmpty || _screens.length < 4) {
+          if (_screens.isEmpty || _screens.length < 5) {
+            // Changed from 4 to 5
             _screens = [
               ChatScreen(
                 userId: _currentUserId,
@@ -99,6 +101,7 @@ class _MainScreenState extends State<MainScreen> {
               ),
               const PodcastScreen(), // Use the new PodcastScreen
               const StoryScreen(), // Use the new StoryScreen
+              const VideoScreen(), // Add the new VideoScreen
               const ProfileScreen(),
             ];
             _logger.info(
@@ -111,7 +114,8 @@ class _MainScreenState extends State<MainScreen> {
         setState(() {
           _currentUsername = null;
           // Only initialize screens if they haven't been created yet or if user changed
-          if (_screens.isEmpty || _screens.length < 4) {
+          if (_screens.isEmpty || _screens.length < 5) {
+            // Changed from 4 to 5
             _screens = [
               ChatScreen(
                 userId: _currentUserId,
@@ -119,6 +123,7 @@ class _MainScreenState extends State<MainScreen> {
               ),
               const PodcastScreen(), // Use the new PodcastScreen
               const StoryScreen(), // Use the new StoryScreen
+              const VideoScreen(), // Add the new VideoScreen
               const ProfileScreen(),
             ];
             _logger.warning(
@@ -251,6 +256,10 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.book),
             label: 'Story',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.videocam), // Video icon
+            label: 'Video',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
