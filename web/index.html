@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base href="$FLUTTER_BASE_HREF">
-
+  <base href="/">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
@@ -19,7 +18,17 @@
   <title>kapwa_companion</title>
   <link rel="manifest" href="manifest.json">
 
-  
+  <script>
+      // Fix for '_scriptUrls' redeclaration
+      if (!window._flutterAssetManager) {
+          // Initialize Flutter once
+          var script = document.createElement('script');
+          script.src = "main.dart.js";
+          script.type = "application/javascript";
+          document.body.appendChild(script);
+      }
+  </script>
+
   <!-- Use Firebase compat version for Flutter Web -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -41,15 +50,45 @@
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     
-    // Only initialize analytics if needed (comment out if causing issues)
+    // Only initialize analytics if needed
     try {
       firebase.analytics();
     } catch (e) {
       console.warn('Analytics initialization failed:', e);
     }
+
+    // Function to create iframe
+    function createIframe(url, containerId) {
+      // Find container by its key attribute
+      const container = document.querySelector(`[data-key="${containerId}"]`);
+      if (!container) {
+        console.error('Container not found for daily iframe');
+        return;
+      }
+      
+      // Clear any existing iframe
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
+
+      // Create new iframe
+      const iframe = document.createElement('iframe');
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      iframe.style.border = 'none';
+      iframe.allow = 'camera; microphone; display-capture';
+      iframe.src = url;
+
+      // Append to container
+      container.appendChild(iframe);
+    }
   </script>
+  <script src="video_player.js" type="application/javascript"></script>
   </head>
 <body>
+  <div id="app-container"></div>
+  <script src="main.dart.js" type="application/javascript"></script>
+  <script src="https://cdn.jsdelivr.net/npm/iframe-resizer@4.2.11/js/iframeResizer.min.js"></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

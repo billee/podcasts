@@ -3,24 +3,24 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/screens/chat_screen.dart';
-// import 'package:kapwa_companion_basic/screens/contacts_screen.dart'; // No longer directly used in nav
 import 'package:kapwa_companion_basic/screens/profile_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
-import 'package:kapwa_companion_basic/screens/podcast_screen.dart'; // Import the new PodcastScreen
-import 'package:kapwa_companion_basic/screens/story_screen.dart'; // Import the new StoryScreen
-import 'package:kapwa_companion_basic/screens/video_screen.dart'; // Import the new VideoScreen
-import 'package:kapwa_companion_basic/screens/payment_screen.dart'; // Import the PaymentScreen
+import 'package:kapwa_companion_basic/screens/podcast_screen.dart';
+import 'package:kapwa_companion_basic/screens/story_screen.dart';
+import 'package:kapwa_companion_basic/screens/video_screen.dart';
+import 'package:kapwa_companion_basic/screens/payment_screen.dart';
 import 'dart:async';
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show compute, kIsWeb;
-import 'dart:convert'; // Added for jsonEncode
+import 'package:kapwa_companion_basic/screens/video_screen_web.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:kapwa_companion_basic/widgets/placeholder_widget.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({
-    super.key,
-  });
+  const MainScreen({super.key});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -29,13 +29,13 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   final Logger _logger = Logger('MainScreen');
   int _currentIndex = 0;
-  final PageController _pageController = PageController(); // Add PageController
+  final PageController _pageController = PageController();
 
   StreamSubscription<User?>? _authStateSubscription;
-
-  // State variables to hold current user's ID and username
   String? _currentUserId;
   String? _currentUsername;
+  String? _dailyRoomUrl;
+  bool _isFetchingRoomUrl = false;
 
   List<Widget> _screens = [];
 
@@ -44,12 +44,41 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _logger.info('MainScreen initState called.');
     _initializeUserAndScreens();
-
     _authStateSubscription =
         FirebaseAuth.instance.authStateChanges().listen((user) {
       _logger.info('Auth state changed in MainScreen. User: ${user?.uid}');
       _initializeUserAndScreens();
     });
+  }
+
+  // Helper function to get Daily room URL from backend
+  Future<String?> _fetchDailyRoomUrl(String userId) async {
+    // Use different URLs for web and mobile
+    String baseUrl = kIsWeb ? 'http://localhost:5000' : 'http://10.0.2.2:5000';
+
+    try {
+      setState(() => _isFetchingRoomUrl = true);
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/daily-room/$userId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final roomUrl = jsonDecode(response.body)['room_url'] as String?;
+        _logger.info('Fetched Daily room URL: $roomUrl');
+        return roomUrl;
+      } else {
+        _logger.warning('Failed to fetch room URL: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      _logger.severe('Error fetching room URL: $e');
+      return null;
+    } finally {
+      if (mounted) {
+        setState(() => _isFetchingRoomUrl = false);
+      }
+    }
   }
 
   // Isolate-compatible function for fetching user profile
@@ -64,7 +93,6 @@ class _MainScreenState extends State<MainScreen> {
     final username = userProfile?['name'];
     if (username != null) {
       await prefs.setString('cached_username_$userId', username);
-      // Cache preferences for offline support
       if (userProfile?['preferences'] != null) {
         await prefs.setString(
           'cached_preferences_$userId',
@@ -89,19 +117,22 @@ class _MainScreenState extends State<MainScreen> {
         _logger.info(
             'DEBUG: Fetched userProfile: $userProfile, extracted username: $username, fromCache: $fromCache');
 
+        // Fetch Daily room URL only once
+        if (_dailyRoomUrl == null && !_isFetchingRoomUrl) {
+          _dailyRoomUrl = await _fetchDailyRoomUrl(_currentUserId!);
+        }
+
         setState(() {
           _currentUsername = username;
-          // Only initialize screens if they haven't been created yet or if user changed
           if (_screens.isEmpty || _screens.length < 5) {
-            // Changed from 4 to 5
             _screens = [
               ChatScreen(
                 userId: _currentUserId,
                 username: _currentUsername,
               ),
-              const PodcastScreen(), // Use the new PodcastScreen
-              const StoryScreen(), // Use the new StoryScreen
-              const VideoScreen(), // Add the new VideoScreen
+              const PodcastScreen(),
+              const StoryScreen(),
+              _buildVideoScreen(),
               const ProfileScreen(),
             ];
             _logger.info(
@@ -113,17 +144,15 @@ class _MainScreenState extends State<MainScreen> {
             .severe('Error fetching username/profile for $_currentUserId: $e');
         setState(() {
           _currentUsername = null;
-          // Only initialize screens if they haven't been created yet or if user changed
           if (_screens.isEmpty || _screens.length < 5) {
-            // Changed from 4 to 5
             _screens = [
               ChatScreen(
                 userId: _currentUserId,
                 username: _currentUsername,
               ),
-              const PodcastScreen(), // Use the new PodcastScreen
-              const StoryScreen(), // Use the new StoryScreen
-              const VideoScreen(), // Add the new VideoScreen
+              const PodcastScreen(),
+              const StoryScreen(),
+              _buildVideoScreen(), // Use the builder function here too
               const ProfileScreen(),
             ];
             _logger.warning(
@@ -132,7 +161,6 @@ class _MainScreenState extends State<MainScreen> {
         });
       }
     } else {
-      // Handle logged-out state (though AuthWrapper should prevent this)
       setState(() {
         _screens = [
           const LoginScreen(),
@@ -146,13 +174,26 @@ class _MainScreenState extends State<MainScreen> {
   void dispose() {
     _logger.info('MainScreen dispose called. Disposing auth subscription.');
     _authStateSubscription?.cancel();
-    _pageController.dispose(); // Dispose the page controller
+    _pageController.dispose();
     super.dispose();
+  }
+
+  Widget _buildVideoScreen() {
+    if (kIsWeb) {
+      if (_dailyRoomUrl != null) {
+        return VideoScreenWeb(videoUrl: _dailyRoomUrl!);
+      } else {
+        return const PlaceholderWidget(
+          message: 'Daily room URL not available',
+        );
+      }
+    } else {
+      return VideoScreen(roomUrl: _dailyRoomUrl);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Show a loading indicator until _screens is initialized
     if (_screens.isEmpty) {
       return const Scaffold(
         body: Center(
@@ -230,18 +271,16 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
-      // Use PageView instead of directly showing _screens[_currentIndex]
       body: PageView(
         controller: _pageController,
-        physics:
-            const NeverScrollableScrollPhysics(), // Disable swipe navigation
+        physics: const NeverScrollableScrollPhysics(),
         children: _screens,
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
           setState(() => _currentIndex = index);
-          _pageController.jumpToPage(index); // Navigate to the selected page
+          _pageController.jumpToPage(index);
         },
         type: BottomNavigationBarType.fixed,
         items: const [
@@ -258,7 +297,7 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Story',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.videocam), // Video icon
+            icon: Icon(Icons.videocam),
             label: 'Video',
           ),
           BottomNavigationBarItem(

@@ -7,47 +7,64 @@ import 'firebase_options.dart';
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/screens/auth/auth_wrapper.dart';
 import 'package:kapwa_companion_basic/core/config.dart';
-import 'package:kapwa_companion_basic/services/audio_service.dart'; // Import AudioService
+import 'package:kapwa_companion_basic/services/audio_service.dart';
+
+void _setupLogging() {
+  Logger.root.level = Level.ALL;
+  Logger.root.onRecord.listen((record) {
+    debugPrint(
+      '${record.level.name}: ${record.time}: ${record.loggerName}: ${record.message}',
+    );
+    if (record.error != null) {
+      debugPrint('  Error: ${record.error}');
+    }
+    if (record.stackTrace != null) {
+      debugPrint('  StackTrace: ${record.stackTrace}');
+    }
+  });
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _setupLogging();
+  final logger = Logger('main');
 
-  // Initialize Firebase first
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  Logger('main').info('Firebase initialized successfully.');
-
-  // Set Firebase Auth persistence to LOCAL
   try {
-    await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
-    Logger('main').info('Firebase Auth persistence set to LOCAL');
-  } catch (e) {
-    Logger('main').severe('Error setting Firebase Auth persistence: $e');
+    // Initialize Firebase
+    logger.info('Initializing Firebase...');
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    logger.info('Firebase initialized successfully.');
+
+    // Set Firebase Auth persistence
+    try {
+      await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+      logger.info('Firebase Auth persistence set to LOCAL');
+    } catch (e) {
+      logger.severe('Error setting Firebase Auth persistence: $e');
+    }
+
+    // Initialize app configuration
+    logger.info('Loading environment configuration...');
+    await AppConfig.initialize();
+    debugPrint('Environment loaded successfully');
+    logger.info('Environment loaded successfully');
+
+    // Initialize AudioService with error handling
+    logger.info('Initializing AudioService...');
+    try {
+      await AudioService().initialize();
+      logger.info('AudioService initialized successfully.');
+    } catch (e, s) {
+      logger.warning('AudioService initialization failed: $e', e, s);
+    }
+
+    runApp(const MyApp());
+  } catch (e, s) {
+    logger.severe('CRITICAL INITIALIZATION ERROR: $e', e, s);
+    runApp(ErrorFallbackApp(error: e, stackTrace: s));
   }
-
-  // Initialize logging
-  Logger.root.level = Level.ALL;
-  Logger.root.onRecord.listen((record) {
-    print(
-        '${record.level.name}: ${record.time}: ${record.loggerName}: ${record.message}');
-    if (record.error != null) {
-      print('  Error: ${record.error}');
-    }
-    if (record.stackTrace != null) {
-      print('  StackTrace: ${record.stackTrace}');
-    }
-  });
-
-  await AppConfig.initialize();
-  debugPrint('Environment loaded successfully');
-
-  // Initialize AudioService here, before runApp
-  // Since AudioService is a singleton, this ensures it's initialized once.
-  await AudioService().initialize();
-  Logger('main').info('AudioService initialized successfully.');
-
-  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -63,7 +80,67 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.dark,
         useMaterial3: true,
       ),
-      home: AuthWrapper(), // Your existing auth wrapper
+      home: const AuthWrapper(),
+    );
+  }
+}
+
+class ErrorFallbackApp extends StatelessWidget {
+  final Object error;
+  final StackTrace? stackTrace;
+
+  const ErrorFallbackApp({
+    super.key,
+    required this.error,
+    this.stackTrace,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 64),
+                const SizedBox(height: 20),
+                const Text(
+                  'App Initialization Failed',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  error.toString(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: () {
+                    // Add restart logic here if needed
+                  },
+                  child: const Text('Restart App'),
+                ),
+                if (stackTrace != null) ...[
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Stack Trace:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Text(stackTrace.toString()),
+                    ),
+                  ),
+                ]
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
