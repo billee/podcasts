@@ -11,7 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_web_plugins:
-    sdk: flutter    
+    sdk: flutter
+  web: ^1.1.1     
   logging: ^1.2.0
   flutter_dotenv: ^5.1.0
   http: ^1.2.0
@@ -30,6 +31,7 @@ dependencies:
   permission_handler: ^11.0.0
   path_provider: ^2.1.1
   flutter_widget_from_html: ^0.10.0+1
+  url_launcher: ^6.2.1  # Added missing dependency
 
 dev_dependencies:
   dwds: ^24.4.0

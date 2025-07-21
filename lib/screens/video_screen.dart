@@ -1,91 +1,491 @@
 // lib/screens/video_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:logging/logging.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:io';
 
 class VideoScreen extends StatefulWidget {
   final String? roomUrl;
 
-  const VideoScreen({super.key, this.roomUrl});
+  const VideoScreen({
+    super.key,
+    this.roomUrl,
+  });
 
   @override
   State<VideoScreen> createState() => _VideoScreenState();
 }
 
 class _VideoScreenState extends State<VideoScreen> {
-  late final WebViewController _controller;
+  final Logger _logger = Logger('VideoScreen');
+  WebViewController? _webViewController;
   bool _isLoading = true;
+  String? _errorMessage;
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
 
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.transparent)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageFinished: (_) => setState(() => _isLoading = false),
-      ));
+    _logger.info('VideoScreen initialized with roomUrl: ${widget.roomUrl}');
 
-    if (widget.roomUrl != null) {
-      _loadVideoCall();
+    // For mobile platforms, suggest opening in browser immediately
+    if (Platform.isAndroid || Platform.isIOS) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showBrowserSuggestion();
+      });
+    }
+
+    _setupWebView();
+  }
+
+  void _showBrowserSuggestion() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Video Call'),
+        content: const Text(
+          'For the best video calling experience on mobile devices, we recommend opening the video room in your default browser.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text('Try WebView'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _launchInBrowser();
+            },
+            child: const Text('Open in Browser'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _setupWebView() {
+    if (widget.roomUrl == null || widget.roomUrl!.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'No room URL provided';
+      });
+      return;
+    }
+
+    try {
+      _webViewController = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setUserAgent(
+            'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36')
+        ..enableZoom(false)
+        ..setBackgroundColor(Colors.black)
+        ..setNavigationDelegate(
+          NavigationDelegate(
+            onPageStarted: (String url) {
+              _logger.info('WebView started loading: $url');
+              setState(() {
+                _isLoading = true;
+                _errorMessage = null;
+              });
+            },
+            onPageFinished: (String url) {
+              _logger.info('WebView finished loading: $url');
+              setState(() {
+                _isLoading = false;
+              });
+
+              // Inject JavaScript to handle permissions and improve compatibility
+              _injectVideoPermissionScript();
+            },
+            onWebResourceError: (WebResourceError error) {
+              _logger.severe(
+                  'WebView error: ${error.description} (Code: ${error.errorCode})');
+
+              // Handle specific ORB errors
+              if (error.description?.contains('ERR_BLOCKED_BY_ORB') == true ||
+                  error.description?.contains('ERR_BLOCKED_BY_RESPONSE') ==
+                      true) {
+                setState(() {
+                  _isLoading = false;
+                  _errorMessage =
+                      'Video room blocked by security policy. Please use "Open in Browser" for the best experience.';
+                });
+              } else {
+                setState(() {
+                  _isLoading = false;
+                  _errorMessage =
+                      'Failed to load video room: ${error.description}';
+                });
+
+                // Auto-retry for network errors
+                if (_retryCount < _maxRetries &&
+                    (error.description?.contains('net::') == true)) {
+                  _retryCount++;
+                  _logger.info(
+                      'Auto-retrying... Attempt $_retryCount of $_maxRetries');
+                  Future.delayed(const Duration(seconds: 2), () {
+                    if (mounted) {
+                      _setupWebView();
+                    }
+                  });
+                }
+              }
+            },
+            onNavigationRequest: (NavigationRequest request) {
+              _logger.info('Navigation request: ${request.url}');
+
+              // Allow navigation to Daily.co domains and related video services
+              final uri = Uri.parse(request.url);
+              if (uri.host.contains('daily.co') ||
+                  uri.host.contains('daily-co.com') ||
+                  uri.host.contains('jitsi.org') ||
+                  uri.host.contains('meet.google.com') ||
+                  uri.host.contains('zoom.us')) {
+                return NavigationDecision.navigate;
+              }
+
+              // For external links, open in browser
+              if (request.url.startsWith('http')) {
+                _launchUrl(request.url);
+                return NavigationDecision.prevent;
+              }
+
+              return NavigationDecision.navigate;
+            },
+          ),
+        );
+
+      // Load the URL with additional headers to help with CORS
+      _webViewController!.loadRequest(
+        Uri.parse(widget.roomUrl!),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers':
+              'Origin, X-Requested-With, Content-Type, Accept, Authorization',
+        },
+      );
+
+      _logger.info('WebView setup completed for URL: ${widget.roomUrl}');
+    } catch (e) {
+      _logger.severe('Error setting up WebView: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Error setting up video room: $e';
+      });
     }
   }
 
-  void _loadVideoCall() {
-    final htmlContent = '''
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Kapwa Video Call</title>
-        <style>
-          body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
-          #daily-container { width: 100%; height: 100vh; }
-        </style>
-      </head>
-      <body>
-        <div id="daily-container"></div>
-        <script src="https://unpkg.com/@daily-co/daily-js"></script>
-        <script>
-          const container = document.getElementById('daily-container');
-          const callFrame = window.DailyIframe.createFrame(container, {
-            showLeaveButton: true,
-            iframeStyle: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', border: '0' }
+  void _injectVideoPermissionScript() {
+    _webViewController?.runJavaScript('''
+      // Request permissions for camera and microphone
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({video: true, audio: true})
+          .then(function(stream) {
+            console.log('Media permissions granted');
+            // Stop the stream as we just needed permissions
+            stream.getTracks().forEach(track => track.stop());
+          })
+          .catch(function(err) {
+            console.log('Media permissions denied:', err);
           });
-          callFrame.join({ url: '${widget.roomUrl}' }).catch(err => {
-            console.error('Join error:', err);
-          });
-        </script>
-      </body>
-      </html>
-    ''';
-    _controller.loadHtmlString(htmlContent);
+      }
+      
+      // Handle fullscreen requests
+      document.addEventListener('fullscreenchange', function() {
+        console.log('Fullscreen changed');
+      });
+      
+      // Improve mobile experience
+      if (window.screen && window.screen.orientation) {
+        try {
+          window.screen.orientation.lock('any');
+        } catch (e) {
+          console.log('Screen orientation lock not supported');
+        }
+      }
+    ''');
+  }
+
+  Future<void> _launchInBrowser() async {
+    if (widget.roomUrl != null) {
+      await _launchUrl(widget.roomUrl!);
+    }
+  }
+
+  Future<void> _launchUrl(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+          webViewConfiguration: const WebViewConfiguration(
+            enableJavaScript: true,
+            enableDomStorage: true,
+          ),
+        );
+        _logger.info('Launched URL in external browser: $url');
+      } else {
+        _logger.warning('Cannot launch URL: $url');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cannot open video room in browser'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      _logger.severe('Error launching URL in browser: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening video room: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildLoadingWidget() {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Loading video room...',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+            if (_retryCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  'Retry attempt $_retryCount of $_maxRetries',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorWidget() {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                color: Colors.red,
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage ?? 'Unknown error',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (_errorMessage?.contains('ERR_BLOCKED_BY_ORB') == true ||
+                  _errorMessage?.contains('security policy') == true) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  ),
+                  child: const Text(
+                    'This error occurs due to browser security policies. Video calls work best in your device\'s default browser.',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              if (widget.roomUrl != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: Text(
+                    'Room URL: ${widget.roomUrl}',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 12,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _launchInBrowser,
+                icon: const Icon(Icons.open_in_browser),
+                label: const Text('Open in Browser (Recommended)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _isLoading = true;
+                    _errorMessage = null;
+                    _retryCount = 0;
+                  });
+                  _setupWebView();
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry WebView'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.blue,
+                  side: const BorderSide(color: Colors.blue),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoWidget() {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text(
+          'Video Call',
+          style: TextStyle(color: Colors.white),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.open_in_browser),
+            onPressed: _launchInBrowser,
+            tooltip: 'Open in Browser',
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              setState(() {
+                _isLoading = true;
+                _errorMessage = null;
+                _retryCount = 0;
+              });
+              _setupWebView();
+            },
+            tooltip: 'Refresh',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Room URL display with copy functionality
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8.0),
+            color: Colors.grey[900],
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Room: ${widget.roomUrl ?? "Unknown"}',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 12,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 16),
+                  color: Colors.grey[400],
+                  onPressed: () {
+                    if (widget.roomUrl != null) {
+                      // Copy URL to clipboard (you might need to add clipboard package)
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Room URL copied to clipboard'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  tooltip: 'Copy room URL',
+                ),
+              ],
+            ),
+          ),
+          // Main video area
+          Expanded(
+            child: _webViewController != null
+                ? WebViewWidget(controller: _webViewController!)
+                : const Center(
+                    child: Text(
+                      'WebView not initialized',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.roomUrl == null) {
-      return const Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 20),
-              Text('Preparing video room...'),
-            ],
-          ),
-        ),
-      );
+    _logger.info(
+        'Building VideoScreen - Loading: $_isLoading, Error: $_errorMessage');
+
+    if (_isLoading) {
+      return _buildLoadingWidget();
     }
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          WebViewWidget(controller: _controller),
-          if (_isLoading) const Center(child: CircularProgressIndicator()),
-        ],
-      ),
-    );
+    if (_errorMessage != null) {
+      return _buildErrorWidget();
+    }
+
+    return _buildVideoWidget();
+  }
+
+  @override
+  void dispose() {
+    _logger.info('VideoScreen disposed');
+    super.dispose();
   }
 }
