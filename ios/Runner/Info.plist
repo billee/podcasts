@@ -39,6 +39,11 @@
 	<string>This app needs camera access to make video calls.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs microphone access to make audio and video calls.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>http</string>
+		<string>https</string>
+	</array>
 
 	<!-- Required for Daily.co to function properly on iOS -->
 	<key>UIBackgroundModes</key>

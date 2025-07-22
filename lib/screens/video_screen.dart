@@ -44,24 +44,64 @@ class _VideoScreenState extends State<VideoScreen> {
   void _showBrowserSuggestion() {
     showDialog(
       context: context,
+      barrierDismissible: false, // Force user to make a choice
       builder: (context) => AlertDialog(
-        title: const Text('Video Call'),
-        content: const Text(
-          'For the best video calling experience on mobile devices, we recommend opening the video room in your default browser.',
+        title: Row(
+          children: [
+            Icon(Icons.videocam, color: Colors.blue[600]),
+            const SizedBox(width: 8),
+            const Text('Video Call Setup'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'For video calls to work properly with camera and microphone access, you need to open the room in your device\'s default browser (Chrome, Safari, Firefox, etc.).',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue[600], size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'WebView (in-app browser) cannot access camera/microphone permissions.',
+                      style: TextStyle(fontSize: 12, color: Colors.blue),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
             },
-            child: const Text('Try WebView'),
+            child: const Text('Try WebView Anyway'),
           ),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () {
               Navigator.of(context).pop();
               _launchInBrowser();
             },
-            child: const Text('Open in Browser'),
+            icon: const Icon(Icons.open_in_browser),
+            label: const Text('Open in External Browser'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
@@ -221,34 +261,93 @@ class _VideoScreenState extends State<VideoScreen> {
   Future<void> _launchUrl(String url) async {
     try {
       final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-          webViewConfiguration: const WebViewConfiguration(
-            enableJavaScript: true,
-            enableDomStorage: true,
-          ),
-        );
-        _logger.info('Launched URL in external browser: $url');
-      } else {
-        _logger.warning('Cannot launch URL: $url');
+
+      // Force external browser launch with proper configuration
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication, // This forces external browser
+        webViewConfiguration: const WebViewConfiguration(
+          enableJavaScript: true,
+          enableDomStorage: true,
+        ),
+      );
+
+      if (launched) {
+        _logger.info('Successfully launched URL in external browser: $url');
+
+        // Show success message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Cannot open video room in browser'),
-              backgroundColor: Colors.red,
+              content: Text('Video room opened in browser'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
             ),
           );
+        }
+      } else {
+        _logger.warning('Failed to launch URL in external browser: $url');
+
+        // Try alternative launch method
+        final alternativeLaunched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalNonBrowserApplication,
+        );
+
+        if (!alternativeLaunched) {
+          throw Exception('Could not launch URL in any external application');
         }
       }
     } catch (e) {
       _logger.severe('Error launching URL in browser: $e');
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error opening video room: $e'),
-            backgroundColor: Colors.red,
+        // Show error with the actual URL for manual copying
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Cannot Open Browser'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                    'Unable to open the video room in your browser automatically.'),
+                const SizedBox(height: 12),
+                const Text(
+                    'Please copy this URL and paste it in your browser:'),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: SelectableText(
+                    url,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  // Try to copy to clipboard if possible
+                  // You might need to add flutter/services import and use:
+                  // Clipboard.setData(ClipboardData(text: url));
+                },
+                child: const Text('Copy URL'),
+              ),
+            ],
           ),
         );
       }
