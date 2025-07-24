@@ -57,6 +57,19 @@ class AuthService {
         password: password,
       );
       if (result.user != null) {
+        // Check and update email verification status
+        await result.user!.reload();
+        final updatedUser = _auth.currentUser;
+        if (updatedUser != null && updatedUser.emailVerified) {
+          // Update Firestore if email is verified
+          await _firestore.collection('users').doc(updatedUser.uid).update({
+            'emailVerified': true,
+            'emailVerifiedAt': FieldValue.serverTimestamp(),
+          }).catchError((e) {
+            _logger.warning('Failed to update email verification status in Firestore: $e');
+          });
+        }
+        
         // Update login info in background, don't block sign-in
         _updateLoginInfo(result.user!.uid).catchError((e) {
           _logger.warning('Login info update failed, but sign-in succeeded: $e');
@@ -66,6 +79,29 @@ class AuthService {
       return null;
     } on FirebaseAuthException catch (e) {
       _logger.severe('Auth Error: ${e.code} - ${e.message}');
+      
+      // Provide more specific error for invalid-credential
+      if (e.code == 'invalid-credential') {
+        // Check if user exists in our Firestore database
+        try {
+          final userQuery = await _firestore
+              .collection('users')
+              .where('email', isEqualTo: email)
+              .limit(1)
+              .get();
+          
+          if (userQuery.docs.isEmpty) {
+            throw 'No account found with this email. Please sign up first.';
+          } else {
+            throw 'Incorrect password. Please try again.';
+          }
+        } catch (firestoreError) {
+          // If Firestore check fails, fall back to generic message
+          _logger.warning('Firestore user check failed: $firestoreError');
+          throw 'No account found with this email. Please sign up first.';
+        }
+      }
+      
       throw _handleAuthException(e);
     }
   }
@@ -111,7 +147,7 @@ class AuthService {
           .get();
 
       if (usernameQuery.docs.isEmpty) {
-        throw 'Username not found. Please check your username.';
+        throw 'No account found with this username. Please sign up first or check your username.';
       }
 
       final email = usernameQuery.docs.first['email'] as String;
@@ -189,7 +225,6 @@ class AuthService {
     required Map<String, dynamic> userProfile,
     String? phoneNumber,
   }) async {
-    await Future.delayed(const Duration(seconds: 1));
     try {
       final profileData = {
         ...userProfile,
@@ -236,11 +271,6 @@ class AuthService {
           'version': '1.0.0',
         },
       };
-
-      final currentUser = _auth.currentUser;
-      if (currentUser == null || currentUser.uid != userId) {
-        throw 'User not authenticated properly';
-      }
 
       // Save to Firestore users collection
       await _firestore.collection('users').doc(userId).set(profileData);
@@ -380,14 +410,18 @@ class AuthService {
       if (user != null && !user.emailVerified) {
         await user.sendEmailVerification();
         _logger.info('Email verification sent to: ${user.email}');
+      } else if (user?.emailVerified == true) {
+        throw 'Email is already verified';
+      } else {
+        throw 'No user is currently signed in';
       }
     } catch (e) {
       _logger.severe('Email verification error: $e');
-      throw 'Failed to send verification email';
+      rethrow;
     }
   }
 
-  static Future<void> checkEmailVerification() async {
+  static Future<bool> checkEmailVerification() async {
     try {
       final user = _auth.currentUser;
       if (user != null) {
@@ -399,10 +433,27 @@ class AuthService {
             'emailVerifiedAt': FieldValue.serverTimestamp(),
           });
           _logger.info('Email verification status updated for user: ${updatedUser.uid}');
+          return true;
         }
       }
+      return false;
     } catch (e) {
       _logger.warning('Email verification check failed: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> isEmailVerified() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        await user.reload();
+        return _auth.currentUser?.emailVerified ?? false;
+      }
+      return false;
+    } catch (e) {
+      _logger.warning('Email verification status check failed: $e');
+      return false;
     }
   }
 
@@ -443,25 +494,27 @@ class AuthService {
   static String _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {
       case 'weak-password':
-        return 'Password is too weak';
+        return 'Password is too weak. Please use a stronger password.';
       case 'email-already-in-use':
-        return 'Email already in use';
+        return 'This email is already registered. Please sign in or use a different email.';
       case 'user-not-found':
-        return 'User not found';
+        return 'No account found with this email. Please sign up first.';
       case 'wrong-password':
-        return 'Incorrect password';
+        return 'Incorrect password. Please try again.';
       case 'invalid-email':
-        return 'Invalid email';
+        return 'Invalid email format. Please enter a valid email address.';
       case 'user-disabled':
-        return 'Account disabled';
+        return 'This account has been disabled. Please contact support.';
       case 'too-many-requests':
-        return 'Too many attempts';
+        return 'Too many failed attempts. Please try again later.';
       case 'invalid-phone-number':
-        return 'Invalid phone number';
+        return 'Invalid phone number format.';
       case 'invalid-verification-code':
-        return 'Invalid verification code';
+        return 'Invalid verification code. Please try again.';
+      case 'invalid-credential':
+        return 'Invalid email or password. Please check your credentials and try again.';
       default:
-        return e.message ?? 'Authentication failed';
+        return e.message ?? 'Authentication failed. Please try again.';
     }
   }
 

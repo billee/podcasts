@@ -24,69 +24,116 @@ class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+        color: Colors.orange.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withOpacity(0.5), width: 2),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.email_outlined,
-            color: Colors.orange,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Verify your email address',
+          Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange[800],
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Email Verification Required',
                   style: TextStyle(
                     color: Colors.orange,
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontSize: 16,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Please check your email and click the verification link.',
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    _isDismissed = true;
+                  });
+                },
+                icon: const Icon(
+                  Icons.close,
+                  color: Colors.orange,
+                  size: 20,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Please verify your email address to access all features.',
+            style: TextStyle(
+              color: Colors.orange.shade300,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Email: ${user.email}',
+            style: TextStyle(
+              color: Colors.blue[300],
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              ElevatedButton(
+                onPressed: _isResending ? null : _resendVerification,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange[800],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                child: Text(
+                  _isResending ? 'Sending...' : 'Resend Email',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 12),
+              TextButton(
+                onPressed: () async {
+                  // Check if email is now verified
+                  await user.reload();
+                  final updatedUser = FirebaseAuth.instance.currentUser;
+                  if (updatedUser?.emailVerified == true) {
+                    setState(() {
+                      _isDismissed = true;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Email verified successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Email not verified yet. Please check your email.'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                },
+                child: const Text(
+                  'I\'ve Verified',
                   style: TextStyle(
-                    color: Colors.orange.shade300,
+                    color: Colors.orange,
                     fontSize: 12,
                   ),
                 ),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: _isResending ? null : _resendVerification,
-            child: Text(
-              _isResending ? 'Sending...' : 'Resend',
-              style: const TextStyle(
-                color: Colors.orange,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
               ),
-            ),
-          ),
-          IconButton(
-            onPressed: () {
-              setState(() {
-                _isDismissed = true;
-              });
-            },
-            icon: const Icon(
-              Icons.close,
-              color: Colors.orange,
-              size: 16,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+            ],
           ),
         ],
       ),

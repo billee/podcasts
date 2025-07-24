@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/screens/auth/signup_screen.dart';
+import 'package:kapwa_companion_basic/screens/auth/email_verification_screen.dart';
 import 'package:kapwa_companion_basic/screens/main_screen.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:logging/logging.dart';
@@ -74,12 +75,22 @@ class _LoginScreenState extends State<LoginScreen> {
         final currentUser = FirebaseAuth.instance.currentUser;
         _logger.info('Current user after sign-in: ${currentUser?.uid}');
         
-        // Force navigation to main screen if user is authenticated
+        // Check email verification status
         if (currentUser != null) {
-          _logger.info('Forcing navigation to MainScreen...');
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const MainScreen()),
-          );
+          await currentUser.reload(); // Refresh user data
+          final updatedUser = FirebaseAuth.instance.currentUser;
+          
+          if (updatedUser != null && !updatedUser.emailVerified) {
+            _logger.info('User email not verified, navigating to verification screen');
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const EmailVerificationScreen()),
+            );
+          } else {
+            _logger.info('Email verified, navigating to MainScreen...');
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const MainScreen()),
+            );
+          }
         }
       }
     } catch (e) {
@@ -93,23 +104,26 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String _extractErrorMessage(String error) {
     // Extract user-friendly error messages
-    if (error.contains('user-not-found') ||
-        error.contains('username-not-found') ||
-        error.contains('Username not found')) {
-      return 'Account not found. Please check your username or email.';
+    _logger.info('Processing error: $error'); // Debug log
+    
+    if (error.contains('No account found with this email') ||
+        error.contains('No account found with this username') ||
+        error.contains('user-not-found') ||
+        error.contains('User not found')) {
+      return 'No account found. Please sign up first.';
     } else if (error.contains('wrong-password') ||
         error.contains('invalid-password')) {
-      return 'Incorrect password.';
+      return 'Incorrect password. Please try again.';
     } else if (error.contains('user-disabled')) {
-      return 'This account has been disabled.';
+      return 'This account has been disabled. Please contact support.';
     } else if (error.contains('too-many-requests')) {
-      return 'Too many attempts. Please try again later.';
+      return 'Too many failed attempts. Please try again later.';
     } else if (error.contains('invalid-credential')) {
-      return 'Invalid username/email or password.';
+      return 'No account found with these credentials. Please sign up first.';
     } else if (error.contains('invalid-email')) {
-      return 'Invalid email format.';
+      return 'Invalid email format. Please enter a valid email address.';
     } else {
-      return 'Sign in failed. Please try again.';
+      return 'Sign in failed. Please check your credentials and try again.';
     }
   }
 
@@ -161,6 +175,96 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(
             content: Text(e.toString()),
             backgroundColor: Colors.orange,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showEmailVerificationWarning(String email) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[800],
+          title: Row(
+            children: [
+              Icon(Icons.warning, color: Colors.orange[800]),
+              const SizedBox(width: 8),
+              const Text(
+                'Email Not Verified',
+                style: TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Your email address is not verified yet.',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Email: $email',
+                style: TextStyle(
+                  color: Colors.blue[300],
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Please check your email and click the verification link. If you didn\'t receive the email, you can resend it.',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Sign out the user since they're not verified
+                FirebaseAuth.instance.signOut();
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _resendVerificationEmail();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[800],
+              ),
+              child: const Text('Resend Email'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _resendVerificationEmail() async {
+    try {
+      await AuthService.sendEmailVerification();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Verification email sent! Please check your inbox.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send verification email: $e'),
+            backgroundColor: Colors.red,
             duration: Duration(seconds: 4),
           ),
         );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/screens/main_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
+import 'package:kapwa_companion_basic/screens/auth/email_verification_screen.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -159,8 +160,24 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
 
         // User is logged in
         if (isLoggedIn) {
+          final user = snapshot.data!;
           _logger.info(
-              'Auth state: User logged in. UID: ${snapshot.data!.uid}. Email: ${snapshot.data!.email}. Navigating to MainScreen.');
+              'Auth state: User logged in. UID: ${user.uid}. Email: ${user.email}. EmailVerified: ${user.emailVerified}');
+          
+          // Check if email is verified
+          if (!user.emailVerified) {
+            _logger.info('Email not verified. Navigating to EmailVerificationScreen.');
+            return const EmailVerificationScreen();
+          }
+          
+          // Email is verified, update Firestore and proceed to main screen
+          _logger.info('Email verified. Updating Firestore and navigating to MainScreen.');
+          
+          // Update email verification status in Firestore in background
+          AuthService.checkEmailVerification().catchError((e) {
+            _logger.warning('Failed to update email verification status: $e');
+          });
+          
           // Update user activity in background, don't block navigation
           AuthService.updateUserActivity().catchError((e) {
             _logger.warning('User activity update failed: $e');

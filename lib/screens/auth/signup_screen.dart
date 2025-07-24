@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:kapwa_companion_basic/models/user.dart';
 import 'package:logging/logging.dart';
@@ -155,12 +156,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _logger.info('User registered successfully');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Account created successfully! Welcome to Kapwa Companion.'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ));
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        // Show email verification dialog
+        _showEmailVerificationDialog();
       }
     } catch (e) {
       setState(() {
@@ -311,6 +308,79 @@ class _SignUpScreenState extends State<SignUpScreen> {
         backgroundColor: Colors.orange,
         duration: const Duration(seconds: 3),
       ),
+    );
+  }
+
+  void _showEmailVerificationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[800],
+          title: Row(
+            children: [
+              Icon(Icons.email, color: Colors.blue[800]),
+              const SizedBox(width: 8),
+              const Text(
+                'Verify Your Email',
+                style: TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Account created successfully!',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'We\'ve sent a verification email to:',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _emailController.text.trim(),
+                style: TextStyle(
+                  color: Colors.blue[300],
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Please check your email and click the verification link to activate your account.',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'You can sign in after verifying your email.',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop(); // Close dialog
+                
+                // Sign out the user since they need to verify email first
+                await FirebaseAuth.instance.signOut();
+                _logger.info('User signed out after registration - email verification required');
+                
+                // Navigate back to login screen
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
     );
   }
 
