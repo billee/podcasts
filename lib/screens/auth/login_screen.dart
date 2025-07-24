@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/screens/auth/signup_screen.dart';
+import 'package:kapwa_companion_basic/screens/main_screen.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:logging/logging.dart';
 
@@ -58,6 +60,28 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Navigation is handled by AuthWrapper
       _logger.info('User signed in successfully');
+      
+      // Reset loading state and force a small delay to ensure auth state propagates
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        
+        // Add a small delay to ensure Firebase Auth state has time to propagate
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        // Force check current user to ensure auth state is updated
+        final currentUser = FirebaseAuth.instance.currentUser;
+        _logger.info('Current user after sign-in: ${currentUser?.uid}');
+        
+        // Force navigation to main screen if user is authenticated
+        if (currentUser != null) {
+          _logger.info('Forcing navigation to MainScreen...');
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const MainScreen()),
+          );
+        }
+      }
     } catch (e) {
       setState(() {
         _errorMessage = _extractErrorMessage(e.toString());
@@ -190,18 +214,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 key: _formKey,
                 child: Column(
                   children: [
-                    // Username/Email Field
+                    // Email Field (preferred) or Username
                     TextFormField(
                       controller: _loginController,
-                      keyboardType: TextInputType.text,
-                      autofillHints: null,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
                       autocorrect: false,
                       enableSuggestions: false,
                       decoration: InputDecoration(
-                        labelText: 'Username or Email',
-                        hintText: 'Enter your username or email',
+                        labelText: 'Email Address',
+                        hintText: 'Enter your email address',
                         prefixIcon:
-                            const Icon(Icons.person, color: Colors.white70),
+                            const Icon(Icons.email, color: Colors.white70),
                         filled: true,
                         fillColor: Colors.grey[800],
                         border: OutlineInputBorder(
@@ -210,14 +234,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         labelStyle: const TextStyle(color: Colors.white70),
                         hintStyle: const TextStyle(color: Colors.white54),
+                        helperText: 'You can also use your username',
+                        helperStyle: const TextStyle(color: Colors.white54, fontSize: 12),
                       ),
                       style: const TextStyle(color: Colors.white),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter your username or email';
+                          return 'Please enter your email address';
                         }
                         if (value.length < 3) {
-                          return 'Username or email must be at least 3 characters';
+                          return 'Email must be at least 3 characters';
                         }
                         return null;
                       },

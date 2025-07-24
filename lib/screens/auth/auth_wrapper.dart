@@ -22,6 +22,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   final Logger _logger = Logger('AuthWrapper');
   bool _isCheckingAuth = true;
   bool _isInitiallyLoggedIn = false;
+  User? _currentUser;
 
   @override
   void initState() {
@@ -132,35 +133,62 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         _logger.info(
-            'Auth state StreamBuilder: connectionState=${snapshot.connectionState}, hasData=${snapshot.hasData}, data=${snapshot.data?.uid}');
+            'Auth state StreamBuilder: connectionState=${snapshot.connectionState}, hasData=${snapshot.hasData}, data=${snapshot.data?.uid}, error=${snapshot.error}');
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          _logger
-              .info('Auth state: ConnectionState.waiting. Using cached state.');
-          return _isInitiallyLoggedIn
-              ? const MainScreen()
-              : const SplashScreen();
+        // Handle errors
+        if (snapshot.hasError) {
+          _logger.severe('Auth stream error: ${snapshot.error}');
+          return const LoginScreen();
         }
 
+        // Handle different connection states
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          _logger.info('Auth state: Waiting for connection. Showing splash.');
+          return const SplashScreen();
+        }
+
+        // Update current user state
+        _currentUser = snapshot.data;
+
+        // Update cached auth state
+        final isLoggedIn = snapshot.hasData && snapshot.data != null;
         SharedPreferences.getInstance().then((prefs) {
-          bool isLoggedIn = snapshot.hasData && snapshot.data != null;
           prefs.setBool('isLoggedIn', isLoggedIn);
           _logger.info('Updated cached auth state: isLoggedIn=$isLoggedIn');
         });
 
         // User is logged in
-        if (snapshot.hasData && snapshot.data != null) {
+        if (isLoggedIn) {
           _logger.info(
-              'Auth state: User logged in. UID: ${snapshot.data!.uid}. Navigating to MainScreen.');
-          AuthService.updateUserActivity();
+              'Auth state: User logged in. UID: ${snapshot.data!.uid}. Email: ${snapshot.data!.email}. Navigating to MainScreen.');
+          // Update user activity in background, don't block navigation
+          AuthService.updateUserActivity().catchError((e) {
+            _logger.warning('User activity update failed: $e');
+          });
           return const MainScreen();
         }
 
-        _logger
-            .info('Auth state: No user logged in. Navigating to LoginScreen.');
+        // No user logged in
+        _logger.info('Auth state: No user logged in. Navigating to LoginScreen.');
         return const LoginScreen();
       },
     );
+  }
+
+  // Add a method to manually refresh auth state
+  void _refreshAuthState() {
+    _logger.info('Manually refreshing auth state...');
+    final currentUser = FirebaseAuth.instance.currentUser;
+    _logger.info('Current user from manual check: ${currentUser?.uid}');
+    
+    if (currentUser != null && _currentUser?.uid != currentUser.uid) {
+      _logger.info('User state changed, forcing rebuild...');
+      if (mounted) {
+        setState(() {
+          _currentUser = currentUser;
+        });
+      }
+    }
   }
 }
 

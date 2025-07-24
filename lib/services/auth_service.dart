@@ -57,7 +57,10 @@ class AuthService {
         password: password,
       );
       if (result.user != null) {
-        await _updateLoginInfo(result.user!.uid);
+        // Update login info in background, don't block sign-in
+        _updateLoginInfo(result.user!.uid).catchError((e) {
+          _logger.warning('Login info update failed, but sign-in succeeded: $e');
+        });
         return result.user;
       }
       return null;
@@ -191,37 +194,46 @@ class AuthService {
       final profileData = {
         ...userProfile,
         'uid': userId,
-        'email': email,
-        'phoneNumber': phoneNumber ?? userProfile['phoneNumber'] ?? '',
+        'email': email, // Ensure email is saved
         'name': userProfile['name'] ?? '',
+        'username': userProfile['username'] ?? '',
         'workLocation': userProfile['workLocation'] ?? '',
         'occupation': userProfile['occupation'] ?? '',
         'isMarried': userProfile['isMarried'] ?? false,
+        'hasChildren': userProfile['hasChildren'] ?? false,
         'gender': userProfile['gender'] ?? '',
-        'language': userProfile['language'] ?? 'english',
+        'language': 'tagalog', // Fixed to Tagalog
         'birthYear': userProfile['birthYear'] ?? DateTime.now().year,
         'educationalAttainment': userProfile['educationalAttainment'] ?? '',
         'userType': 'ofw',
+        'hasRealEmail': true, // Always true since email is mandatory
+        'emailVerified': userProfile['emailVerified'] ?? false,
         'createdAt': FieldValue.serverTimestamp(),
         'lastLoginAt': FieldValue.serverTimestamp(),
         'lastActiveAt': FieldValue.serverTimestamp(),
         'isActive': true,
         'isOnline': true,
         'profileCompleted': true,
-        'loginCount': 0,
+        'loginCount': 1,
         'deviceInfo': userProfile['deviceInfo'] ?? {},
         'preferences': {
           'notifications': true,
-          'language': userProfile['language'] ?? 'english',
+          'language': 'tagalog', // Fixed to Tagalog
           'theme': 'dark',
+          'emailNotifications': true,
+          'pushNotifications': true,
         },
         'subscription': {
           'isTrialActive': true,
           'trialStartDate': FieldValue.serverTimestamp(),
           'plan': 'trial',
           'gptQueriesUsed': 0,
-          'videoMinutesUsed': 0,
           'lastResetDate': FieldValue.serverTimestamp(),
+        },
+        'metadata': {
+          'registrationSource': 'mobile_app',
+          'platform': 'flutter',
+          'version': '1.0.0',
         },
       };
 
@@ -230,14 +242,22 @@ class AuthService {
         throw 'User not authenticated properly';
       }
 
-      await _firestoreService.createUserProfile(
-        userId: userId,
-        email: email,
-        userProfile: userProfile,
-        phoneNumber: phoneNumber,
-      );
-
+      // Save to Firestore users collection
       await _firestore.collection('users').doc(userId).set(profileData);
+      
+      _logger.info('OFW profile created successfully for user: $userId with email: $email');
+
+      // Also use FirestoreService for additional operations if needed
+      try {
+        await _firestoreService.createUserProfile(
+          userId: userId,
+          email: email,
+          userProfile: userProfile,
+        );
+      } catch (e) {
+        _logger.warning('FirestoreService profile creation failed: $e');
+        // Don't throw here as main profile creation succeeded
+      }
     } catch (e) {
       _logger.severe('Profile creation error: $e');
       throw 'Failed to create profile';
@@ -294,6 +314,33 @@ class AuthService {
       throw 'Sign out failed';
     }
   }
+  
+  // Delete current user (for admin/testing purposes)
+  static Future<void> deleteCurrentUser() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        final userId = user.uid;
+        
+        // Delete from Firestore first
+        try {
+          await _firestore.collection('users').doc(userId).delete();
+          _logger.info('User profile deleted from Firestore: $userId');
+        } catch (e) {
+          _logger.warning('Error deleting user profile from Firestore: $e');
+        }
+        
+        // Then delete from Authentication
+        await user.delete();
+        _logger.info('User authentication record deleted: $userId');
+      } else {
+        throw 'No user is currently signed in';
+      }
+    } catch (e) {
+      _logger.severe('Error deleting user: $e');
+      throw 'Failed to delete user: $e';
+    }
+  }
 
   static Future<void> resetPassword(String email) async {
     try {
@@ -323,6 +370,39 @@ class AuthService {
     } catch (e) {
       _logger.severe('Username password reset error: $e');
       rethrow;
+    }
+  }
+
+  // Email Verification Management
+  static Future<void> sendEmailVerification() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null && !user.emailVerified) {
+        await user.sendEmailVerification();
+        _logger.info('Email verification sent to: ${user.email}');
+      }
+    } catch (e) {
+      _logger.severe('Email verification error: $e');
+      throw 'Failed to send verification email';
+    }
+  }
+
+  static Future<void> checkEmailVerification() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        await user.reload();
+        final updatedUser = _auth.currentUser;
+        if (updatedUser != null && updatedUser.emailVerified) {
+          await _firestore.collection('users').doc(updatedUser.uid).update({
+            'emailVerified': true,
+            'emailVerifiedAt': FieldValue.serverTimestamp(),
+          });
+          _logger.info('Email verification status updated for user: ${updatedUser.uid}');
+        }
+      }
+    } catch (e) {
+      _logger.warning('Email verification check failed: $e');
     }
   }
 
@@ -385,14 +465,15 @@ class AuthService {
     }
   }
 
-  // Flexible Signup (Combines email/username)
+  // OFW Signup (Email is now mandatory)
   static Future<User?> signUpFlexible({
     required String username,
     required String password,
     required Map<String, dynamic> userProfile,
-    String? email,
+    required String email,
   }) async {
     try {
+      // Check if username already exists
       final usernameQuery = await _firestore
           .collection('users')
           .where('username', isEqualTo: username)
@@ -403,20 +484,47 @@ class AuthService {
         throw 'Username already exists';
       }
 
-      final authEmail = email ?? '$username@kapwa.local';
+      // Check if email already exists
+      final emailQuery = await _firestore
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (emailQuery.docs.isNotEmpty) {
+        throw 'Email already registered';
+      }
+
+      // Ensure email is explicitly included in the profile data
       final profileData = {
         ...userProfile,
         'username': username,
-        'hasRealEmail': email != null,
+        'email': email, // Explicitly include email
+        'hasRealEmail': true,
+        'emailVerified': false,
+        'language': 'tagalog', // Fixed to Tagalog
       };
 
-      return await signUpWithEmailAndPassword(
-        email: authEmail,
+      final user = await signUpWithEmailAndPassword(
+        email: email,
         password: password,
         userProfile: profileData,
       );
+
+      // Send email verification
+      if (user != null) {
+        await user.sendEmailVerification();
+        _logger.info('Email verification sent to: $email');
+        
+        // Double-check that email was saved to Firestore
+        await _firestore.collection('users').doc(user.uid).update({
+          'email': email,
+        });
+      }
+
+      return user;
     } catch (e) {
-      _logger.severe('Flexible signup error: $e');
+      _logger.severe('OFW signup error: $e');
       rethrow;
     }
   }

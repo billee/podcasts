@@ -22,7 +22,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _phoneController = TextEditingController();
   final _occupationController = TextEditingController();
 
   // Form state
@@ -32,13 +31,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
   String? _errorMessage;
   int _currentPage = 0;
 
-  // New flexible email option
-  bool _hasEmail = false;
+  // Email is now mandatory for all OFWs
+  bool _hasEmail = true;
 
   // Profile data
   String? _selectedWorkLocation;
   String? _selectedGender;
-  String _selectedLanguage = 'English';
+  String _selectedLanguage = 'tagalog';
   String? _selectedEducation;
   bool _isMarried = false;
   bool _hasChildren = false;
@@ -68,13 +67,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   ];
 
   final List<String> _genders = ['Male', 'Female', 'Prefer not to say'];
-  final List<String> _languages = [
-    'English',
-    'Tagalog',
-    'Bisaya',
-    'Ilocano',
-    'Other'
-  ];
   final List<String> _educationLevels = [
     'Elementary',
     'High School',
@@ -91,7 +83,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _selectedWorkLocation = _workLocations.first;
     _selectedGender = _genders.first;
     _selectedEducation = _educationLevels.first;
-    _selectedLanguage = _languages.first; // Also set default for language
+    _selectedLanguage = 'tagalog'; // Set default language to Tagalog
     // Set reasonable birth year default
     _birthYear = DateTime.now().year - 25;
     _isMarried = false;
@@ -105,7 +97,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _phoneController.dispose();
+
     _occupationController.dispose();
     _pageController.dispose();
     super.dispose();
@@ -142,11 +134,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final userProfileData = {
         'name': _nameController.text.trim(),
         'username': _usernameController.text.trim(),
-        'phoneNumber': _phoneController.text.trim(),
+        'email': _emailController.text.trim(), // Explicitly include email
         'workLocation': _selectedWorkLocation!,
         'occupation': _occupationController.text.trim(),
         'gender': _selectedGender!,
-        'language': _selectedLanguage.toLowerCase(),
+        'language': 'tagalog', // Fixed to Tagalog
         'educationalAttainment': _selectedEducation!,
         'isMarried': _isMarried,
         'hasChildren': _hasChildren,
@@ -157,18 +149,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
         username: _usernameController.text.trim(),
         password: _passwordController.text,
         userProfile: userProfileData,
-        email: _hasEmail ? _emailController.text.trim() : null,
+        email: _emailController.text.trim(),
       );
 
       _logger.info('User registered successfully');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_hasEmail
-              ? 'Account created successfully! Welcome to Kapwa Companion.'
-              : 'Account created successfully! Remember your username for login.'),
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Account created successfully! Welcome to Kapwa Companion.'),
           backgroundColor: Colors.green,
-          duration: const Duration(seconds: 3),
+          duration: Duration(seconds: 3),
         ));
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
@@ -209,23 +199,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return false;
     }
 
-    if (_hasEmail && _emailController.text.isEmpty) {
+    if (_emailController.text.isEmpty) {
       _pageController.jumpToPage(0);
-      _showValidationError('Please enter your email');
+      _showValidationError('Please enter your email address');
       return false;
-    } else if (_hasEmail &&
-        !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+    } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
             .hasMatch(_emailController.text)) {
       _pageController.jumpToPage(0);
-      _showValidationError('Please enter a valid email');
+      _showValidationError('Please enter a valid email address');
       return false;
     }
 
-    if (_phoneController.text.isEmpty) {
-      _pageController.jumpToPage(0);
-      _showValidationError('Please enter your phone number');
-      return false;
-    }
+
 
     // Page 1: Security
     if (_passwordController.text.isEmpty ||
@@ -494,7 +479,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Let\'s start with your basic information',
+              'Let\'s start with your basic information. Email address is required for all OFWs.',
               style: TextStyle(color: Colors.white70, fontSize: 16),
             ),
             const SizedBox(height: 32),
@@ -558,79 +543,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
             const SizedBox(height: 16),
 
-            // Email Option Checkbox
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[800],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: CheckboxListTile(
-                title: const Text(
-                  'I have an email address',
-                  style: TextStyle(color: Colors.white),
-                ),
-                subtitle: const Text(
-                  'Optional - helps with account recovery',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-                value: _hasEmail,
-                onChanged: (value) {
-                  setState(() {
-                    _hasEmail = value ?? false;
-                    if (!_hasEmail) {
-                      _emailController.clear();
-                    }
-                  });
-                },
-                activeColor: Colors.blue[800],
-                checkColor: Colors.white,
-              ),
-            ),
-
-            // Email Field (conditional)
-            if (_hasEmail) ...[
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  labelText: 'Email Address',
-                  prefixIcon: const Icon(Icons.email, color: Colors.white70),
-                  filled: true,
-                  fillColor: Colors.grey[800],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  labelStyle: const TextStyle(color: Colors.white70),
-                ),
-                style: const TextStyle(color: Colors.white),
-                validator: (value) {
-                  if (_hasEmail && (value == null || value.trim().isEmpty)) {
-                    return 'Please enter your email or uncheck the email option';
-                  }
-                  if (value != null &&
-                      value.isNotEmpty &&
-                      !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                          .hasMatch(value)) {
-                    return 'Please enter a valid email';
-                  }
-                  return null;
-                },
-              ),
-            ],
-
-            const SizedBox(height: 16),
-
-            // Phone Number
+            // Email Field (now mandatory)
             TextFormField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
-                labelText: 'Phone Number *',
-                helperText: 'Include country code (e.g., +63 for Philippines)',
+                labelText: 'Email Address *',
+                helperText: 'Required for account recovery and notifications',
                 helperStyle: const TextStyle(color: Colors.white54),
-                prefixIcon: const Icon(Icons.phone, color: Colors.white70),
+                prefixIcon: const Icon(Icons.email, color: Colors.white70),
                 filled: true,
                 fillColor: Colors.grey[800],
                 border: OutlineInputBorder(
@@ -642,11 +563,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
               style: const TextStyle(color: Colors.white),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter your phone number';
+                  return 'Please enter your email address';
+                }
+                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                    .hasMatch(value)) {
+                  return 'Please enter a valid email address';
                 }
                 return null;
               },
             ),
+
+
           ],
         ),
       ),
@@ -874,36 +801,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             },
           ),
 
-          const SizedBox(height: 16),
 
-          // Language
-          DropdownButtonFormField<String>(
-            value: _selectedLanguage,
-            decoration: InputDecoration(
-              labelText: 'Preferred Language',
-              prefixIcon: const Icon(Icons.language, color: Colors.white70),
-              filled: true,
-              fillColor: Colors.grey[800],
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              labelStyle: const TextStyle(color: Colors.white70),
-            ),
-            dropdownColor: Colors.grey[800],
-            style: const TextStyle(color: Colors.white),
-            items: _languages.map((language) {
-              return DropdownMenuItem(
-                value: language,
-                child: Text(language),
-              );
-            }).toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedLanguage = value!;
-              });
-            },
-          ),
 
           const SizedBox(height: 16),
 

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/screens/views/profile_view.dart';
+import 'package:kapwa_companion_basic/screens/admin/user_management_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -357,6 +358,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .trim();
   }
 
+  // Add a method to open the user management screen
+  void _openUserManagement(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const UserManagementScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final editableEntries = _userProfile?.entries
@@ -397,6 +408,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       buildEditableField: _buildEditableField,
       buildInfoRow: _buildInfoRow,
       formatFieldName: _formatFieldName,
+      // Add admin button action
+      onAdminPressed: () => _openUserManagement(context),
     );
   }
 }

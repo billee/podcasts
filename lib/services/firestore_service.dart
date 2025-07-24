@@ -9,7 +9,6 @@ class FirestoreService {
     required String userId,
     required String email,
     required Map<String, dynamic> userProfile,
-    String? phoneNumber,
   }) async {
     final subscription = Subscription(
       isTrialActive: true,

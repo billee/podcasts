@@ -13,6 +13,7 @@ import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show compute;
+import 'package:kapwa_companion_basic/widgets/email_verification_banner.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -70,11 +71,14 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _initializeUserAndScreens() async {
     final user = FirebaseAuth.instance.currentUser;
+    _logger.info('_initializeUserAndScreens called. User: ${user?.uid}');
+    
     if (user != null) {
       _currentUserId = user.uid;
       _logger.info('User logged in. Fetching profile for UID: $_currentUserId');
       try {
-        final result = await compute(_fetchUserProfileIsolate, _currentUserId!);
+        final result = await compute(_fetchUserProfileIsolate, _currentUserId!)
+            .timeout(const Duration(seconds: 10));
         final username = result['name'] as String?;
         final fromCache = result['fromCache'] as bool;
         final userProfile = result['profile'];
@@ -82,47 +86,53 @@ class _MainScreenState extends State<MainScreen> {
         _logger.info(
             'DEBUG: Fetched userProfile: $userProfile, extracted username: $username, fromCache: $fromCache');
 
-        setState(() {
-          _currentUsername = username;
-          // Always refresh screens when user info changes
-          _screens = [
-            ChatScreen(
-              userId: _currentUserId,
-              username: _currentUsername,
-            ),
-            const PodcastScreen(),
-            const StoryScreen(),
-            const ProfileScreen(),
-          ];
-          _logger.info(
-              'Screens initialized with user info for $_currentUsername');
-        });
+        if (mounted) {
+          setState(() {
+            _currentUsername = username;
+            // Always refresh screens when user info changes
+            _screens = [
+              ChatScreen(
+                userId: _currentUserId,
+                username: _currentUsername,
+              ),
+              const PodcastScreen(),
+              const StoryScreen(),
+              const ProfileScreen(),
+            ];
+            _logger.info(
+                'Screens initialized with user info for $_currentUsername');
+          });
+        }
       } catch (e) {
         _logger
             .severe('Error fetching username/profile for $_currentUserId: $e');
 
-        setState(() {
-          _currentUsername = null;
-          _screens = [
-            ChatScreen(
-              userId: _currentUserId,
-              username: _currentUsername,
-            ),
-            const PodcastScreen(),
-            const StoryScreen(),
-            const ProfileScreen(),
-          ];
-          _logger.warning(
-              'Screens initialized with partial user info due to error.');
-        });
+        if (mounted) {
+          setState(() {
+            _currentUsername = null;
+            _screens = [
+              ChatScreen(
+                userId: _currentUserId,
+                username: _currentUsername,
+              ),
+              const PodcastScreen(),
+              const StoryScreen(),
+              const ProfileScreen(),
+            ];
+            _logger.warning(
+                'Screens initialized with partial user info due to error.');
+          });
+        }
       }
     } else {
-      setState(() {
-        _screens = [
-          const LoginScreen(),
-        ];
-      });
       _logger.warning('No user logged in. Setting LoginScreen as fallback.');
+      if (mounted) {
+        setState(() {
+          _screens = [
+            const LoginScreen(),
+          ];
+        });
+      }
     }
   }
 
@@ -215,10 +225,17 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        children: _screens,
+      body: Column(
+        children: [
+          const EmailVerificationBanner(),
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: _screens,
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
