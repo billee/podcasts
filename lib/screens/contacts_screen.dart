@@ -105,11 +105,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
     });
   }
 
-  // --- Removed all Daily.co and Firestore Invitation related methods ---
-  // _listenForIncomingCalls()
-  // _showIncomingCallScreen()
-  // _sendCallInvitation()
-  // _makeCall()
+  // Video calling functionality has been removed
 
   @override
   Widget build(BuildContext context) {
