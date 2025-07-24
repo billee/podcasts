@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/screens/auth/signup_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/email_verification_screen.dart';
+import 'package:kapwa_companion_basic/screens/auth/forgot_password_screen.dart';
 import 'package:kapwa_companion_basic/screens/main_screen.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:logging/logging.dart';
@@ -110,76 +111,162 @@ class _LoginScreenState extends State<LoginScreen> {
         error.contains('No account found with this username') ||
         error.contains('user-not-found') ||
         error.contains('User not found')) {
-      return 'No account found. Please sign up first.';
+      return 'No account found with this email. Please sign up first.';
+    } else if (error.contains('Incorrect password')) {
+      return 'Incorrect password. Please try again or use "Forgot Password?" to reset it.';
     } else if (error.contains('wrong-password') ||
         error.contains('invalid-password')) {
-      return 'Incorrect password. Please try again.';
+      return 'Incorrect password. Please try again or use "Forgot Password?" to reset it.';
     } else if (error.contains('user-disabled')) {
       return 'This account has been disabled. Please contact support.';
     } else if (error.contains('too-many-requests')) {
       return 'Too many failed attempts. Please try again later.';
     } else if (error.contains('invalid-credential')) {
-      return 'No account found with these credentials. Please sign up first.';
+      return 'Invalid credentials. Please check your email and password, or sign up if you don\'t have an account.';
     } else if (error.contains('invalid-email')) {
       return 'Invalid email format. Please enter a valid email address.';
     } else {
-      return 'Sign in failed. Please check your credentials and try again.';
+      return 'Sign in failed. Please check your credentials or sign up if you don\'t have an account.';
     }
   }
 
   Future<void> _resetPassword() async {
-    if (_loginController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your username or email first'),
-        ),
-      );
-      return;
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ForgotPasswordScreen(),
+      ),
+    );
+  }
 
-    try {
-      final loginInput = _loginController.text.trim();
-      bool isEmail = loginInput.contains('@') && loginInput.contains('.');
+  void _showForgotPasswordDialog() {
+    final TextEditingController resetController = TextEditingController();
+    bool isLoading = false;
 
-      if (isEmail) {
-        // Reset password using email
-        await AuthService.resetPassword(loginInput);
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: Colors.grey[800],
+              title: Row(
+                children: [
+                  Icon(Icons.lock_reset, color: Colors.blue[800]),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Reset Password',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Enter your email address to reset your password.',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: resetController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      labelText: 'Email Address',
+                      hintText: 'Enter your email address',
+                      prefixIcon: const Icon(Icons.email, color: Colors.white70),
+                      filled: true,
+                      fillColor: Colors.grey[700],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      hintStyle: const TextStyle(color: Colors.white54),
+                    ),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading ? null : () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isLoading ? null : () async {
+                    final email = resetController.text.trim();
+                    if (email.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter your email address'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Password reset email sent. Check your inbox.'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 4),
-            ),
-          );
-        }
-      } else {
-        // Reset password using username
-        await AuthService.resetPasswordByUsername(loginInput);
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a valid email address'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'Password reset request submitted. Our support team will contact you soon.'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 4),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 4),
-          ),
+                    setState(() {
+                      isLoading = true;
+                    });
+
+                    try {
+                      await AuthService.resetPassword(email);
+
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Password reset email sent! Please check your inbox.'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 4),
+                        ),
+                      );
+                    } catch (e) {
+                      setState(() {
+                        isLoading = false;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(e.toString()),
+                          backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[800],
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Send Reset Email'),
+                ),
+              ],
+            );
+          },
         );
-      }
-    }
+      },
+    );
   }
 
   void _showEmailVerificationWarning(String email) {

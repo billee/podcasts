@@ -374,10 +374,29 @@ class AuthService {
 
   static Future<void> resetPassword(String email) async {
     try {
+      // First check if user exists in our database
+      final userQuery = await _firestore
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isEmpty) {
+        throw 'No account found with this email address. Please check your email or sign up first.';
+      }
+
+      // Send password reset email
       await _auth.sendPasswordResetEmail(email: email);
+      _logger.info('Password reset email sent to: $email');
     } on FirebaseAuthException catch (e) {
       _logger.severe('Password reset error: ${e.code} - ${e.message}');
+      if (e.code == 'user-not-found') {
+        throw 'No account found with this email address. Please check your email or sign up first.';
+      }
       throw _handleAuthException(e);
+    } catch (e) {
+      _logger.severe('Password reset error: $e');
+      rethrow;
     }
   }
 
@@ -389,14 +408,21 @@ class AuthService {
           .limit(1)
           .get();
 
-      if (query.docs.isEmpty) throw 'Username not found';
+      if (query.docs.isEmpty) {
+        throw 'No account found with this username. Please check your username or sign up first.';
+      }
 
-      await _firestore.collection('password_reset_requests').add({
-        'username': username,
-        'userId': query.docs.first.id,
-        'requestedAt': FieldValue.serverTimestamp(),
-        'status': 'pending',
-      });
+      // Get the email associated with this username
+      final userData = query.docs.first.data() as Map<String, dynamic>;
+      final email = userData['email'] as String?;
+
+      if (email == null || email.isEmpty) {
+        throw 'No email associated with this username. Please contact support.';
+      }
+
+      // Send password reset email using the associated email
+      await _auth.sendPasswordResetEmail(email: email);
+      _logger.info('Password reset email sent to: $email for username: $username');
     } catch (e) {
       _logger.severe('Username password reset error: $e');
       rethrow;
