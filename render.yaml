@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: ofw-rag-server
+    name: ofw-admin-dashboard
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn functions.rag_server:app --bind 0.0.0.0:$PORT
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
     envVars:
       - key: CHROMA_DB_PATH
         value: /opt/render/project/src/kapwa_companion/chroma_db

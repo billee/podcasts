@@ -15,6 +15,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:kapwa_companion_basic/widgets/email_verification_banner.dart';
 import 'package:kapwa_companion_basic/widgets/subscription_status_banner.dart';
+import 'package:kapwa_companion_basic/widgets/subscription_monitor.dart';
+import 'package:kapwa_companion_basic/services/subscription_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -140,6 +142,18 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  Future<SubscriptionStatus> _getCurrentSubscriptionStatus() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return SubscriptionStatus.expired;
+    
+    try {
+      return await SubscriptionService.getSubscriptionStatus(user.uid);
+    } catch (e) {
+      _logger.warning('Error getting subscription status: $e');
+      return SubscriptionStatus.expired;
+    }
+  }
+
   @override
   void dispose() {
     _logger.info('MainScreen dispose called. Disposing auth subscription.');
@@ -161,117 +175,145 @@ class _MainScreenState extends State<MainScreen> {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Kapwa Companion'),
-        backgroundColor: Colors.grey[900],
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.upgrade),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const PaymentScreen(),
-                ),
-              );
-            },
-            tooltip: 'Upgrade',
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              final shouldSignOut = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Mag-sign Out'),
-                  content:
-                      const Text('Sigurado ka bang gusto mong mag-sign out?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Kanselahin'),
+    return SubscriptionMonitor(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Kapwa Companion'),
+          backgroundColor: Colors.grey[900],
+          actions: [
+            // Premium Subscriber Icon
+            FutureBuilder<SubscriptionStatus>(
+              future: _getCurrentSubscriptionStatus(),
+              builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data == SubscriptionStatus.active) {
+                  return IconButton(
+                    icon: const Icon(
+                      Icons.diamond,
+                      color: Colors.red,
+                      size: 24,
                     ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Mag-sign Out'),
-                    ),
-                  ],
-                ),
-              );
-              if (shouldSignOut == true) {
-                try {
-                  _logger.info('Sign-out confirmed. Initiating sign-out.');
-                  await AuthService.signOut();
-                  _logger.info(
-                      'Successfully signed out. Navigating to LoginScreen.');
-                  if (mounted) {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const LoginScreen()),
-                      (route) => false,
-                    );
-                  }
-                } catch (e) {
-                  _logger.severe('Error during sign-out: $e');
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Nagkaroon ng error sa pag-sign out: $e'),
-                        backgroundColor: Colors.red,
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('You are a Premium Subscriber! 💎'),
+                          backgroundColor: Colors.red,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    tooltip: 'Premium Subscriber',
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.upgrade),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PaymentScreen(),
+                  ),
+                );
+              },
+              tooltip: 'Upgrade',
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: () async {
+                final shouldSignOut = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Mag-sign Out'),
+                    content:
+                        const Text('Sigurado ka bang gusto mong mag-sign out?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Kanselahin'),
                       ),
-                    );
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Mag-sign Out'),
+                      ),
+                    ],
+                  ),
+                );
+                if (shouldSignOut == true) {
+                  try {
+                    _logger.info('Sign-out confirmed. Initiating sign-out.');
+                    await AuthService.signOut();
+                    _logger.info(
+                        'Successfully signed out. Navigating to LoginScreen.');
+                    if (mounted) {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const LoginScreen()),
+                        (route) => false,
+                      );
+                    }
+                  } catch (e) {
+                    _logger.severe('Error during sign-out: $e');
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Nagkaroon ng error sa pag-sign out: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   }
                 }
-              }
-            },
-            tooltip: 'Mag-sign Out',
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          const EmailVerificationBanner(),
-          const SubscriptionStatusBanner(),
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: _screens,
+              },
+              tooltip: 'Mag-sign Out',
             ),
-          ),
-        ],
+          ],
+        ),
+        body: Column(
+          children: [
+            const EmailVerificationBanner(),
+            const SubscriptionStatusBanner(),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: _screens,
+              ),
+            ),
+          ],
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() => _currentIndex = index);
+            _pageController.jumpToPage(index);
+          },
+          type: BottomNavigationBarType.fixed,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat_bubble),
+              label: 'Chat',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.mic),
+              label: 'Podcast',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.book),
+              label: 'Story',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person),
+              label: 'Profile',
+            ),
+          ],
+          backgroundColor: Colors.grey[900],
+          selectedItemColor: Colors.blue[800],
+          unselectedItemColor: Colors.grey[500],
+        ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() => _currentIndex = index);
-          _pageController.jumpToPage(index);
-        },
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble),
-            label: 'Chat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.mic),
-            label: 'Podcast',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.book),
-            label: 'Story',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-        backgroundColor: Colors.grey[900],
-        selectedItemColor: Colors.blue[800],
-        unselectedItemColor: Colors.grey[500],
-      ),
-      );
+    );
   }
 }

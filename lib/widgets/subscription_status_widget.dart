@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
 import 'package:kapwa_companion_basic/screens/subscription/subscription_screen.dart';
 import 'package:logging/logging.dart';
@@ -92,6 +93,7 @@ class _SubscriptionStatusWidgetState extends State<SubscriptionStatusWidget> {
             _buildSubscriptionInfo(),
             const SizedBox(height: 16),
             if (_shouldShowUpgradeButton()) _buildUpgradeButton(),
+            if (_shouldShowUnsubscribeButton()) _buildUnsubscribeButton(),
           ],
         ),
       ),
@@ -148,6 +150,11 @@ class _SubscriptionStatusWidgetState extends State<SubscriptionStatusWidget> {
         _buildInfoRow('Plan:', plan.toUpperCase()),
         if (_subscriptionStatus == SubscriptionStatus.trial) ...[
           _buildInfoRow('Trial Days Left:', '${details['trialDaysLeft'] ?? 0}'),
+        ],
+        if (_subscriptionStatus == SubscriptionStatus.cancelled) ...[
+          _buildInfoRow('Status:', 'CANCELLED - Access until end of billing period'),
+          if (details['willExpireAt'] != null)
+            _buildInfoRow('Access Until:', _formatDate((details['willExpireAt'] as Timestamp).toDate())),
         ],
         if (_subscriptionStatus == SubscriptionStatus.active) ...[
           _buildInfoRow('Price:', '\$${details['price'] ?? 0}/month'),
@@ -229,6 +236,10 @@ class _SubscriptionStatusWidgetState extends State<SubscriptionStatusWidget> {
            _subscriptionStatus == SubscriptionStatus.expired;
   }
 
+  bool _shouldShowUnsubscribeButton() {
+    return _subscriptionStatus == SubscriptionStatus.active;
+  }
+
   Widget _buildUpgradeButton() {
     String buttonText;
     switch (_subscriptionStatus) {
@@ -273,5 +284,134 @@ class _SubscriptionStatusWidgetState extends State<SubscriptionStatusWidget> {
         ),
       ),
     );
+  }
+
+  Widget _buildUnsubscribeButton() {
+    final subscriptionEndDate = _subscriptionDetails?['subscriptionEndDate'] as Timestamp?;
+    final endDateText = subscriptionEndDate != null 
+        ? _formatDate(subscriptionEndDate.toDate())
+        : 'Unknown';
+
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: _showUnsubscribeDialog,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: const BorderSide(color: Colors.red),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              'Cancel Subscription',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Your subscription will remain active until $endDateText',
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+
+
+  Future<void> _showUnsubscribeDialog() async {
+    final subscriptionEndDate = _subscriptionDetails?['subscriptionEndDate'] as Timestamp?;
+    final endDateText = subscriptionEndDate != null 
+        ? _formatDate(subscriptionEndDate.toDate())
+        : 'the end of your billing period';
+
+    final shouldCancel = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Subscription'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to cancel your subscription?'),
+            const SizedBox(height: 16),
+            Text('• You will keep access until $endDateText'),
+            const Text('• No refund for the current billing period'),
+            const Text('• You can resubscribe anytime'),
+            const Text('• No more trial period after cancellation'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep Subscription'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Cancel Subscription'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldCancel == true) {
+      await _cancelSubscription();
+    }
+  }
+
+  Future<void> _cancelSubscription() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final success = await SubscriptionService.cancelSubscription(user.uid);
+      
+      if (success) {
+        // Reload subscription info
+        await _loadSubscriptionInfo();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Subscription cancelled successfully. You will have access until the end of your billing period.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to cancel subscription. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      _logger.severe('Error cancelling subscription: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

@@ -61,7 +61,7 @@ class SubscriptionService {
 
         final now = DateTime.now();
 
-        // Check if subscription is active
+        // Check if subscription is active or cancelled but still valid
         if (status == 'active' && subscriptionEndDate != null) {
           if (now.isBefore(subscriptionEndDate.toDate())) {
             return SubscriptionStatus.active;
@@ -70,12 +70,30 @@ class SubscriptionService {
             await _updateSubscriptionStatus(userId, SubscriptionStatus.expired);
             return SubscriptionStatus.expired;
           }
+        } else if (status == 'cancelled') {
+          // For cancelled subscriptions, check willExpireAt date
+          final willExpireAt = subscription['willExpireAt'] as Timestamp?;
+          if (willExpireAt != null) {
+            if (now.isBefore(willExpireAt.toDate())) {
+              return SubscriptionStatus.cancelled;
+            } else {
+              // Cancelled subscription has expired
+              await _updateSubscriptionStatus(userId, SubscriptionStatus.expired);
+              return SubscriptionStatus.expired;
+            }
+          } else {
+            // Fallback to subscriptionEndDate if willExpireAt is not set
+            if (subscriptionEndDate != null && now.isBefore(subscriptionEndDate.toDate())) {
+              return SubscriptionStatus.cancelled;
+            } else {
+              await _updateSubscriptionStatus(userId, SubscriptionStatus.expired);
+              return SubscriptionStatus.expired;
+            }
+          }
         }
 
         // Handle other subscription statuses
         switch (status) {
-          case 'cancelled':
-            return SubscriptionStatus.cancelled;
           case 'expired':
             return SubscriptionStatus.expired;
           default:
@@ -279,15 +297,29 @@ class SubscriptionService {
     }
   }
 
-  /// Cancel subscription
+  /// Cancel subscription (ends at current billing period)
   static Future<bool> cancelSubscription(String userId) async {
     try {
+      // Get current subscription details
+      final subscriptionDoc = await _firestore.collection('subscriptions').doc(userId).get();
+      if (!subscriptionDoc.exists) {
+        _logger.warning('No subscription found to cancel for user: $userId');
+        return false;
+      }
+
+      final subscription = subscriptionDoc.data() as Map<String, dynamic>;
+      final subscriptionEndDate = subscription['subscriptionEndDate'] as Timestamp?;
+
+      // Update subscription to cancelled but keep it active until end date
       await _firestore.collection('subscriptions').doc(userId).update({
         'status': 'cancelled',
+        'cancelledAt': FieldValue.serverTimestamp(),
+        'willExpireAt': subscriptionEndDate, // Keep original end date
+        'autoRenew': false,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      _logger.info('Subscription cancelled for user: $userId');
+      _logger.info('Subscription cancelled for user: $userId - will expire at: ${subscriptionEndDate?.toDate()}');
       return true;
     } catch (e) {
       _logger.severe('Error cancelling subscription: $e');

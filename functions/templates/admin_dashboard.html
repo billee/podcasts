@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OFW Admin Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            font-size: 1.1em;
+            color: #666;
+        }
+
+        .controls {
+            padding: 20px;
+            text-align: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: #5a6fd8;
+        }
+
+        .table-container {
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            overflow-x: auto;
+        }
+
+        .users-table {
+            width: 100%;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            min-width: 1200px;
+        }
+
+        .users-table th,
+        .users-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+            white-space: nowrap;
+        }
+
+        .users-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+        }
+
+        .users-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .status-premium {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-trial {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-expired {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-free {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .status-unverified {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-cancelled {
+            background: #ffeaa7;
+            color: #6c5ce7;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+            color: #666;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px;
+            text-align: center;
+        }
+
+        .email-cell {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .stats-container {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 15px;
+                padding: 15px;
+            }
+
+            .stat-number {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>🇵🇭 OFW Admin Dashboard</h1>
+        <p>Real-time User Journey Tracking</p>
+    </div>
+
+    <div class="stats-container" id="statsContainer">
+        <div class="stat-card">
+            <div class="stat-number" id="totalUsers">-</div>
+            <div class="stat-label">Total Users</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="verifiedUsers">-</div>
+            <div class="stat-label">Verified Users</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="totalTrials">-</div>
+            <div class="stat-label">Total Trials</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="activeSubscriptions">-</div>
+            <div class="stat-label">Active Subscriptions</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="conversionRate">-</div>
+            <div class="stat-label">Conversion Rate</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
+        <span id="lastUpdated" style="margin-left: 20px; color: #666;"></span>
+    </div>
+
+    <div class="table-container">
+        <div id="loadingMessage" class="loading">Loading user data...</div>
+        <div id="errorMessage" class="error" style="display: none;"></div>
+
+        <table class="users-table" id="usersTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Username</th>
+                    <th>Registration</th>
+                    <th>Email Verified</th>
+                    <th>Trial Start</th>
+                    <th>Trial End</th>
+                    <th>Subscription Start</th>
+                    <th>Subscription End</th>
+                    <th>Cancellation</th>
+                    <th>Current Status</th>
+                    <th>Last Login</th>
+                </tr>
+            </thead>
+            <tbody id="usersTableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function loadData() {
+            document.getElementById('loadingMessage').style.display = 'block';
+            document.getElementById('usersTable').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+
+            // Load stats
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const stats = data.stats;
+                        document.getElementById('totalUsers').textContent = stats.total_users;
+                        document.getElementById('verifiedUsers').textContent = stats.verified_users;
+                        document.getElementById('totalTrials').textContent = stats.total_trials;
+                        document.getElementById('activeSubscriptions').textContent = stats.active_subscriptions;
+                        document.getElementById('conversionRate').textContent = stats.conversion_rate + '%';
+                    }
+                })
+                .catch(error => console.error('Error loading stats:', error));
+
+            // Load users
+            fetch('/api/users')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('loadingMessage').style.display = 'none';
+
+                    if (data.success) {
+                        displayUsers(data.users);
+                        document.getElementById('usersTable').style.display = 'table';
+                        document.getElementById('lastUpdated').textContent =
+                            'Last updated: ' + new Date().toLocaleString();
+                    } else {
+                        showError('Error loading data: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('loadingMessage').style.display = 'none';
+                    showError('Network error: ' + error.message);
+                });
+        }
+
+        function displayUsers(users) {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '';
+
+            users.forEach(user => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="email-cell" title="${user.email}">${user.email}</td>
+                    <td>${user.username}</td>
+                    <td>${user.registration_date || 'N/A'}</td>
+                    <td>${user.email_verified ? '✅ ' + (user.email_verification_date || 'Yes') : '❌ No'}</td>
+                    <td>${user.trial_start_date || 'N/A'}</td>
+                    <td>${user.trial_end_date || 'N/A'}</td>
+                    <td>${user.subscription_start_date || 'N/A'}</td>
+                    <td>${user.subscription_end_date || 'N/A'}</td>
+                    <td>${user.cancellation_date || 'N/A'}</td>
+                    <td><span class="status-badge ${getStatusClass(user.current_status)}">${user.current_status}</span></td>
+                    <td>${user.last_login || 'N/A'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function getStatusClass(status) {
+            switch (status) {
+                case 'Premium Subscriber': return 'status-premium';
+                case 'Trial User': return 'status-trial';
+                case 'Trial Expired': return 'status-expired';
+                case 'Free User': return 'status-free';
+                case 'Unverified': return 'status-unverified';
+                case 'Cancelled Subscriber': return 'status-cancelled';
+                default: return 'status-free';
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorMessage').style.display = 'block';
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadData, 30000);
+
+        // Load data on page load
+        loadData();
+    </script>
+</body>
+
+</html>
