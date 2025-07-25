@@ -86,7 +86,7 @@ class AuthService {
                 
                 if (existingTrials.docs.isEmpty) {
                   // Create trial history immediately
-                  await createTrialHistoryDirect(updatedUser.uid, userEmail);
+                  await _createTrialHistoryDirect(updatedUser.uid, userEmail);
                   _logger.info('✅ Trial history created automatically during login for verified user: ${updatedUser.uid}');
                 } else {
                   _logger.info('✋ Trial history already exists for user: ${updatedUser.uid}');
@@ -502,7 +502,7 @@ class AuthService {
                 
                 if (existingTrials.docs.isEmpty) {
                   // Create trial history immediately
-                  await createTrialHistoryDirect(updatedUser.uid, userEmail);
+                  await _createTrialHistoryDirect(updatedUser.uid, userEmail);
                   _logger.info('✅ Trial history created immediately after email verification confirmation');
                 } else {
                   _logger.info('✋ Trial history already exists for user: ${updatedUser.uid}');
@@ -525,7 +525,7 @@ class AuthService {
   }
 
   /// Create trial history directly (simple version)
-  static Future<void> createTrialHistoryDirect(String userId, String email) async {
+  static Future<void> _createTrialHistoryDirect(String userId, String email) async {
     try {
       final now = DateTime.now();
       final trialEndDate = now.add(const Duration(days: 7)); // 7-day trial

@@ -84,7 +84,7 @@ class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Please verify your email address, then log in again to activate your 7-day trial.',
+            'Please check your email and click the verification link, then log in again to activate your 7-day trial.',
             style: TextStyle(
               color: Colors.orange.shade300,
               fontSize: 14,
@@ -122,7 +122,7 @@ class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Please verify your email, then log in again to activate your trial.'),
+                        content: Text('After verifying your email, please log in again to activate your trial.'),
                         backgroundColor: Colors.blue,
                         duration: Duration(seconds: 4),
                       ),
@@ -130,7 +130,7 @@ class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
                   }
                 },
                 child: const Text(
-                  'Sign Out',
+                  'Go to Login',
                   style: TextStyle(
                     color: Colors.orange,
                     fontSize: 12,

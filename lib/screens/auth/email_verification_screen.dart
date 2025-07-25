@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:kapwa_companion_basic/screens/main_screen.dart';
+import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
 import 'package:logging/logging.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
@@ -14,7 +15,6 @@ class EmailVerificationScreen extends StatefulWidget {
 class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   final Logger _logger = Logger('EmailVerificationScreen');
   bool _isResending = false;
-  bool _isChecking = false;
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +85,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             const SizedBox(height: 24),
             
             const Text(
-              'Please check your email and click the verification link to activate your account.',
+              'Please check your email and click the verification link, then log in again to activate your 7-day trial.',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.white70,
@@ -95,35 +95,61 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             
             const SizedBox(height: 32),
             
-            // Check Verification Button
+            // Go to Login Button
             SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: _isChecking ? null : _checkVerification,
+                onPressed: () async {
+                  try {
+                    // Sign out first
+                    await AuthService.signOut();
+                    
+                    if (mounted) {
+                      // Navigate back to the root (which should be AuthWrapper -> LoginScreen)
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        (route) => false,
+                      );
+                      
+                      // Show message after navigation
+                      Future.delayed(const Duration(milliseconds: 500), () {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('After verifying your email, please log in again to activate your trial.'),
+                              backgroundColor: Colors.blue,
+                              duration: Duration(seconds: 4),
+                            ),
+                          );
+                        }
+                      });
+                    }
+                  } catch (e) {
+                    print('Error signing out: $e');
+                    // If sign out fails, still try to navigate
+                    if (mounted) {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        (route) => false,
+                      );
+                    }
+                  }
+                },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[600],
+                  backgroundColor: Colors.blue[600],
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: _isChecking
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : const Text(
-                        'I\'ve Verified My Email',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                child: const Text(
+                  'Go to Login',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
             
@@ -176,57 +202,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     );
   }
 
-  Future<void> _checkVerification() async {
-    setState(() {
-      _isChecking = true;
-    });
 
-    try {
-      final isVerified = await AuthService.checkEmailVerification();
-      
-      if (isVerified) {
-        _logger.info('Email verified successfully');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Email verified successfully! Welcome to Kapwa Companion.'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          
-          // Navigate to main screen
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const MainScreen()),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Email not verified yet. Please check your email and click the verification link.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      _logger.severe('Error checking email verification: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error checking verification: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isChecking = false;
-        });
-      }
-    }
-  }
 
   Future<void> _resendVerification() async {
     setState(() {
