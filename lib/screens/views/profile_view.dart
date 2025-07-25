@@ -1,6 +1,7 @@
 // lib/screen/views/profile_view.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:kapwa_companion_basic/widgets/subscription_status_widget.dart';
 
 class ProfileView extends StatelessWidget {
   final bool isLoading;
@@ -15,7 +16,6 @@ class ProfileView extends StatelessWidget {
   final VoidCallback onSavePressed;
   final VoidCallback onCancelPressed;
   final VoidCallback onLogoutPressed;
-  final VoidCallback? onAdminPressed;
   final Widget Function(String, String) buildEditableField;
   final Widget Function(String, dynamic) buildInfoRow;
   final String Function(String) formatFieldName;
@@ -34,7 +34,6 @@ class ProfileView extends StatelessWidget {
     required this.onSavePressed,
     required this.onCancelPressed,
     required this.onLogoutPressed,
-    this.onAdminPressed,
     required this.buildEditableField,
     required this.buildInfoRow,
     required this.formatFieldName,
@@ -128,7 +127,7 @@ class ProfileView extends StatelessWidget {
                     formatFieldName(entry.key), entry.value))
                 .toList(),
           ),
-          _buildSubscriptionCard(subscriptionData),
+          const SubscriptionStatusWidget(),
           const SizedBox(height: 20),
           Row(
             children: [
@@ -203,7 +202,7 @@ class ProfileView extends StatelessWidget {
                   buildInfoRow(formatFieldName(entry.key), entry.value))
               .toList(),
         ),
-        _buildSubscriptionCard(subscriptionData),
+        const SubscriptionStatusWidget(),
         const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,
@@ -233,39 +232,7 @@ class ProfileView extends StatelessWidget {
             ),
           ),
         ),
-        
-        // Admin button (for testing/debugging)
-        if (onAdminPressed != null) ...[
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: onAdminPressed,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple[800],
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.admin_panel_settings),
-                  SizedBox(width: 8),
-                  Text(
-                    'User Management',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+
       ],
     );
   }

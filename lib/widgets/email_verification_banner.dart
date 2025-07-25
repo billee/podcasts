@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
+import 'dart:async';
 
 class EmailVerificationBanner extends StatefulWidget {
   const EmailVerificationBanner({super.key});
@@ -12,6 +13,19 @@ class EmailVerificationBanner extends StatefulWidget {
 class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
   bool _isResending = false;
   bool _isDismissed = false;
+  Timer? _verificationTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Email verification monitoring is now handled globally by EmailVerificationService
+  }
+
+  @override
+  void dispose() {
+    _verificationTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +84,7 @@ class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Please verify your email address to access all features.',
+            'Please verify your email address, then log in again to activate your 7-day trial.',
             style: TextStyle(
               color: Colors.orange.shade300,
               fontSize: 14,
@@ -103,30 +117,20 @@ class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
               const SizedBox(width: 12),
               TextButton(
                 onPressed: () async {
-                  // Check if email is now verified
-                  await user.reload();
-                  final updatedUser = FirebaseAuth.instance.currentUser;
-                  if (updatedUser?.emailVerified == true) {
-                    setState(() {
-                      _isDismissed = true;
-                    });
+                  // Sign out so user can log in again after verification
+                  await AuthService.signOut();
+                  if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Email verified successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Email not verified yet. Please check your email.'),
-                        backgroundColor: Colors.orange,
+                        content: Text('Please verify your email, then log in again to activate your trial.'),
+                        backgroundColor: Colors.blue,
+                        duration: Duration(seconds: 4),
                       ),
                     );
                   }
                 },
                 child: const Text(
-                  'I\'ve Verified',
+                  'Sign Out',
                   style: TextStyle(
                     color: Colors.orange,
                     fontSize: 12,

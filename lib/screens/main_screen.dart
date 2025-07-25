@@ -14,6 +14,7 @@ import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:kapwa_companion_basic/widgets/email_verification_banner.dart';
+import 'package:kapwa_companion_basic/widgets/subscription_status_banner.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -42,6 +43,9 @@ class _MainScreenState extends State<MainScreen> {
         FirebaseAuth.instance.authStateChanges().listen((user) {
       _logger.info('Auth state changed in MainScreen. User: ${user?.uid}');
       _initializeUserAndScreens();
+      
+      // Email verification is now handled directly in AuthService.checkEmailVerification()
+      // No need for complex monitoring service
     });
   }
 
@@ -141,6 +145,7 @@ class _MainScreenState extends State<MainScreen> {
     _logger.info('MainScreen dispose called. Disposing auth subscription.');
     _authStateSubscription?.cancel();
     _pageController.dispose();
+    // No need to stop service anymore
     super.dispose();
   }
 
@@ -228,6 +233,7 @@ class _MainScreenState extends State<MainScreen> {
       body: Column(
         children: [
           const EmailVerificationBanner(),
+          const SubscriptionStatusBanner(),
           Expanded(
             child: PageView(
               controller: _pageController,
@@ -266,6 +272,6 @@ class _MainScreenState extends State<MainScreen> {
         selectedItemColor: Colors.blue[800],
         unselectedItemColor: Colors.grey[500],
       ),
-    );
+      );
   }
 }

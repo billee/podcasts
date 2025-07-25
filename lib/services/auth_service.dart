@@ -68,6 +68,36 @@ class AuthService {
           }).catchError((e) {
             _logger.warning('Failed to update email verification status in Firestore: $e');
           });
+
+          // Create trial history immediately when verified user logs in
+          try {
+            final userDoc = await _firestore.collection('users').doc(updatedUser.uid).get();
+            if (userDoc.exists) {
+              final userData = userDoc.data() as Map<String, dynamic>;
+              final userEmail = userData['email'] as String?;
+              
+              if (userEmail != null) {
+                // Check if trial history already exists
+                final existingTrials = await _firestore
+                    .collection('trial_history')
+                    .where('userId', isEqualTo: updatedUser.uid)
+                    .where('email', isEqualTo: userEmail)
+                    .get();
+                
+                if (existingTrials.docs.isEmpty) {
+                  // Create trial history immediately
+                  await createTrialHistoryDirect(updatedUser.uid, userEmail);
+                  _logger.info('✅ Trial history created automatically during login for verified user: ${updatedUser.uid}');
+                } else {
+                  _logger.info('✋ Trial history already exists for user: ${updatedUser.uid}');
+                }
+              }
+            }
+          } catch (e) {
+            _logger.warning('Failed to create trial history during login: $e');
+          }
+
+          _logger.info('Email verified user logged in: ${updatedUser.uid}');
         }
         
         // Update login info in background, don't block sign-in
@@ -258,13 +288,6 @@ class AuthService {
           'emailNotifications': true,
           'pushNotifications': true,
         },
-        'subscription': {
-          'isTrialActive': true,
-          'trialStartDate': FieldValue.serverTimestamp(),
-          'plan': 'trial',
-          'gptQueriesUsed': 0,
-          'lastResetDate': FieldValue.serverTimestamp(),
-        },
         'metadata': {
           'registrationSource': 'mobile_app',
           'platform': 'flutter',
@@ -272,10 +295,12 @@ class AuthService {
         },
       };
 
-      // Save to Firestore users collection
+      // Save to Firestore users collection (no subscription data)
       await _firestore.collection('users').doc(userId).set(profileData);
       
       _logger.info('OFW profile created successfully for user: $userId with email: $email');
+      
+      // Trial will be initialized AFTER email verification
 
       // Also use FirestoreService for additional operations if needed
       try {
@@ -454,10 +479,40 @@ class AuthService {
         await user.reload();
         final updatedUser = _auth.currentUser;
         if (updatedUser != null && updatedUser.emailVerified) {
+          // Update user profile
           await _firestore.collection('users').doc(updatedUser.uid).update({
             'emailVerified': true,
             'emailVerifiedAt': FieldValue.serverTimestamp(),
           });
+          
+          // Create trial history immediately when email verification is confirmed
+          try {
+            final userDoc = await _firestore.collection('users').doc(updatedUser.uid).get();
+            if (userDoc.exists) {
+              final userData = userDoc.data() as Map<String, dynamic>;
+              final userEmail = userData['email'] as String?;
+              
+              if (userEmail != null) {
+                // Check if trial history already exists
+                final existingTrials = await _firestore
+                    .collection('trial_history')
+                    .where('userId', isEqualTo: updatedUser.uid)
+                    .where('email', isEqualTo: userEmail)
+                    .get();
+                
+                if (existingTrials.docs.isEmpty) {
+                  // Create trial history immediately
+                  await createTrialHistoryDirect(updatedUser.uid, userEmail);
+                  _logger.info('✅ Trial history created immediately after email verification confirmation');
+                } else {
+                  _logger.info('✋ Trial history already exists for user: ${updatedUser.uid}');
+                }
+              }
+            }
+          } catch (e) {
+            _logger.warning('Failed to create trial history after email verification: $e');
+          }
+          
           _logger.info('Email verification status updated for user: ${updatedUser.uid}');
           return true;
         }
@@ -466,6 +521,36 @@ class AuthService {
     } catch (e) {
       _logger.warning('Email verification check failed: $e');
       return false;
+    }
+  }
+
+  /// Create trial history directly (simple version)
+  static Future<void> createTrialHistoryDirect(String userId, String email) async {
+    try {
+      final now = DateTime.now();
+      final trialEndDate = now.add(const Duration(days: 7)); // 7-day trial
+
+      // Check if email has been used for trial before
+      final existingTrials = await _firestore
+          .collection('trial_history')
+          .where('email', isEqualTo: email)
+          .get();
+
+      if (existingTrials.docs.isEmpty) {
+        // Record trial usage for this email immediately
+        await _firestore.collection('trial_history').add({
+          'email': email,
+          'userId': userId,
+          'trialStartDate': FieldValue.serverTimestamp(),
+          'trialEndDate': Timestamp.fromDate(trialEndDate),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        _logger.info('🎉 Trial history created directly for user: $userId, email: $email');
+      } else {
+        _logger.warning('⚠️ Email $email has already used trial period - no new trial history created');
+      }
+    } catch (e) {
+      _logger.severe('💥 Error creating trial history directly: $e');
     }
   }
 
@@ -515,6 +600,8 @@ class AuthService {
       _logger.warning('Offline status update failed: $e');
     }
   }
+
+
 
   // Helper Methods
   static String _handleAuthException(FirebaseAuthException e) {

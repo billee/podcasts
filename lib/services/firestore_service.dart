@@ -10,18 +10,10 @@ class FirestoreService {
     required String email,
     required Map<String, dynamic> userProfile,
   }) async {
-    final subscription = Subscription(
-      isTrialActive: true,
-      trialStartDate: DateTime.now(),
-      plan: 'trial',
-      gptQueriesUsed: 0,
-      videoMinutesUsed: 0,
-      lastResetDate: DateTime.now(),
-    );
-
-    await _firestore.collection('users').doc(userId).set({
-      ...userProfile,
-      'subscription': subscription.toFirestore(),
+    // No longer creating subscription data in user profile
+    // Subscription data will be handled separately after email verification
+    await _firestore.collection('users').doc(userId).update({
+      'lastUpdated': FieldValue.serverTimestamp(),
     });
   }
 

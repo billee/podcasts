@@ -82,7 +82,8 @@ class _LoginScreenState extends State<LoginScreen> {
           final updatedUser = FirebaseAuth.instance.currentUser;
           
           if (updatedUser != null && !updatedUser.emailVerified) {
-            _logger.info('User email not verified, navigating to verification screen');
+            _logger.info('User email not verified, starting monitoring and navigating to verification screen');
+            // Email verification is now handled directly when user clicks "I've Verified"
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (context) => const EmailVerificationScreen()),
             );
@@ -555,6 +556,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
+              const SizedBox(height: 20),
+              
               const SizedBox(height: 32),
 
               // Sign Up Link

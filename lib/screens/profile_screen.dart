@@ -358,15 +358,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .trim();
   }
 
-  // Add a method to open the user management screen
-  void _openUserManagement(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const UserManagementScreen(),
-      ),
-    );
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -408,8 +400,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       buildEditableField: _buildEditableField,
       buildInfoRow: _buildInfoRow,
       formatFieldName: _formatFieldName,
-      // Add admin button action
-      onAdminPressed: () => _openUserManagement(context),
+
     );
   }
 }
