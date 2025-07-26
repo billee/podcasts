@@ -39,6 +39,13 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   build_runner: ^2.4.6
   freezed: ^2.4.4
+  # Testing dependencies
+  mockito: ^5.4.4
+  fake_cloud_firestore: ^3.0.3
+  firebase_auth_mocks: ^0.14.1
+  mocktail: ^1.0.4
+  integration_test:
+    sdk: flutter
 
 dependency_overrides:
   js: 0.7.2

@@ -191,69 +191,13 @@ class AuthService {
     }
   }
 
-  // Phone Authentication
-  static Future<void> verifyPhoneNumber({
-    required String phoneNumber,
-    required Function(PhoneAuthCredential) verificationCompleted,
-    required Function(FirebaseAuthException) verificationFailed,
-    required Function(String, int?) codeSent,
-    required Function(String) codeAutoRetrievalTimeout,
-  }) async {
-    try {
-      await _auth.verifyPhoneNumber(
-        phoneNumber: phoneNumber,
-        verificationCompleted: verificationCompleted,
-        verificationFailed: verificationFailed,
-        codeSent: codeSent,
-        codeAutoRetrievalTimeout: codeAutoRetrievalTimeout,
-        timeout: const Duration(seconds: 60),
-      );
-    } catch (e) {
-      _logger.severe('Phone verification error: $e');
-      throw 'Phone verification failed';
-    }
-  }
 
-  static Future<User?> signInWithPhoneCredential({
-    required String verificationId,
-    required String smsCode,
-    Map<String, dynamic>? userProfile,
-  }) async {
-    try {
-      final credential = PhoneAuthProvider.credential(
-        verificationId: verificationId,
-        smsCode: smsCode,
-      );
-
-      final UserCredential result =
-          await _auth.signInWithCredential(credential);
-      if (result.user != null) {
-        if (result.additionalUserInfo?.isNewUser == true &&
-            userProfile != null) {
-          await _createUserProfile(
-            userId: result.user!.uid,
-            email: result.user!.email ?? '',
-            userProfile: userProfile,
-            phoneNumber: result.user!.phoneNumber,
-          );
-        } else {
-          await _updateLastLogin(result.user!.uid);
-        }
-        return result.user;
-      }
-      return null;
-    } on FirebaseAuthException catch (e) {
-      _logger.severe('Phone signin error: ${e.code} - ${e.message}');
-      throw _handleAuthException(e);
-    }
-  }
 
   // Create user profile in Firestore
   static Future<void> _createUserProfile({
     required String userId,
     required String email,
     required Map<String, dynamic> userProfile,
-    String? phoneNumber,
   }) async {
     try {
       final profileData = {
@@ -620,10 +564,7 @@ class AuthService {
         return 'This account has been disabled. Please contact support.';
       case 'too-many-requests':
         return 'Too many failed attempts. Please try again later.';
-      case 'invalid-phone-number':
-        return 'Invalid phone number format.';
-      case 'invalid-verification-code':
-        return 'Invalid verification code. Please try again.';
+
       case 'invalid-credential':
         return 'Invalid email or password. Please check your credentials and try again.';
       default:
