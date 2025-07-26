@@ -74,11 +74,22 @@ def get_users():
             
             # Get trial history for this user
             trial_history = None
-            if email:
+            
+            # First try by userId (this is how it's actually stored)
+            trial_query = db.collection('trial_history').where('userId', '==', user_id).limit(1)
+            trial_results = list(trial_query.stream())
+            if trial_results:
+                trial_history = trial_results[0].to_dict()
+                app.logger.info(f"Found trial history by userId for {email}: {trial_history}")
+            elif email:
+                # Fallback: try by email as document ID
                 trial_ref = db.collection('trial_history').document(email)
                 trial_doc = trial_ref.get()
                 if trial_doc.exists:
                     trial_history = trial_doc.to_dict()
+                    app.logger.info(f"Found trial history by email for {email}: {trial_history}")
+                else:
+                    app.logger.info(f"No trial history found for user {user_id} / {email}")
             
             # Get subscription data for this user
             subscription = None
@@ -87,6 +98,9 @@ def get_users():
                 subscription_doc = subscription_ref.get()
                 if subscription_doc.exists:
                     subscription = subscription_doc.to_dict()
+            
+            # Calculate days remaining for trial
+            days_remaining = get_trial_days_remaining(trial_history)
             
             # Compile complete user journey data
             journey_data = {
@@ -98,6 +112,7 @@ def get_users():
                 'email_verification_date': format_timestamp(user_data.get('emailVerifiedAt')),
                 'trial_start_date': format_timestamp(trial_history.get('trialStartDate') if trial_history else None),
                 'trial_end_date': format_timestamp(trial_history.get('trialEndDate') if trial_history else None),
+                'trial_days_remaining': days_remaining,
                 'trial_status': get_trial_status(trial_history),
                 'subscription_start_date': format_timestamp(subscription.get('subscriptionStartDate') if subscription else None),
                 'subscription_end_date': format_timestamp(subscription.get('subscriptionEndDate') if subscription else None),
@@ -220,6 +235,28 @@ def chat():
 def health_check():
     return jsonify({"status": "healthy", "message": "Flask app is running"})
 
+@app.route('/debug/trials')
+def debug_trials():
+    """Debug endpoint to see all trial history data"""
+    try:
+        trials = []
+        trial_ref = db.collection('trial_history')
+        for trial_doc in trial_ref.stream():
+            trial_data = trial_doc.to_dict()
+            trial_data['document_id'] = trial_doc.id
+            trials.append(trial_data)
+        
+        return jsonify({
+            'success': True,
+            'trials': trials,
+            'count': len(trials)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/summarize_chat', methods=['POST'])
 def summarize_chat():
     data = request.json
@@ -285,12 +322,15 @@ def format_timestamp(timestamp):
         return None
     
     try:
-        if hasattr(timestamp, 'seconds'):
+        # Handle Firestore DatetimeWithNanoseconds
+        if hasattr(timestamp, 'timestamp'):
+            dt = timestamp.replace(tzinfo=None)  # Remove timezone info
+        elif hasattr(timestamp, 'seconds'):
             # Firestore timestamp
             dt = datetime.fromtimestamp(timestamp.seconds)
         elif isinstance(timestamp, str):
             # ISO string
-            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00')).replace(tzinfo=None)
         else:
             return str(timestamp)
         
@@ -332,6 +372,37 @@ def get_subscription_status(subscription):
         return 'Active'
     else:
         return 'Inactive'
+
+def get_trial_days_remaining(trial_history):
+    """Calculate days remaining in trial"""
+    if not trial_history:
+        return 'N/A'
+    
+    trial_end = trial_history.get('trialEndDate')
+    if not trial_end:
+        return 'N/A'
+    
+    try:
+        # Handle Firestore DatetimeWithNanoseconds
+        if hasattr(trial_end, 'timestamp'):
+            end_date = trial_end.replace(tzinfo=None)  # Remove timezone info
+        elif hasattr(trial_end, 'seconds'):
+            end_date = datetime.fromtimestamp(trial_end.seconds)
+        else:
+            end_date = datetime.fromisoformat(str(trial_end).replace('Z', '+00:00')).replace(tzinfo=None)
+        
+        now = datetime.now()  # This is timezone-naive
+        if now > end_date:
+            return 'Expired'
+        else:
+            days_left = (end_date - now).days
+            hours_left = (end_date - now).seconds // 3600
+            if days_left == 0 and hours_left > 0:
+                return f"{hours_left}h left"
+            return f"{days_left} days"
+    except Exception as e:
+        app.logger.error(f"Error calculating trial days remaining: {e}")
+        return 'Error'
 
 def get_current_user_status(user_data, trial_history, subscription):
     """Determine the user's current overall status"""

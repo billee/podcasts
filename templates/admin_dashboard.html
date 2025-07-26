@@ -99,15 +99,16 @@
             border-radius: 10px;
             overflow: hidden;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            min-width: 1200px;
+            font-size: 0.8em;
         }
         
         .users-table th,
         .users-table td {
-            padding: 12px;
+            padding: 6px 4px;
             text-align: left;
             border-bottom: 1px solid #eee;
             white-space: nowrap;
+            font-size: 0.85em;
         }
         
         .users-table th {
@@ -123,9 +124,9 @@
         }
         
         .status-badge {
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.85em;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.7em;
             font-weight: 500;
         }
         
@@ -135,6 +136,18 @@
         .status-free { background: #e2e3e5; color: #383d41; }
         .status-unverified { background: #f8d7da; color: #721c24; }
         .status-cancelled { background: #ffeaa7; color: #6c5ce7; }
+        
+        .days-remaining {
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.7em;
+            font-weight: 500;
+        }
+        
+        .days-active { background: #d4edda; color: #155724; }
+        .days-warning { background: #fff3cd; color: #856404; }
+        .days-expired { background: #f8d7da; color: #721c24; }
+        .days-none { background: #e2e3e5; color: #383d41; }
         
         .loading {
             text-align: center;
@@ -153,9 +166,20 @@
         }
         
         .email-cell {
-            max-width: 200px;
+            max-width: 120px;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+        
+        .username-cell {
+            max-width: 80px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .date-cell {
+            font-size: 0.75em;
+            max-width: 90px;
         }
         
         @media (max-width: 768px) {
@@ -171,6 +195,29 @@
             
             .stat-number {
                 font-size: 2em;
+            }
+            
+            .users-table {
+                font-size: 0.7em;
+            }
+            
+            .users-table th,
+            .users-table td {
+                padding: 4px 2px;
+                font-size: 0.75em;
+            }
+            
+            .email-cell {
+                max-width: 80px;
+            }
+            
+            .username-cell {
+                max-width: 60px;
+            }
+            
+            .date-cell {
+                max-width: 70px;
+                font-size: 0.65em;
             }
         }
     </style>
@@ -222,6 +269,7 @@
                     <th>Email Verified</th>
                     <th>Trial Start</th>
                     <th>Trial End</th>
+                    <th>Days Left</th>
                     <th>Subscription Start</th>
                     <th>Subscription End</th>
                     <th>Cancellation</th>
@@ -284,19 +332,48 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td class="email-cell" title="${user.email}">${user.email}</td>
-                    <td>${user.username}</td>
-                    <td>${user.registration_date || 'N/A'}</td>
-                    <td>${user.email_verified ? '✅ ' + (user.email_verification_date || 'Yes') : '❌ No'}</td>
-                    <td>${user.trial_start_date || 'N/A'}</td>
-                    <td>${user.trial_end_date || 'N/A'}</td>
-                    <td>${user.subscription_start_date || 'N/A'}</td>
-                    <td>${user.subscription_end_date || 'N/A'}</td>
-                    <td>${user.cancellation_date || 'N/A'}</td>
+                    <td class="username-cell" title="${user.username}">${user.username}</td>
+                    <td class="date-cell">${formatDate(user.registration_date)}</td>
+                    <td class="date-cell">${user.email_verified ? '✅ ' + formatDate(user.email_verification_date) : '❌ No'}</td>
+                    <td class="date-cell">${formatDate(user.trial_start_date)}</td>
+                    <td class="date-cell">${formatDate(user.trial_end_date)}</td>
+                    <td class="date-cell"><span class="days-remaining ${getDaysRemainingClass(user.trial_days_remaining)}">${user.trial_days_remaining || 'N/A'}</span></td>
+                    <td class="date-cell">${formatDate(user.subscription_start_date)}</td>
+                    <td class="date-cell">${formatDate(user.subscription_end_date)}</td>
+                    <td class="date-cell">${formatDate(user.cancellation_date)}</td>
                     <td><span class="status-badge ${getStatusClass(user.current_status)}">${user.current_status}</span></td>
-                    <td>${user.last_login || 'N/A'}</td>
+                    <td class="date-cell">${formatDate(user.last_login)}</td>
                 `;
                 tbody.appendChild(row);
             });
+        }
+        
+        function formatDate(dateStr) {
+            if (!dateStr || dateStr === 'N/A') return 'N/A';
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: '2-digit'
+                });
+            } catch {
+                return dateStr;
+            }
+        }
+        
+        function getDaysRemainingClass(daysRemaining) {
+            if (!daysRemaining || daysRemaining === 'N/A') return 'days-none';
+            if (daysRemaining === 'Expired') return 'days-expired';
+            
+            const match = daysRemaining.match(/(\d+) days/);
+            if (match) {
+                const days = parseInt(match[1]);
+                if (days >= 4) return 'days-active';
+                if (days >= 1) return 'days-warning';
+                return 'days-expired';
+            }
+            return 'days-none';
         }
         
         function getStatusClass(status) {
@@ -315,9 +392,6 @@
             document.getElementById('errorMessage').textContent = message;
             document.getElementById('errorMessage').style.display = 'block';
         }
-        
-        // Auto-refresh every 30 seconds
-        setInterval(loadData, 30000);
         
         // Load data on page load
         loadData();
