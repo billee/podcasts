@@ -16,7 +16,7 @@ import 'package:flutter/foundation.dart' show compute;
 import 'package:kapwa_companion_basic/widgets/email_verification_banner.dart';
 import 'package:kapwa_companion_basic/widgets/subscription_status_banner.dart';
 import 'package:kapwa_companion_basic/widgets/subscription_monitor.dart';
-import 'package:kapwa_companion_basic/services/subscription_service.dart';
+import 'package:kapwa_companion_basic/widgets/app_bar_status_indicator.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -142,17 +142,7 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  Future<SubscriptionStatus> _getCurrentSubscriptionStatus() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return SubscriptionStatus.expired;
-    
-    try {
-      return await SubscriptionService.getSubscriptionStatus(user.uid);
-    } catch (e) {
-      _logger.warning('Error getting subscription status: $e');
-      return SubscriptionStatus.expired;
-    }
-  }
+
 
   @override
   void dispose() {
@@ -181,32 +171,9 @@ class _MainScreenState extends State<MainScreen> {
           title: const Text('Kapwa Companion'),
           backgroundColor: Colors.grey[900],
           actions: [
-            // Premium Subscriber Icon
-            FutureBuilder<SubscriptionStatus>(
-              future: _getCurrentSubscriptionStatus(),
-              builder: (context, snapshot) {
-                if (snapshot.hasData && snapshot.data == SubscriptionStatus.active) {
-                  return IconButton(
-                    icon: const Icon(
-                      Icons.diamond,
-                      color: Colors.red,
-                      size: 24,
-                    ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('You are a Premium Subscriber! 💎'),
-                          backgroundColor: Colors.red,
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                    tooltip: 'Premium Subscriber',
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
+            // Status indicators (trial countdown, premium diamond, etc.)
+            const AppBarStatusIndicator(),
+            
             IconButton(
               icon: const Icon(Icons.upgrade),
               onPressed: () {

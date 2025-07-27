@@ -92,6 +92,28 @@ The OFW (Overseas Filipino Worker) app requires a comprehensive user management 
 9. WHEN forms have errors THEN the system SHALL display user-friendly error messages with guidance
 10. WHEN user performs actions THEN the system SHALL provide loading states and success/error feedback
 
+### Requirement 19: Mobile Space Optimization
+
+**User Story:** As a mobile user, I want the app to efficiently use screen space with optimized layouts, so that I can access all features comfortably on small mobile screens without clutter.
+
+#### Acceptance Criteria
+
+1. WHEN app displays text THEN the system SHALL use smaller, mobile-optimized font sizes (12-16px for body text, 18-20px for headers)
+2. WHEN app shows forms THEN the system SHALL use compact input fields with minimal padding and margins
+3. WHEN app displays lists THEN the system SHALL use condensed list items with essential information only
+4. WHEN app shows buttons THEN the system SHALL use appropriately sized touch targets (minimum 44px) with compact spacing
+5. WHEN app displays cards THEN the system SHALL minimize card padding and use efficient vertical spacing
+6. WHEN app shows navigation THEN the system SHALL use bottom navigation or compact tab bars for space efficiency
+7. WHEN app displays subscription info THEN the system SHALL prioritize essential information and hide secondary details in expandable sections
+8. WHEN app shows user profile THEN the system SHALL use collapsible sections and compact status indicators
+9. WHEN app displays admin dashboard THEN the system SHALL use data tables with horizontal scrolling and compact row heights
+10. WHEN app shows dialogs THEN the system SHALL use minimal padding and focus on essential content only
+11. WHEN app displays status indicators THEN the system SHALL use small icons and badges instead of large text blocks
+12. WHEN app shows trial countdown THEN the system SHALL use compact banner format with essential information only
+13. WHEN app displays premium features THEN the system SHALL use bullet points and concise descriptions
+14. WHEN app shows error messages THEN the system SHALL use inline validation with minimal space usage
+15. WHEN app displays loading states THEN the system SHALL use compact spinners and progress indicators
+
 ### Requirement 7: User Profile Status Display
 
 **User Story:** As a user, I want to see my current subscription status on my profile page, so that I can understand my account status and remaining trial/subscription time.

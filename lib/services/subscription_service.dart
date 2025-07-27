@@ -17,8 +17,17 @@ enum SubscriptionPlan {
 
 class SubscriptionService {
   static final Logger _logger = Logger('SubscriptionService');
-  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  static final FirebaseAuth _auth = FirebaseAuth.instance;
+  static FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // For testing purposes - allow dependency injection
+  static void setFirestoreInstance(FirebaseFirestore firestore) {
+    _firestore = firestore;
+  }
+
+  static void setAuthInstance(FirebaseAuth auth) {
+    _auth = auth;
+  }
 
   // Constants
   static const int trialDurationDays = 7;

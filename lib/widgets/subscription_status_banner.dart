@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
 import 'package:kapwa_companion_basic/screens/payment_screen.dart';
+import 'package:kapwa_companion_basic/widgets/loading_state_widget.dart';
 import 'package:logging/logging.dart';
 
 class SubscriptionStatusBanner extends StatefulWidget {
@@ -54,7 +55,35 @@ class _SubscriptionStatusBannerState extends State<SubscriptionStatusBanner> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const SizedBox.shrink();
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.withOpacity(0.5), width: 2),
+        ),
+        child: const Row(
+          children: [
+            LoadingStateWidget(
+              type: LoadingType.dots,
+              size: 6,
+              showMessage: false,
+              color: Colors.grey,
+            ),
+            SizedBox(width: 12),
+            Text(
+              'Loading status...',
+              style: TextStyle(
+                color: Colors.grey,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     // Don't show banner if user doesn't have email verified

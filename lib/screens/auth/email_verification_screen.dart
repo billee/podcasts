@@ -15,6 +15,33 @@ class EmailVerificationScreen extends StatefulWidget {
 class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   final Logger _logger = Logger('EmailVerificationScreen');
   bool _isResending = false;
+  int _resendCooldown = 0;
+  bool _canResend = true;
+
+  void _startCooldown() {
+    setState(() {
+      _canResend = false;
+      _resendCooldown = 60; // 60 seconds cooldown
+    });
+
+    // Start countdown timer
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted) {
+        setState(() {
+          _resendCooldown--;
+        });
+        if (_resendCooldown <= 0) {
+          setState(() {
+            _canResend = true;
+          });
+          return false;
+        }
+        return true;
+      }
+      return false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,13 +111,43 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             
             const SizedBox(height: 24),
             
-            const Text(
-              'Please check your email and click the verification link, then log in again to activate your 7-day trial.',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white70,
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
               ),
-              textAlign: TextAlign.center,
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue[300], size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Next Steps:',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[300],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '1. Check your email inbox (and spam folder)\n'
+                    '2. Click the verification link in the email\n'
+                    '3. Return here and click "Go to Login"\n'
+                    '4. Sign in to activate your 7-day trial',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white70,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
             ),
             
             const SizedBox(height: 32),
@@ -155,30 +212,39 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             
             const SizedBox(height: 16),
             
-            // Resend Email Button
+            // Resend Email Button with cooldown
             SizedBox(
               width: double.infinity,
               height: 48,
               child: OutlinedButton(
-                onPressed: _isResending ? null : _resendVerification,
+                onPressed: (_isResending || !_canResend) ? null : _resendVerification,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.blue[800],
-                  side: BorderSide(color: Colors.blue[800]!),
+                  foregroundColor: _canResend ? Colors.blue[800] : Colors.grey,
+                  side: BorderSide(color: _canResend ? Colors.blue[800]! : Colors.grey),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 child: _isResending
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('Sending...'),
+                        ],
                       )
-                    : const Text(
-                        'Resend Verification Email',
-                        style: TextStyle(
+                    : Text(
+                        !_canResend 
+                            ? 'Resend in ${_resendCooldown}s'
+                            : 'Resend Verification Email',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -213,18 +279,45 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       await AuthService.sendEmailVerification();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Verification email sent! Please check your inbox.'),
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('Verification email sent! Please check your inbox and spam folder.'),
+                ),
+              ],
+            ),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         );
+        _startCooldown();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to send verification email: $e'),
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Failed to send verification email: $e'),
+                ),
+              ],
+            ),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         );
       }

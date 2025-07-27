@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/screens/views/profile_view.dart';
 import 'package:kapwa_companion_basic/screens/admin/user_management_screen.dart';
+import 'package:kapwa_companion_basic/widgets/feedback_widget.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -148,22 +149,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _isEditing = false);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
+        FeedbackManager.showSuccess(
+          context,
+          message: 'Profile updated successfully!',
+          duration: const Duration(seconds: 2),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving profile: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
+        FeedbackManager.showError(
+          context,
+          message: 'Error saving profile: ${e.toString()}',
+          duration: const Duration(seconds: 2),
         );
       }
     } finally {

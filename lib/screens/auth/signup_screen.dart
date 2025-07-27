@@ -32,6 +32,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
   String? _errorMessage;
   int _currentPage = 0;
 
+  // Real-time validation states
+  bool _isNameValid = false;
+  bool _isUsernameValid = false;
+  bool _isEmailValid = false;
+  bool _isPasswordValid = false;
+  bool _isConfirmPasswordValid = false;
+  String? _nameValidationError;
+  String? _usernameValidationError;
+  String? _emailValidationError;
+  String? _passwordValidationError;
+  String? _confirmPasswordValidationError;
+  
+  // Password strength
+  int _passwordStrength = 0; // 0-4 scale
+
   // Email is now mandatory for all OFWs
   bool _hasEmail = true;
 
@@ -89,19 +104,189 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _birthYear = DateTime.now().year - 25;
     _isMarried = false;
     _hasChildren = false;
+
+    // Add real-time validation listeners
+    _nameController.addListener(_validateName);
+    _usernameController.addListener(_validateUsername);
+    _emailController.addListener(_validateEmail);
+    _passwordController.addListener(_validatePassword);
+    _confirmPasswordController.addListener(_validateConfirmPassword);
   }
 
   @override
   void dispose() {
+    // Remove listeners
+    _nameController.removeListener(_validateName);
+    _usernameController.removeListener(_validateUsername);
+    _emailController.removeListener(_validateEmail);
+    _passwordController.removeListener(_validatePassword);
+    _confirmPasswordController.removeListener(_validateConfirmPassword);
+
     _nameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-
     _occupationController.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  // Real-time validation methods
+  void _validateName() {
+    final name = _nameController.text.trim();
+    setState(() {
+      if (name.isEmpty) {
+        _nameValidationError = null;
+        _isNameValid = false;
+      } else if (name.length < 2) {
+        _nameValidationError = 'Name must be at least 2 characters';
+        _isNameValid = false;
+      } else {
+        _nameValidationError = null;
+        _isNameValid = true;
+      }
+    });
+  }
+
+  void _validateUsername() {
+    final username = _usernameController.text.trim();
+    setState(() {
+      if (username.isEmpty) {
+        _usernameValidationError = null;
+        _isUsernameValid = false;
+      } else if (username.length < 3) {
+        _usernameValidationError = 'Username must be at least 3 characters';
+        _isUsernameValid = false;
+      } else if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(username)) {
+        _usernameValidationError = 'Only letters, numbers, and underscores allowed';
+        _isUsernameValid = false;
+      } else {
+        _usernameValidationError = null;
+        _isUsernameValid = true;
+      }
+    });
+  }
+
+  void _validateEmail() {
+    final email = _emailController.text.trim();
+    setState(() {
+      if (email.isEmpty) {
+        _emailValidationError = null;
+        _isEmailValid = false;
+      } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+        _emailValidationError = 'Invalid email format';
+        _isEmailValid = false;
+      } else {
+        _emailValidationError = null;
+        _isEmailValid = true;
+      }
+    });
+  }
+
+  void _validatePassword() {
+    final password = _passwordController.text;
+    setState(() {
+      if (password.isEmpty) {
+        _passwordValidationError = null;
+        _isPasswordValid = false;
+        _passwordStrength = 0;
+      } else {
+        _passwordStrength = _calculatePasswordStrength(password);
+        if (password.length < 6) {
+          _passwordValidationError = 'Password must be at least 6 characters';
+          _isPasswordValid = false;
+        } else {
+          _passwordValidationError = null;
+          _isPasswordValid = true;
+        }
+      }
+      // Re-validate confirm password when password changes
+      _validateConfirmPassword();
+    });
+  }
+
+  void _validateConfirmPassword() {
+    final confirmPassword = _confirmPasswordController.text;
+    final password = _passwordController.text;
+    setState(() {
+      if (confirmPassword.isEmpty) {
+        _confirmPasswordValidationError = null;
+        _isConfirmPasswordValid = false;
+      } else if (confirmPassword != password) {
+        _confirmPasswordValidationError = 'Passwords do not match';
+        _isConfirmPasswordValid = false;
+      } else {
+        _confirmPasswordValidationError = null;
+        _isConfirmPasswordValid = true;
+      }
+    });
+  }
+
+  int _calculatePasswordStrength(String password) {
+    int strength = 0;
+    
+    // Length check
+    if (password.length >= 8) strength++;
+    
+    // Contains lowercase
+    if (password.contains(RegExp(r'[a-z]'))) strength++;
+    
+    // Contains uppercase
+    if (password.contains(RegExp(r'[A-Z]'))) strength++;
+    
+    // Contains numbers
+    if (password.contains(RegExp(r'[0-9]'))) strength++;
+    
+    // Contains special characters
+    if (password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) strength++;
+    
+    return strength > 4 ? 4 : strength;
+  }
+
+  String _getPasswordStrengthText() {
+    switch (_passwordStrength) {
+      case 0:
+      case 1:
+        return 'Weak';
+      case 2:
+        return 'Fair';
+      case 3:
+        return 'Good';
+      case 4:
+        return 'Strong';
+      default:
+        return 'Weak';
+    }
+  }
+
+  Color _getPasswordStrengthColor() {
+    switch (_passwordStrength) {
+      case 0:
+      case 1:
+        return Colors.red;
+      case 2:
+        return Colors.orange;
+      case 3:
+        return Colors.yellow;
+      case 4:
+        return Colors.green;
+      default:
+        return Colors.red;
+    }
+  }
+
+  bool _canProceedToNext() {
+    switch (_currentPage) {
+      case 0:
+        return _isNameValid && _isUsernameValid && _isEmailValid;
+      case 1:
+        return _isPasswordValid && _isConfirmPasswordValid;
+      case 2:
+        return _occupationController.text.isNotEmpty;
+      default:
+        return false;
+    }
   }
 
   String _extractErrorMessage(String error) {
@@ -502,22 +687,34 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               }
                             },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[800],
+                        backgroundColor: _isLoading 
+                            ? Colors.grey[600] 
+                            : _canProceedToNext()
+                                ? Colors.blue[800]
+                                : Colors.blue[800]?.withOpacity(0.7),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
+                        elevation: _isLoading ? 0 : 2,
                       ),
                       child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor:
+                                        AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(_currentPage < 2 ? 'Processing...' : 'Creating Account...'),
+                              ],
                             )
                           : Text(_currentPage < 2 ? 'Next' : 'Create Account'),
                     ),
@@ -554,19 +751,56 @@ class _SignUpScreenState extends State<SignUpScreen> {
             ),
             const SizedBox(height: 32),
 
-            // Full Name
+            // Full Name with real-time validation
             TextFormField(
               controller: _nameController,
               decoration: InputDecoration(
                 labelText: 'Full Name *',
-                prefixIcon: const Icon(Icons.person, color: Colors.white70),
+                prefixIcon: Icon(
+                  Icons.person, 
+                  color: _isNameValid ? Colors.green : Colors.white70
+                ),
+                suffixIcon: _nameController.text.isNotEmpty
+                    ? Icon(
+                        _isNameValid ? Icons.check_circle : Icons.error,
+                        color: _isNameValid ? Colors.green : Colors.red,
+                        size: 20,
+                      )
+                    : null,
                 filled: true,
                 fillColor: Colors.grey[800],
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: _nameValidationError != null 
+                        ? Colors.red.withOpacity(0.5)
+                        : _isNameValid 
+                            ? Colors.green.withOpacity(0.5)
+                            : Colors.transparent,
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: _nameValidationError != null 
+                        ? Colors.red
+                        : _isNameValid 
+                            ? Colors.green
+                            : Colors.blue,
+                    width: 2,
+                  ),
+                ),
                 labelStyle: const TextStyle(color: Colors.white70),
+                helperText: _nameValidationError,
+                helperStyle: TextStyle(
+                  color: _nameValidationError != null ? Colors.red : Colors.white54, 
+                  fontSize: 12
+                ),
               ),
               style: const TextStyle(color: Colors.white),
               validator: (value) {
@@ -579,20 +813,54 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
             const SizedBox(height: 16),
 
-            // Username
+            // Username with real-time validation
             TextFormField(
               controller: _usernameController,
               decoration: InputDecoration(
                 labelText: 'Username *',
-                helperText: 'This will be used to log in',
-                helperStyle: const TextStyle(color: Colors.white54),
-                prefixIcon:
-                    const Icon(Icons.alternate_email, color: Colors.white70),
+                helperText: _usernameValidationError ?? 'This will be used to log in',
+                helperStyle: TextStyle(
+                  color: _usernameValidationError != null ? Colors.red : Colors.white54,
+                  fontSize: 12
+                ),
+                prefixIcon: Icon(
+                  Icons.alternate_email, 
+                  color: _isUsernameValid ? Colors.green : Colors.white70
+                ),
+                suffixIcon: _usernameController.text.isNotEmpty
+                    ? Icon(
+                        _isUsernameValid ? Icons.check_circle : Icons.error,
+                        color: _isUsernameValid ? Colors.green : Colors.red,
+                        size: 20,
+                      )
+                    : null,
                 filled: true,
                 fillColor: Colors.grey[800],
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: _usernameValidationError != null 
+                        ? Colors.red.withOpacity(0.5)
+                        : _isUsernameValid 
+                            ? Colors.green.withOpacity(0.5)
+                            : Colors.transparent,
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: _usernameValidationError != null 
+                        ? Colors.red
+                        : _isUsernameValid 
+                            ? Colors.green
+                            : Colors.blue,
+                    width: 2,
+                  ),
                 ),
                 labelStyle: const TextStyle(color: Colors.white70),
               ),
@@ -613,20 +881,55 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
             const SizedBox(height: 16),
 
-            // Email Field (now mandatory)
+            // Email Field with real-time validation
             TextFormField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
                 labelText: 'Email Address *',
-                helperText: 'Required for account recovery and notifications',
-                helperStyle: const TextStyle(color: Colors.white54),
-                prefixIcon: const Icon(Icons.email, color: Colors.white70),
+                helperText: _emailValidationError ?? 'Required for account recovery and notifications',
+                helperStyle: TextStyle(
+                  color: _emailValidationError != null ? Colors.red : Colors.white54,
+                  fontSize: 12
+                ),
+                prefixIcon: Icon(
+                  Icons.email, 
+                  color: _isEmailValid ? Colors.green : Colors.white70
+                ),
+                suffixIcon: _emailController.text.isNotEmpty
+                    ? Icon(
+                        _isEmailValid ? Icons.check_circle : Icons.error,
+                        color: _isEmailValid ? Colors.green : Colors.red,
+                        size: 20,
+                      )
+                    : null,
                 filled: true,
                 fillColor: Colors.grey[800],
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: _emailValidationError != null 
+                        ? Colors.red.withOpacity(0.5)
+                        : _isEmailValid 
+                            ? Colors.green.withOpacity(0.5)
+                            : Colors.transparent,
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: _emailValidationError != null 
+                        ? Colors.red
+                        : _isEmailValid 
+                            ? Colors.green
+                            : Colors.blue,
+                    width: 2,
+                  ),
                 ),
                 labelStyle: const TextStyle(color: Colors.white70),
               ),
@@ -671,64 +974,190 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
           const SizedBox(height: 32),
 
-          // Password
+          // Password with strength indicator
           TextFormField(
             controller: _passwordController,
             obscureText: _obscurePassword,
             decoration: InputDecoration(
               labelText: 'Password *',
-              helperText: 'At least 6 characters',
-              helperStyle: const TextStyle(color: Colors.white54),
-              prefixIcon: const Icon(Icons.lock, color: Colors.white70),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                  color: Colors.white70,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _obscurePassword = !_obscurePassword;
-                  });
-                },
+              helperText: _passwordValidationError ?? 'At least 6 characters',
+              helperStyle: TextStyle(
+                color: _passwordValidationError != null ? Colors.red : Colors.white54,
+                fontSize: 12
+              ),
+              prefixIcon: Icon(
+                Icons.lock, 
+                color: _isPasswordValid ? Colors.green : Colors.white70
+              ),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_passwordController.text.isNotEmpty)
+                    Icon(
+                      _isPasswordValid ? Icons.check_circle : Icons.error,
+                      color: _isPasswordValid ? Colors.green : Colors.red,
+                      size: 20,
+                    ),
+                  IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                      color: Colors.white70,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                ],
               ),
               filled: true,
               fillColor: Colors.grey[800],
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: _passwordValidationError != null 
+                      ? Colors.red.withOpacity(0.5)
+                      : _isPasswordValid 
+                          ? Colors.green.withOpacity(0.5)
+                          : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: _passwordValidationError != null 
+                      ? Colors.red
+                      : _isPasswordValid 
+                          ? Colors.green
+                          : Colors.blue,
+                  width: 2,
+                ),
               ),
               labelStyle: const TextStyle(color: Colors.white70),
             ),
             style: const TextStyle(color: Colors.white),
           ),
 
+          const SizedBox(height: 8),
+
+          // Password strength indicator
+          if (_passwordController.text.isNotEmpty)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Password Strength: ',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                    Text(
+                      _getPasswordStrengthText(),
+                      style: TextStyle(
+                        color: _getPasswordStrengthColor(),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: List.generate(4, (index) {
+                    return Expanded(
+                      child: Container(
+                        height: 4,
+                        margin: const EdgeInsets.symmetric(horizontal: 1),
+                        decoration: BoxDecoration(
+                          color: index < _passwordStrength 
+                              ? _getPasswordStrengthColor()
+                              : Colors.grey[600],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
+
           const SizedBox(height: 16),
 
-          // Confirm Password
+          // Confirm Password with real-time validation
           TextFormField(
             controller: _confirmPasswordController,
             obscureText: _obscureConfirmPassword,
             decoration: InputDecoration(
               labelText: 'Confirm Password *',
-              prefixIcon: const Icon(Icons.lock_outline, color: Colors.white70),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscureConfirmPassword
-                      ? Icons.visibility
-                      : Icons.visibility_off,
-                  color: Colors.white70,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _obscureConfirmPassword = !_obscureConfirmPassword;
-                  });
-                },
+              helperText: _confirmPasswordValidationError,
+              helperStyle: TextStyle(
+                color: _confirmPasswordValidationError != null ? Colors.red : Colors.white54,
+                fontSize: 12
+              ),
+              prefixIcon: Icon(
+                Icons.lock_outline, 
+                color: _isConfirmPasswordValid ? Colors.green : Colors.white70
+              ),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_confirmPasswordController.text.isNotEmpty)
+                    Icon(
+                      _isConfirmPasswordValid ? Icons.check_circle : Icons.error,
+                      color: _isConfirmPasswordValid ? Colors.green : Colors.red,
+                      size: 20,
+                    ),
+                  IconButton(
+                    icon: Icon(
+                      _obscureConfirmPassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                      color: Colors.white70,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscureConfirmPassword = !_obscureConfirmPassword;
+                      });
+                    },
+                  ),
+                ],
               ),
               filled: true,
               fillColor: Colors.grey[800],
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: _confirmPasswordValidationError != null 
+                      ? Colors.red.withOpacity(0.5)
+                      : _isConfirmPasswordValid 
+                          ? Colors.green.withOpacity(0.5)
+                          : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: _confirmPasswordValidationError != null 
+                      ? Colors.red
+                      : _isConfirmPasswordValid 
+                          ? Colors.green
+                          : Colors.blue,
+                  width: 2,
+                ),
               ),
               labelStyle: const TextStyle(color: Colors.white70),
             ),

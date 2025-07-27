@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
 import 'package:kapwa_companion_basic/screens/subscription/subscription_screen.dart';
+import 'package:kapwa_companion_basic/widgets/loading_state_widget.dart';
+import 'package:kapwa_companion_basic/widgets/feedback_widget.dart';
 import 'package:logging/logging.dart';
 
 class SubscriptionStatusWidget extends StatefulWidget {
@@ -53,12 +55,16 @@ class _SubscriptionStatusWidgetState extends State<SubscriptionStatusWidget> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Card(
-        color: Colors.grey,
-        child: Padding(
+      return Card(
+        color: Colors.grey[800],
+        margin: const EdgeInsets.only(top: 16),
+        child: const Padding(
           padding: EdgeInsets.all(16),
           child: Center(
-            child: CircularProgressIndicator(),
+            child: LoadingStateWidget(
+              message: 'Loading subscription status...',
+              color: Colors.white,
+            ),
           ),
         ),
       );
@@ -258,7 +264,7 @@ class _SubscriptionStatusWidgetState extends State<SubscriptionStatusWidget> {
 
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
+      child: ElevatedButton.icon(
         onPressed: () {
           Navigator.push(
             context,
@@ -267,19 +273,14 @@ class _SubscriptionStatusWidgetState extends State<SubscriptionStatusWidget> {
             ),
           );
         },
+        icon: const Icon(Icons.upgrade, size: 18),
+        label: Text(buttonText),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.blue[800],
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        child: Text(
-          buttonText,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
           ),
         ),
       ),
@@ -297,21 +298,16 @@ class _SubscriptionStatusWidgetState extends State<SubscriptionStatusWidget> {
         const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
-          child: OutlinedButton(
+          child: OutlinedButton.icon(
             onPressed: _showUnsubscribeDialog,
+            icon: const Icon(Icons.cancel_outlined, size: 18),
+            label: const Text('Cancel Subscription'),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.red,
               side: const BorderSide(color: Colors.red),
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text(
-              'Cancel Subscription',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -384,32 +380,26 @@ class _SubscriptionStatusWidgetState extends State<SubscriptionStatusWidget> {
         await _loadSubscriptionInfo();
         
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Subscription cancelled successfully. You will have access until the end of your billing period.'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 4),
-            ),
+          FeedbackManager.showSuccess(
+            context,
+            message: 'Subscription cancelled successfully. You will have access until the end of your billing period.',
+            duration: const Duration(seconds: 4),
           );
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to cancel subscription. Please try again.'),
-              backgroundColor: Colors.red,
-            ),
+          FeedbackManager.showError(
+            context,
+            message: 'Failed to cancel subscription. Please try again.',
           );
         }
       }
     } catch (e) {
       _logger.severe('Error cancelling subscription: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+        FeedbackManager.showError(
+          context,
+          message: 'Error: $e',
         );
       }
     }

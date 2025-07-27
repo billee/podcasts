@@ -24,12 +24,61 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
+  String? _emailValidationError;
+  String? _passwordValidationError;
+  bool _isEmailValid = false;
+  bool _isPasswordValid = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Add real-time validation listeners
+    _loginController.addListener(_validateEmail);
+    _passwordController.addListener(_validatePassword);
+  }
 
   @override
   void dispose() {
+    _loginController.removeListener(_validateEmail);
+    _passwordController.removeListener(_validatePassword);
     _loginController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _validateEmail() {
+    final email = _loginController.text.trim();
+    setState(() {
+      if (email.isEmpty) {
+        _emailValidationError = null;
+        _isEmailValid = false;
+      } else if (email.length < 3) {
+        _emailValidationError = 'Must be at least 3 characters';
+        _isEmailValid = false;
+      } else if (email.contains('@') && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+        _emailValidationError = 'Invalid email format';
+        _isEmailValid = false;
+      } else {
+        _emailValidationError = null;
+        _isEmailValid = true;
+      }
+    });
+  }
+
+  void _validatePassword() {
+    final password = _passwordController.text;
+    setState(() {
+      if (password.isEmpty) {
+        _passwordValidationError = null;
+        _isPasswordValid = false;
+      } else if (password.length < 6) {
+        _passwordValidationError = 'Must be at least 6 characters';
+        _isPasswordValid = false;
+      } else {
+        _passwordValidationError = null;
+        _isPasswordValid = true;
+      }
+    });
   }
 
   Future<void> _signIn() async {
@@ -406,7 +455,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 key: _formKey,
                 child: Column(
                   children: [
-                    // Email Field (preferred) or Username
+                    // Email Field (preferred) or Username with real-time validation
                     TextFormField(
                       controller: _loginController,
                       keyboardType: TextInputType.emailAddress,
@@ -416,18 +465,52 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: InputDecoration(
                         labelText: 'Email Address',
                         hintText: 'Enter your email address',
-                        prefixIcon:
-                            const Icon(Icons.email, color: Colors.white70),
+                        prefixIcon: Icon(
+                          Icons.email, 
+                          color: _isEmailValid ? Colors.green : Colors.white70
+                        ),
+                        suffixIcon: _loginController.text.isNotEmpty
+                            ? Icon(
+                                _isEmailValid ? Icons.check_circle : Icons.error,
+                                color: _isEmailValid ? Colors.green : Colors.red,
+                                size: 20,
+                              )
+                            : null,
                         filled: true,
                         fillColor: Colors.grey[800],
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: _emailValidationError != null 
+                                ? Colors.red.withOpacity(0.5)
+                                : _isEmailValid 
+                                    ? Colors.green.withOpacity(0.5)
+                                    : Colors.transparent,
+                            width: 1,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: _emailValidationError != null 
+                                ? Colors.red
+                                : _isEmailValid 
+                                    ? Colors.green
+                                    : Colors.blue,
+                            width: 2,
+                          ),
+                        ),
                         labelStyle: const TextStyle(color: Colors.white70),
                         hintStyle: const TextStyle(color: Colors.white54),
-                        helperText: 'You can also use your username',
-                        helperStyle: const TextStyle(color: Colors.white54, fontSize: 12),
+                        helperText: _emailValidationError ?? 'You can also use your username',
+                        helperStyle: TextStyle(
+                          color: _emailValidationError != null ? Colors.red : Colors.white54, 
+                          fontSize: 12
+                        ),
                       ),
                       style: const TextStyle(color: Colors.white),
                       validator: (value) {
@@ -443,7 +526,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Password Field
+                    // Password Field with real-time validation
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -452,20 +535,33 @@ class _LoginScreenState extends State<LoginScreen> {
                       enableSuggestions: false,
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        prefixIcon:
-                            const Icon(Icons.lock, color: Colors.white70),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            color: Colors.white70,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
+                        prefixIcon: Icon(
+                          Icons.lock, 
+                          color: _isPasswordValid ? Colors.green : Colors.white70
+                        ),
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_passwordController.text.isNotEmpty)
+                              Icon(
+                                _isPasswordValid ? Icons.check_circle : Icons.error,
+                                color: _isPasswordValid ? Colors.green : Colors.red,
+                                size: 20,
+                              ),
+                            IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                                color: Colors.white70,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                          ],
                         ),
                         filled: true,
                         fillColor: Colors.grey[800],
@@ -473,7 +569,34 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: _passwordValidationError != null 
+                                ? Colors.red.withOpacity(0.5)
+                                : _isPasswordValid 
+                                    ? Colors.green.withOpacity(0.5)
+                                    : Colors.transparent,
+                            width: 1,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: _passwordValidationError != null 
+                                ? Colors.red
+                                : _isPasswordValid 
+                                    ? Colors.green
+                                    : Colors.blue,
+                            width: 2,
+                          ),
+                        ),
                         labelStyle: const TextStyle(color: Colors.white70),
+                        helperText: _passwordValidationError,
+                        helperStyle: TextStyle(
+                          color: _passwordValidationError != null ? Colors.red : Colors.white54, 
+                          fontSize: 12
+                        ),
                       ),
                       style: const TextStyle(color: Colors.white),
                       validator: (value) {
@@ -522,28 +645,44 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
 
-                    // Sign In Button
+                    // Sign In Button with enhanced loading state
                     SizedBox(
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _signIn,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue[800],
+                          backgroundColor: _isLoading 
+                              ? Colors.grey[600] 
+                              : (_isEmailValid && _isPasswordValid)
+                                  ? Colors.blue[800]
+                                  : Colors.blue[800]?.withOpacity(0.7),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                          elevation: _isLoading ? 0 : 2,
                         ),
                         child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
-                                ),
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'Signing In...',
+                                    style: TextStyle(
+                                        fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
                               )
                             : const Text(
                                 'Sign In',

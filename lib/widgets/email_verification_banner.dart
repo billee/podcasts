@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
+import 'package:kapwa_companion_basic/widgets/feedback_widget.dart';
+import 'package:kapwa_companion_basic/widgets/loading_state_widget.dart';
 import 'dart:async';
 
 class EmailVerificationBanner extends StatefulWidget {
@@ -102,16 +104,13 @@ class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
           const SizedBox(height: 12),
           Row(
             children: [
-              ElevatedButton(
-                onPressed: _isResending ? null : _resendVerification,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange[800],
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                ),
-                child: Text(
-                  _isResending ? 'Sending...' : 'Resend Email',
-                  style: const TextStyle(fontSize: 12),
+              LoadingButton(
+                onPressed: _resendVerification,
+                isLoading: _isResending,
+                loadingText: 'Sending...',
+                child: const Text(
+                  'Resend Email',
+                  style: TextStyle(fontSize: 12),
                 ),
               ),
               const SizedBox(width: 12),
@@ -120,12 +119,10 @@ class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
                   // Sign out so user can log in again after verification
                   await AuthService.signOut();
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('After verifying your email, please log in again to activate your trial.'),
-                        backgroundColor: Colors.blue,
-                        duration: Duration(seconds: 4),
-                      ),
+                    FeedbackManager.showInfo(
+                      context,
+                      message: 'After verifying your email, please log in again to activate your trial.',
+                      duration: const Duration(seconds: 4),
                     );
                   }
                 },
@@ -152,20 +149,16 @@ class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
     try {
       await AuthService.sendEmailVerification();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Verification email sent! Please check your inbox.'),
-            backgroundColor: Colors.green,
-          ),
+        FeedbackManager.showSuccess(
+          context,
+          message: 'Verification email sent! Please check your inbox.',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to send verification email: $e'),
-            backgroundColor: Colors.red,
-          ),
+        FeedbackManager.showError(
+          context,
+          message: 'Failed to send verification email: $e',
         );
       }
     } finally {

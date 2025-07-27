@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kapwa_companion_basic/widgets/subscription_status_widget.dart';
+import 'package:kapwa_companion_basic/widgets/loading_state_widget.dart';
+import 'package:kapwa_companion_basic/screens/subscription/subscription_management_screen.dart';
 
 class ProfileView extends StatelessWidget {
   final bool isLoading;
@@ -42,7 +44,12 @@ class ProfileView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: LoadingStateWidget(
+          message: 'Loading profile...',
+          color: Colors.white,
+        ),
+      );
     }
 
     if (userProfile == null) {
@@ -85,7 +92,7 @@ class ProfileView extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: isEditing ? _buildEditView() : _buildViewOnly(),
+        child: isEditing ? _buildEditView() : _buildViewOnly(context),
       ),
     );
   }
@@ -167,7 +174,7 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  Widget _buildViewOnly() {
+  Widget _buildViewOnly(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -203,6 +210,8 @@ class ProfileView extends StatelessWidget {
               .toList(),
         ),
         const SubscriptionStatusWidget(),
+        const SizedBox(height: 16),
+        _buildSubscriptionManagementButton(context),
         const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,
@@ -368,6 +377,32 @@ class ProfileView extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionManagementButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SubscriptionManagementScreen(),
+            ),
+          );
+        },
+        icon: const Icon(Icons.settings),
+        label: const Text('Manage Subscription'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue[800],
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
       ),
     );
   }

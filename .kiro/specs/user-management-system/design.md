@@ -101,18 +101,21 @@ graph TB
 - Login button with loading states
 - Navigation to signup and password reset
 - Email verification prompt for unverified users
+- **Mobile Optimization**: Compact form layout with 12px padding, 14px font size for inputs, minimal vertical spacing
 
 **Signup Screen (`signup_screen.dart`):**
 - Email, username, and password input with real-time validation
 - Password strength indicator
 - Terms of service acceptance
 - Clear error messaging and success feedback
+- **Mobile Optimization**: Condensed form fields, inline validation messages, compact button spacing
 
 **Email Verification Screen (`email_verification_screen.dart`):**
 - Clear instructions for email verification
 - Resend verification email button
 - Manual refresh option to check verification status
 - Navigation back to login after verification
+- **Mobile Optimization**: Minimal text content, compact button layout, essential information only
 
 #### 4.2 Status Display Components (`lib/widgets/`)
 
@@ -120,17 +123,20 @@ graph TB
 - Prominent banner for unverified users
 - Resend email functionality
 - Dismissible with verification check
+- **Mobile Optimization**: Compact banner height (48px), small font size (12px), minimal padding (8px)
 
 **Subscription Status Widget (`subscription_status_widget.dart`):**
 - Current status display with color-coded badges
 - Trial countdown with days remaining
 - Premium subscriber indicator (red diamond)
 - Subscription management navigation
+- **Mobile Optimization**: Condensed status cards, small badge icons (16px), compact text layout
 
 **App Bar Status Indicator:**
 - Trial countdown display in app bar
 - Premium status indicator (red diamond icon)
 - Clean, space-efficient design
+- **Mobile Optimization**: Small status indicators (20px), minimal text, efficient icon usage
 
 #### 4.3 Profile and Settings Screens
 
@@ -139,12 +145,49 @@ graph TB
 - Subscription status section
 - Account management options
 - Logout functionality
+- **Mobile Optimization**: Collapsible sections, compact list items, small avatar (40px), condensed spacing
 
 **Subscription Management:**
 - Current plan details
 - Billing information
 - Upgrade/downgrade options
 - Cancellation flow with confirmation
+- **Mobile Optimization**: Tabbed interface for space efficiency, compact pricing display, minimal form padding
+
+#### 4.4 Mobile Space Optimization Design Principles
+
+**Typography Scale:**
+- Headers: 18-20px (reduced from 24-28px)
+- Body text: 14px (reduced from 16px)
+- Small text: 12px (reduced from 14px)
+- Captions: 10px (reduced from 12px)
+
+**Spacing System:**
+- Large spacing: 16px (reduced from 24px)
+- Medium spacing: 12px (reduced from 16px)
+- Small spacing: 8px (reduced from 12px)
+- Micro spacing: 4px (reduced from 8px)
+
+**Component Sizing:**
+- Button height: 44px (minimum touch target)
+- Input field height: 40px (reduced from 48px)
+- List item height: 48px (reduced from 56px)
+- Card padding: 12px (reduced from 16px)
+
+**Layout Optimizations:**
+- Bottom navigation instead of drawer for main navigation
+- Horizontal scrolling for data tables on small screens
+- Expandable/collapsible sections for detailed information
+- Floating action buttons for primary actions
+- Compact dialogs with minimal padding
+- Inline form validation to save vertical space
+
+**Content Prioritization:**
+- Essential information displayed prominently
+- Secondary details hidden in expandable sections
+- Progressive disclosure for complex features
+- Context-aware content based on user status
+- Minimal text with clear, concise messaging
 
 ### 5. Flask Admin Server with Business Intelligence (`app.py`)
 
