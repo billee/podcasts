@@ -1,0 +1,14 @@
+{
+  "provider": "apple_pay",
+  "data": {
+    "merchantIdentifier": "merchant.com.yourcompany.ofwcompanion",
+    "displayName": "OFW Companion App",
+    "merchantCapabilities": ["3DS", "debit", "credit"],
+    "supportedNetworks": ["visa", "masterCard", "amex"],
+    "countryCode": "US",
+    "currencyCode": "USD",
+    "requiredBillingContactFields": ["emailAddress", "name"],
+    "requiredShippingContactFields": [],
+    "shippingMethods": []
+  }
+}

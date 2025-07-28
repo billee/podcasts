@@ -31,6 +31,10 @@ dependencies:
   path_provider: ^2.1.1
   flutter_widget_from_html: ^0.10.0+1
   url_launcher: ^6.2.1  # Added missing dependency
+  # Payment processing SDKs
+  flutter_stripe: ^10.1.1
+  pay: ^2.0.0  # Google Pay and Apple Pay
+  crypto: ^3.0.3  # For secure data handling
 
 dev_dependencies:
   dwds: ^24.4.0

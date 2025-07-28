@@ -8,6 +8,8 @@ import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/screens/auth/auth_wrapper.dart';
 import 'package:kapwa_companion_basic/core/config.dart';
 import 'package:kapwa_companion_basic/services/audio_service.dart';
+import 'package:kapwa_companion_basic/services/payment_service.dart';
+import 'package:kapwa_companion_basic/services/payment_config_service.dart';
 
 void _setupLogging() {
   Logger.root.level = Level.ALL;
@@ -58,6 +60,23 @@ void main() async {
       logger.info('AudioService initialized successfully.');
     } catch (e, s) {
       logger.warning('AudioService initialization failed: $e', e, s);
+    }
+
+    // Initialize PaymentConfigService and PaymentService with error handling
+    logger.info('Initializing PaymentConfigService...');
+    try {
+      await PaymentConfigService.initialize();
+      logger.info('PaymentConfigService initialized successfully.');
+    } catch (e, s) {
+      logger.warning('PaymentConfigService initialization failed: $e', e, s);
+    }
+
+    logger.info('Initializing PaymentService...');
+    try {
+      await PaymentService.initialize();
+      logger.info('PaymentService initialized successfully.');
+    } catch (e, s) {
+      logger.warning('PaymentService initialization failed: $e', e, s);
     }
 
     runApp(const MyApp());

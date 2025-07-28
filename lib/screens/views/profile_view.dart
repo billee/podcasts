@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kapwa_companion_basic/widgets/subscription_status_widget.dart';
 import 'package:kapwa_companion_basic/widgets/loading_state_widget.dart';
+import 'package:kapwa_companion_basic/widgets/payment_method_management_widget.dart';
 import 'package:kapwa_companion_basic/screens/subscription/subscription_management_screen.dart';
 
 class ProfileView extends StatelessWidget {
@@ -210,6 +211,17 @@ class ProfileView extends StatelessWidget {
               .toList(),
         ),
         const SubscriptionStatusWidget(),
+        const SizedBox(height: 24),
+        Text(
+          'Payment & Billing',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue[800],
+          ),
+        ),
+        const SizedBox(height: 12),
+        const PaymentMethodManagementWidget(),
         const SizedBox(height: 16),
         _buildSubscriptionManagementButton(context),
         const SizedBox(height: 20),
