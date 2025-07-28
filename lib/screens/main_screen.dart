@@ -243,7 +243,7 @@ class _MainScreenState extends State<MainScreen> {
         body: Column(
           children: [
             const EmailVerificationBanner(),
-            const SubscriptionStatusBanner(),
+            //const SubscriptionStatusBanner(),
             Expanded(
               child: PageView(
                 controller: _pageController,
