@@ -39,6 +39,112 @@
             margin: 0 auto;
         }
         
+        .analytics-section {
+            background: white;
+            margin: 20px;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .analytics-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .metric-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .trend-chart {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .trend-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .trend-item:last-child {
+            border-bottom: none;
+        }
+        
+        .trend-month {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .trend-value {
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .conversion-step {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .conversion-step-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .conversion-arrow {
+            font-size: 1.2em;
+            color: #667eea;
+        }
+        
+        .loading-analytics {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+        }
+        
         .stat-card {
             background: white;
             padding: 20px;
@@ -84,6 +190,14 @@
         
         .refresh-btn:hover {
             background: #5a6fd8;
+        }
+        
+        .refresh-btn.active {
+            background: #28a745;
+        }
+        
+        .refresh-btn.active:hover {
+            background: #218838;
         }
         
         .table-container {
@@ -252,43 +366,430 @@
     </div>
     
     <div class="controls">
-        <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
+        <button class="refresh-btn" onclick="showAnalytics()" id="analyticsBtn">📊 Analytics</button>
+        <button class="refresh-btn" onclick="showAdvancedAnalytics()" style="margin-left: 10px;" id="advancedAnalyticsBtn">🔬 Advanced Analytics</button>
+        <button class="refresh-btn" onclick="showMonitoring()" style="margin-left: 10px;" id="monitoringBtn">🚨 Monitoring</button>
+        <button class="refresh-btn" onclick="showUserMonitoring()" style="margin-left: 10px;" id="userMonitoringBtn">👥 User Monitoring</button>
         <span id="lastUpdated" style="margin-left: 20px; color: #666;"></span>
     </div>
     
-    <div class="table-container">
-        <div id="loadingMessage" class="loading">Loading user data...</div>
-        <div id="errorMessage" class="error" style="display: none;"></div>
+    <!-- Revenue Analytics Section -->
+    <div class="analytics-section" id="revenueSection" style="display: none;">
+        <div class="analytics-title">💰 Revenue Analytics</div>
+        <div class="metrics-grid">
+            <div class="metric-item">
+                <div class="metric-value" id="mrrValue">-</div>
+                <div class="metric-label">Monthly Recurring Revenue</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="arpuValue">-</div>
+                <div class="metric-label">Average Revenue Per User</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="totalRevenueValue">-</div>
+                <div class="metric-label">Total Revenue</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="revenueGrowthValue">-</div>
+                <div class="metric-label">Revenue Growth Rate</div>
+            </div>
+        </div>
+        <div class="trend-chart">
+            <h4>Revenue Trends (Last 6 Months)</h4>
+            <div id="revenueTrends"></div>
+        </div>
+    </div>
+    
+    <!-- Conversion Funnel Section -->
+    <div class="analytics-section" id="conversionSection" style="display: none;">
+        <div class="analytics-title">🎯 Conversion Funnel Analysis</div>
+        <div id="conversionFunnel"></div>
+        <div class="metrics-grid" style="margin-top: 20px;">
+            <div class="metric-item">
+                <div class="metric-value" id="verificationRateValue">-</div>
+                <div class="metric-label">Email Verification Rate</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="trialConversionValue">-</div>
+                <div class="metric-label">Trial Conversion Rate</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="subscriptionConversionValue">-</div>
+                <div class="metric-label">Subscription Conversion Rate</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="overallConversionValue">-</div>
+                <div class="metric-label">Overall Conversion Rate</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Retention Analytics Section -->
+    <div class="analytics-section" id="retentionSection" style="display: none;">
+        <div class="analytics-title">📈 User Retention & Churn Analysis</div>
+        <div class="metrics-grid">
+            <div class="metric-item">
+                <div class="metric-value" id="retention7DayValue">-</div>
+                <div class="metric-label">7-Day Retention Rate</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="retention30DayValue">-</div>
+                <div class="metric-label">30-Day Retention Rate</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="churnRateValue">-</div>
+                <div class="metric-label">Overall Churn Rate</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="monthlyChurnValue">-</div>
+                <div class="metric-label">Monthly Churn Rate</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Subscription Health Section -->
+    <div class="analytics-section" id="subscriptionHealthSection" style="display: none;">
+        <div class="analytics-title">🏥 Subscription Health Metrics</div>
+        <div class="metrics-grid">
+            <div class="metric-item">
+                <div class="metric-value" id="healthScoreValue">-</div>
+                <div class="metric-label">Health Score</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="avgDurationValue">-</div>
+                <div class="metric-label">Avg Duration (Months)</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="clvValue">-</div>
+                <div class="metric-label">Customer Lifetime Value</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="netGrowthValue">-</div>
+                <div class="metric-label">Net Growth (This Month)</div>
+            </div>
+        </div>
+        <div class="trend-chart">
+            <h4>Subscription Growth Trends (Last 6 Months)</h4>
+            <div id="subscriptionTrends"></div>
+        </div>
+    </div>
+    
+    <!-- Cohort Analysis Section -->
+    <div class="analytics-section" id="cohortSection" style="display: none;">
+        <div class="analytics-title">👥 Cohort Analysis</div>
+        <div class="metrics-grid">
+            <div class="metric-item">
+                <div class="metric-value" id="totalCohortsValue">-</div>
+                <div class="metric-label">Total Cohorts</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="avgRetention1DayValue">-</div>
+                <div class="metric-label">Avg 1-Day Retention</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="avgRetention7DayValue">-</div>
+                <div class="metric-label">Avg 7-Day Retention</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="avgRetention30DayValue">-</div>
+                <div class="metric-label">Avg 30-Day Retention</div>
+            </div>
+        </div>
+        <div class="trend-chart">
+            <h4>Cohort Retention Analysis</h4>
+            <div id="cohortTable"></div>
+        </div>
+    </div>
+    
+    <!-- Geographic Distribution Section -->
+    <div class="analytics-section" id="geographicSection" style="display: none;">
+        <div class="analytics-title">🌍 Geographic Distribution (OFW Markets)</div>
+        <div class="metrics-grid">
+            <div class="metric-item">
+                <div class="metric-value" id="totalCountriesValue">-</div>
+                <div class="metric-label">Active Countries</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="top5MarketShareValue">-</div>
+                <div class="metric-label">Top 5 Market Share</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="top5RevenueValue">-</div>
+                <div class="metric-label">Top 5 Revenue</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="diversityIndexValue">-</div>
+                <div class="metric-label">Diversity Index</div>
+            </div>
+        </div>
+        <div class="trend-chart">
+            <h4>Top OFW Markets</h4>
+            <div id="geographicTable"></div>
+        </div>
+    </div>
+    
+    <!-- User Behavior Analytics Section -->
+    <div class="analytics-section" id="behaviorSection" style="display: none;">
+        <div class="analytics-title">🎯 User Behavior Analytics</div>
+        <div class="metrics-grid">
+            <div class="metric-item">
+                <div class="metric-value" id="avgEngagementValue">-</div>
+                <div class="metric-label">Avg Engagement Score</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="activationRateValue">-</div>
+                <div class="metric-label">Activation Rate</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="quickConversionValue">-</div>
+                <div class="metric-label">Quick Conversion Rate</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="trialCompletionValue">-</div>
+                <div class="metric-label">Trial Completion Rate</div>
+            </div>
+        </div>
+        <div class="trend-chart">
+            <h4>User Journey Patterns</h4>
+            <div id="behaviorPatterns"></div>
+        </div>
+        <div class="trend-chart" style="margin-top: 15px;">
+            <h4>Behavioral Insights</h4>
+            <div id="behaviorInsights"></div>
+        </div>
+    </div>
+    
+    <!-- Payment Analysis Section -->
+    <div class="analytics-section" id="paymentSection" style="display: none;">
+        <div class="analytics-title">💳 Payment Analysis</div>
+        <div class="metrics-grid">
+            <div class="metric-item">
+                <div class="metric-value" id="paymentSuccessRateValue">-</div>
+                <div class="metric-label">Payment Success Rate</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="paymentFailureRateValue">-</div>
+                <div class="metric-label">Payment Failure Rate</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="totalPaymentAttemptsValue">-</div>
+                <div class="metric-label">Total Payment Attempts</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" id="recoveryRateValue">-</div>
+                <div class="metric-label">Recovery Rate</div>
+            </div>
+        </div>
+        <div class="trend-chart">
+            <h4>Payment Method Performance</h4>
+            <div id="paymentMethods"></div>
+        </div>
+        <div class="trend-chart" style="margin-top: 15px;">
+            <h4>Payment Insights</h4>
+            <div id="paymentInsights"></div>
+        </div>
+    </div>
+    
+    <!-- Monitoring and Alerting Section -->
+    <div id="monitoringSection" style="display: none;">
+        <!-- Business Alerts -->
+        <div class="analytics-section">
+            <div class="analytics-title">🚨 Business Alerts</div>
+            <div class="metrics-grid">
+                <div class="metric-item">
+                    <div class="metric-value" id="totalAlertsValue">-</div>
+                    <div class="metric-label">Total Alerts</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="criticalAlertsValue">-</div>
+                    <div class="metric-label">Critical Alerts</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="warningAlertsValue">-</div>
+                    <div class="metric-label">Warning Alerts</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="infoAlertsValue">-</div>
+                    <div class="metric-label">Info Alerts</div>
+                </div>
+            </div>
+            <div class="trend-chart">
+                <h4>Active Alerts</h4>
+                <div id="alertsList"></div>
+            </div>
+        </div>
         
-        <table class="users-table" id="usersTable" style="display: none;">
-            <thead>
-                <tr>
-                    <th>Email</th>
-                    <th>Username</th>
-                    <th>Registration</th>
-                    <th>Email Verified</th>
-                    <th>Trial Start</th>
-                    <th>Trial End</th>
-                    <th>Days Left</th>
-                    <th>Subscription Start</th>
-                    <th>Subscription End</th>
-                    <th>Cancellation</th>
-                    <th>Current Status</th>
-                    <th>Last Login</th>
-                </tr>
-            </thead>
-            <tbody id="usersTableBody">
-            </tbody>
-        </table>
+        <!-- Performance Monitoring -->
+        <div class="analytics-section">
+            <div class="analytics-title">⚡ Performance Monitoring</div>
+            <div class="metrics-grid">
+                <div class="metric-item">
+                    <div class="metric-value" id="systemStatusValue">-</div>
+                    <div class="metric-label">System Status</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="responseTimeValue">-</div>
+                    <div class="metric-label">Avg Response Time (ms)</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="errorRateValue">-</div>
+                    <div class="metric-label">Error Rate (%)</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="uptimeValue">-</div>
+                    <div class="metric-label">Uptime (%)</div>
+                </div>
+            </div>
+            <div class="trend-chart">
+                <h4>System Health</h4>
+                <div id="systemHealthDetails"></div>
+            </div>
+        </div>
+        
+        <!-- Automated Reports -->
+        <div class="analytics-section">
+            <div class="analytics-title">📋 Automated Reports</div>
+            <div class="trend-chart">
+                <h4>Daily Summary</h4>
+                <div id="dailyReport"></div>
+            </div>
+            <div class="trend-chart" style="margin-top: 15px;">
+                <h4>Weekly Trends</h4>
+                <div id="weeklyReport"></div>
+            </div>
+            <div class="trend-chart" style="margin-top: 15px;">
+                <h4>Monthly Business Report</h4>
+                <div id="monthlyReport"></div>
+            </div>
+        </div>
+        
+        <!-- Data Export -->
+        <div class="analytics-section">
+            <div class="analytics-title">📤 Data Export</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <button class="refresh-btn" onclick="exportData('users', 'csv')" style="margin: 5px;">Export Users (CSV)</button>
+                <button class="refresh-btn" onclick="exportData('subscriptions', 'csv')" style="margin: 5px;">Export Subscriptions (CSV)</button>
+                <button class="refresh-btn" onclick="exportData('analytics', 'csv')" style="margin: 5px;">Export Analytics (CSV)</button>
+                <button class="refresh-btn" onclick="exportData('users', 'json')" style="margin: 5px;">Export Users (JSON)</button>
+                <button class="refresh-btn" onclick="exportData('subscriptions', 'json')" style="margin: 5px;">Export Subscriptions (JSON)</button>
+                <button class="refresh-btn" onclick="exportData('analytics', 'json')" style="margin: 5px;">Export Analytics (JSON)</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- User Monitoring Section -->
+    <div id="userMonitoringSection" style="display: none;">
+        <div class="analytics-section">
+            <div class="analytics-title">👥 User Monitoring Dashboard</div>
+            <div id="loadingMessage" class="loading">Loading user data...</div>
+            <div id="errorMessage" class="error" style="display: none;"></div>
+            
+            <div class="table-container">
+                <table class="users-table" id="usersTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Username</th>
+                            <th>Registration</th>
+                            <th>Email Verified</th>
+                            <th>Trial Start</th>
+                            <th>Trial End</th>
+                            <th>Days Left</th>
+                            <th>Subscription Start</th>
+                            <th>Subscription End</th>
+                            <th>Cancellation</th>
+                            <th>Current Status</th>
+                            <th>Last Login</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
-        function loadData() {
-            document.getElementById('loadingMessage').style.display = 'block';
-            document.getElementById('usersTable').style.display = 'none';
-            document.getElementById('errorMessage').style.display = 'none';
+        // Navigation functions
+        function showAnalytics() {
+            hideAllSections();
+            setActiveButton('analyticsBtn');
+            showAnalyticsSections();
+            loadAnalytics();
+        }
+        
+        function showAdvancedAnalytics() {
+            hideAllSections();
+            setActiveButton('advancedAnalyticsBtn');
+            showAdvancedAnalyticsSections();
+            loadAdvancedAnalytics();
+        }
+        
+        function showMonitoring() {
+            hideAllSections();
+            setActiveButton('monitoringBtn');
+            document.getElementById('monitoringSection').style.display = 'block';
+            loadMonitoringData();
+        }
+        
+        function showUserMonitoring() {
+            hideAllSections();
+            setActiveButton('userMonitoringBtn');
+            document.getElementById('userMonitoringSection').style.display = 'block';
+            loadUserData();
+        }
+        
+        function hideAllSections() {
+            // Hide all analytics sections
+            document.getElementById('revenueSection').style.display = 'none';
+            document.getElementById('conversionSection').style.display = 'none';
+            document.getElementById('retentionSection').style.display = 'none';
+            document.getElementById('subscriptionHealthSection').style.display = 'none';
+            document.getElementById('cohortSection').style.display = 'none';
+            document.getElementById('geographicSection').style.display = 'none';
+            document.getElementById('behaviorSection').style.display = 'none';
+            document.getElementById('paymentSection').style.display = 'none';
+            document.getElementById('monitoringSection').style.display = 'none';
+            document.getElementById('userMonitoringSection').style.display = 'none';
+        }
+        
+        function showAnalyticsSections() {
+            document.getElementById('revenueSection').style.display = 'block';
+            document.getElementById('conversionSection').style.display = 'block';
+            document.getElementById('retentionSection').style.display = 'block';
+            document.getElementById('subscriptionHealthSection').style.display = 'block';
+        }
+        
+        function showAdvancedAnalyticsSections() {
+            document.getElementById('cohortSection').style.display = 'block';
+            document.getElementById('geographicSection').style.display = 'block';
+            document.getElementById('behaviorSection').style.display = 'block';
+            document.getElementById('paymentSection').style.display = 'block';
+        }
+        
+        function setActiveButton(activeId) {
+            // Remove active class from all buttons
+            clearActiveButtons();
             
-            // Load stats
+            // Add active class to current button
+            if (activeId) {
+                document.getElementById(activeId).classList.add('active');
+            }
+        }
+        
+        function clearActiveButtons() {
+            document.getElementById('analyticsBtn').classList.remove('active');
+            document.getElementById('advancedAnalyticsBtn').classList.remove('active');
+            document.getElementById('monitoringBtn').classList.remove('active');
+            document.getElementById('userMonitoringBtn').classList.remove('active');
+        }
+        
+        function loadData() {
+            // Hide all sections and clear active buttons
+            hideAllSections();
+            clearActiveButtons();
+            
+            // Load stats only
             fetch('/api/stats')
                 .then(response => response.json())
                 .then(data => {
@@ -299,9 +800,17 @@
                         document.getElementById('totalTrials').textContent = stats.total_trials;
                         document.getElementById('activeSubscriptions').textContent = stats.active_subscriptions;
                         document.getElementById('conversionRate').textContent = stats.conversion_rate + '%';
+                        document.getElementById('lastUpdated').textContent = 
+                            'Last updated: ' + new Date().toLocaleString();
                     }
                 })
                 .catch(error => console.error('Error loading stats:', error));
+        }
+        
+        function loadUserData() {
+            document.getElementById('loadingMessage').style.display = 'block';
+            document.getElementById('usersTable').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
             
             // Load users
             fetch('/api/users')
@@ -312,8 +821,6 @@
                     if (data.success) {
                         displayUsers(data.users);
                         document.getElementById('usersTable').style.display = 'table';
-                        document.getElementById('lastUpdated').textContent = 
-                            'Last updated: ' + new Date().toLocaleString();
                     } else {
                         showError('Error loading data: ' + data.error);
                     }
@@ -393,8 +900,621 @@
             document.getElementById('errorMessage').style.display = 'block';
         }
         
-        // Load data on page load
-        loadData();
+        function loadAnalytics() {
+            // Load analytics data (sections are shown by navigation)
+            
+            // Load revenue analytics
+            fetch('/api/analytics/revenue')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const analytics = data.revenue_analytics;
+                        document.getElementById('mrrValue').textContent = '$' + analytics.mrr;
+                        document.getElementById('arpuValue').textContent = '$' + analytics.arpu;
+                        document.getElementById('totalRevenueValue').textContent = '$' + analytics.total_revenue;
+                        document.getElementById('revenueGrowthValue').textContent = analytics.revenue_growth_rate + '%';
+                        
+                        // Display revenue trends
+                        displayRevenueTrends(analytics.revenue_trends);
+                    }
+                })
+                .catch(error => console.error('Error loading revenue analytics:', error));
+            
+            // Load conversion funnel
+            fetch('/api/analytics/conversion')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const funnel = data.conversion_funnel;
+                        document.getElementById('verificationRateValue').textContent = funnel.verification_rate + '%';
+                        document.getElementById('trialConversionValue').textContent = funnel.trial_conversion_rate + '%';
+                        document.getElementById('subscriptionConversionValue').textContent = funnel.subscription_conversion_rate + '%';
+                        document.getElementById('overallConversionValue').textContent = funnel.overall_conversion_rate + '%';
+                        
+                        // Display conversion funnel
+                        displayConversionFunnel(funnel);
+                    }
+                })
+                .catch(error => console.error('Error loading conversion analytics:', error));
+            
+            // Load retention analytics
+            fetch('/api/analytics/retention')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const retention = data.retention_analytics;
+                        document.getElementById('retention7DayValue').textContent = retention.retention_7_day + '%';
+                        document.getElementById('retention30DayValue').textContent = retention.retention_30_day + '%';
+                        document.getElementById('churnRateValue').textContent = retention.overall_churn_rate + '%';
+                        document.getElementById('monthlyChurnValue').textContent = retention.monthly_churn_rate + '%';
+                    }
+                })
+                .catch(error => console.error('Error loading retention analytics:', error));
+            
+            // Load subscription health
+            fetch('/api/analytics/subscription-health')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const health = data.subscription_health;
+                        document.getElementById('healthScoreValue').textContent = health.health_score + '%';
+                        document.getElementById('avgDurationValue').textContent = health.average_duration_months;
+                        document.getElementById('clvValue').textContent = '$' + health.customer_lifetime_value;
+                        
+                        // Calculate net growth for current month
+                        const trends = health.growth_trends;
+                        const currentMonth = trends[trends.length - 1];
+                        document.getElementById('netGrowthValue').textContent = currentMonth ? currentMonth.net_growth : '0';
+                        
+                        // Display subscription trends
+                        displaySubscriptionTrends(trends);
+                    }
+                })
+                .catch(error => console.error('Error loading subscription health:', error));
+        }
+        
+        function loadAdvancedAnalytics() {
+            // Load advanced analytics data (sections are shown by navigation)
+            
+            // Load cohort analysis
+            fetch('/api/analytics/cohort')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const cohort = data.cohort_analysis;
+                        document.getElementById('totalCohortsValue').textContent = cohort.total_cohorts;
+                        document.getElementById('avgRetention1DayValue').textContent = cohort.average_retention_1_day + '%';
+                        document.getElementById('avgRetention7DayValue').textContent = cohort.average_retention_7_day + '%';
+                        document.getElementById('avgRetention30DayValue').textContent = cohort.average_retention_30_day + '%';
+                        
+                        // Display cohort table
+                        displayCohortTable(cohort.cohorts);
+                    }
+                })
+                .catch(error => console.error('Error loading cohort analysis:', error));
+            
+            // Load geographic distribution
+            fetch('/api/analytics/geographic')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const geo = data.geographic_distribution;
+                        document.getElementById('totalCountriesValue').textContent = geo.total_countries;
+                        document.getElementById('top5MarketShareValue').textContent = geo.top_5_market_share + '%';
+                        document.getElementById('top5RevenueValue').textContent = '$' + geo.top_5_revenue;
+                        document.getElementById('diversityIndexValue').textContent = geo.geographic_diversity_index + '%';
+                        
+                        // Display geographic table
+                        displayGeographicTable(geo.countries);
+                    }
+                })
+                .catch(error => console.error('Error loading geographic distribution:', error));
+            
+            // Load user behavior analytics
+            fetch('/api/analytics/user-behavior')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const behavior = data.user_behavior;
+                        const engagement = behavior.engagement_metrics || {};
+                        const lifecycle = behavior.lifecycle_analysis || {};
+                        
+                        document.getElementById('avgEngagementValue').textContent = engagement.average_engagement_score || '0';
+                        document.getElementById('activationRateValue').textContent = (lifecycle.activation_rate || 0) + '%';
+                        document.getElementById('quickConversionValue').textContent = (lifecycle.quick_conversion_rate || 0) + '%';
+                        document.getElementById('trialCompletionValue').textContent = (lifecycle.trial_completion_rate || 0) + '%';
+                        
+                        // Display behavior patterns
+                        displayBehaviorPatterns(behavior.journey_patterns, behavior.session_patterns);
+                        displayBehaviorInsights(behavior.behavioral_insights);
+                    }
+                })
+                .catch(error => console.error('Error loading user behavior analytics:', error));
+            
+            // Load payment analysis
+            fetch('/api/analytics/payment-analysis')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const payment = data.payment_analysis;
+                        document.getElementById('paymentSuccessRateValue').textContent = payment.success_rate + '%';
+                        document.getElementById('paymentFailureRateValue').textContent = payment.failure_rate + '%';
+                        document.getElementById('totalPaymentAttemptsValue').textContent = payment.total_payment_attempts;
+                        document.getElementById('recoveryRateValue').textContent = payment.recovery_rate + '%';
+                        
+                        // Display payment methods and insights
+                        displayPaymentMethods(payment.payment_methods);
+                        displayPaymentInsights(payment.insights);
+                    }
+                })
+                .catch(error => console.error('Error loading payment analysis:', error));
+        }
+        
+        function displayCohortTable(cohorts) {
+            const container = document.getElementById('cohortTable');
+            container.innerHTML = '';
+            
+            if (!cohorts || cohorts.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">No cohort data available</p>';
+                return;
+            }
+            
+            // Create table
+            let tableHTML = `
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                    <thead>
+                        <tr style="background: #f8f9fa;">
+                            <th style="padding: 8px; border: 1px solid #ddd;">Cohort Month</th>
+                            <th style="padding: 8px; border: 1px solid #ddd;">Total Users</th>
+                            <th style="padding: 8px; border: 1px solid #ddd;">1-Day</th>
+                            <th style="padding: 8px; border: 1px solid #ddd;">7-Day</th>
+                            <th style="padding: 8px; border: 1px solid #ddd;">30-Day</th>
+                            <th style="padding: 8px; border: 1px solid #ddd;">90-Day</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            cohorts.forEach(cohort => {
+                tableHTML += `
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;">${cohort.cohort_month}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${cohort.total_users}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${cohort.retention_1_day}%</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${cohort.retention_7_day}%</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${cohort.retention_30_day}%</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${cohort.retention_90_day}%</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += '</tbody></table>';
+            container.innerHTML = tableHTML;
+        }
+        
+        function displayGeographicTable(countries) {
+            const container = document.getElementById('geographicTable');
+            container.innerHTML = '';
+            
+            if (!countries || countries.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">No geographic data available</p>';
+                return;
+            }
+            
+            // Show top 10 countries
+            const topCountries = countries.slice(0, 10);
+            
+            let tableHTML = `
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                    <thead>
+                        <tr style="background: #f8f9fa;">
+                            <th style="padding: 8px; border: 1px solid #ddd;">Country</th>
+                            <th style="padding: 8px; border: 1px solid #ddd;">Users</th>
+                            <th style="padding: 8px; border: 1px solid #ddd;">Market Share</th>
+                            <th style="padding: 8px; border: 1px solid #ddd;">Verified</th>
+                            <th style="padding: 8px; border: 1px solid #ddd;">Subscribed</th>
+                            <th style="padding: 8px; border: 1px solid #ddd;">Revenue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            topCountries.forEach(country => {
+                tableHTML += `
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;">${country.country}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${country.total_users}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${country.market_share}%</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${country.verified_users}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${country.subscribed_users}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">$${country.revenue_potential}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += '</tbody></table>';
+            container.innerHTML = tableHTML;
+        }
+        
+        function displayBehaviorPatterns(journeyPatterns, sessionPatterns) {
+            const container = document.getElementById('behaviorPatterns');
+            container.innerHTML = '';
+            
+            if (!journeyPatterns || !sessionPatterns) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">No behavior data available</p>';
+                return;
+            }
+            
+            let patternsHTML = '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">';
+            
+            // Journey patterns
+            patternsHTML += '<div><h5>User Journey Patterns</h5>';
+            Object.entries(journeyPatterns).forEach(([pattern, count]) => {
+                const label = pattern.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                patternsHTML += `
+                    <div class="trend-item">
+                        <span class="trend-month">${label}</span>
+                        <span class="trend-value">${count} users</span>
+                    </div>
+                `;
+            });
+            patternsHTML += '</div>';
+            
+            // Session patterns
+            patternsHTML += '<div><h5>Session Patterns</h5>';
+            Object.entries(sessionPatterns).forEach(([pattern, count]) => {
+                const label = pattern.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                patternsHTML += `
+                    <div class="trend-item">
+                        <span class="trend-month">${label}</span>
+                        <span class="trend-value">${count} users</span>
+                    </div>
+                `;
+            });
+            patternsHTML += '</div></div>';
+            
+            container.innerHTML = patternsHTML;
+        }
+        
+        function displayBehaviorInsights(insights) {
+            const container = document.getElementById('behaviorInsights');
+            container.innerHTML = '';
+            
+            if (!insights || insights.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">No behavioral insights available</p>';
+                return;
+            }
+            
+            let insightsHTML = '';
+            insights.forEach(insight => {
+                insightsHTML += `
+                    <div style="padding: 10px; margin: 5px 0; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+                        <span style="color: #856404;">${insight}</span>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = insightsHTML;
+        }
+        
+        function displayPaymentMethods(paymentMethods) {
+            const container = document.getElementById('paymentMethods');
+            container.innerHTML = '';
+            
+            if (!paymentMethods || Object.keys(paymentMethods).length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">No payment method data available</p>';
+                return;
+            }
+            
+            let methodsHTML = '';
+            Object.entries(paymentMethods).forEach(([method, data]) => {
+                const methodName = method.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                const successColor = data.success_rate >= 90 ? '#28a745' : data.success_rate >= 80 ? '#ffc107' : '#dc3545';
+                
+                methodsHTML += `
+                    <div class="trend-item">
+                        <div>
+                            <span class="trend-month">${methodName}</span>
+                            <div style="font-size: 0.8em; color: #666;">
+                                ${data.successes}/${data.attempts} attempts
+                            </div>
+                        </div>
+                        <span class="trend-value" style="color: ${successColor};">
+                            ${data.success_rate}%
+                        </span>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = methodsHTML;
+        }
+        
+        function displayPaymentInsights(insights) {
+            const container = document.getElementById('paymentInsights');
+            container.innerHTML = '';
+            
+            if (!insights || insights.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">No payment insights available</p>';
+                return;
+            }
+            
+            let insightsHTML = '';
+            insights.forEach(insight => {
+                insightsHTML += `
+                    <div style="padding: 10px; margin: 5px 0; background: #d1ecf1; border-left: 4px solid #17a2b8; border-radius: 4px;">
+                        <span style="color: #0c5460;">${insight}</span>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = insightsHTML;
+        }
+        
+        function displayRevenueTrends(trends) {
+            const container = document.getElementById('revenueTrends');
+            container.innerHTML = '';
+            
+            trends.forEach(trend => {
+                const item = document.createElement('div');
+                item.className = 'trend-item';
+                item.innerHTML = `
+                    <span class="trend-month">${trend.month}</span>
+                    <span class="trend-value">$${trend.revenue} (${trend.active_subscriptions} subs)</span>
+                `;
+                container.appendChild(item);
+            });
+        }
+        
+        function displayConversionFunnel(funnel) {
+            const container = document.getElementById('conversionFunnel');
+            container.innerHTML = `
+                <div class="conversion-step">
+                    <div class="conversion-step-info">
+                        <strong>Registrations</strong>
+                        <span class="conversion-arrow">→</span>
+                        <span>${funnel.total_registrations} users</span>
+                    </div>
+                    <span style="color: #667eea; font-weight: bold;">100%</span>
+                </div>
+                <div class="conversion-step">
+                    <div class="conversion-step-info">
+                        <strong>Email Verified</strong>
+                        <span class="conversion-arrow">→</span>
+                        <span>${funnel.total_verified} users</span>
+                    </div>
+                    <span style="color: #667eea; font-weight: bold;">${funnel.verification_rate}%</span>
+                </div>
+                <div class="conversion-step">
+                    <div class="conversion-step-info">
+                        <strong>Started Trial</strong>
+                        <span class="conversion-arrow">→</span>
+                        <span>${funnel.total_trials} users</span>
+                    </div>
+                    <span style="color: #667eea; font-weight: bold;">${funnel.trial_conversion_rate}%</span>
+                </div>
+                <div class="conversion-step">
+                    <div class="conversion-step-info">
+                        <strong>Subscribed</strong>
+                        <span class="conversion-arrow">→</span>
+                        <span>${funnel.total_subscriptions} users</span>
+                    </div>
+                    <span style="color: #667eea; font-weight: bold;">${funnel.subscription_conversion_rate}%</span>
+                </div>
+            `;
+        }
+        
+        function displaySubscriptionTrends(trends) {
+            const container = document.getElementById('subscriptionTrends');
+            container.innerHTML = '';
+            
+            trends.forEach(trend => {
+                const item = document.createElement('div');
+                item.className = 'trend-item';
+                const netGrowthColor = trend.net_growth >= 0 ? '#28a745' : '#dc3545';
+                item.innerHTML = `
+                    <span class="trend-month">${trend.month}</span>
+                    <span class="trend-value">
+                        +${trend.new_subscriptions} new, -${trend.cancelled_subscriptions} cancelled
+                        <span style="color: ${netGrowthColor}; margin-left: 10px;">
+                            Net: ${trend.net_growth >= 0 ? '+' : ''}${trend.net_growth}
+                        </span>
+                    </span>
+                `;
+                container.appendChild(item);
+            });
+        }
+        
+        // Monitoring and alerting functions
+        function loadMonitoringData() {
+            // Load business alerts
+            fetch('/api/monitoring/alerts')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const alerts = data.alerts;
+                        document.getElementById('totalAlertsValue').textContent = alerts.total_alerts;
+                        document.getElementById('criticalAlertsValue').textContent = alerts.critical_alerts;
+                        document.getElementById('warningAlertsValue').textContent = alerts.warning_alerts;
+                        document.getElementById('infoAlertsValue').textContent = alerts.info_alerts;
+                        
+                        displayAlerts(alerts.alerts);
+                    }
+                })
+                .catch(error => console.error('Error loading alerts:', error));
+            
+            // Load performance metrics
+            fetch('/api/monitoring/performance')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const perf = data.performance;
+                        document.getElementById('systemStatusValue').textContent = perf.status.toUpperCase();
+                        document.getElementById('responseTimeValue').textContent = perf.response_times.api_average_response_time;
+                        document.getElementById('errorRateValue').textContent = perf.error_metrics.error_rate_percentage + '%';
+                        document.getElementById('uptimeValue').textContent = perf.system_health.uptime_percentage + '%';
+                        
+                        displaySystemHealth(perf.system_health);
+                    }
+                })
+                .catch(error => console.error('Error loading performance metrics:', error));
+            
+            // Load automated reports
+            fetch('/api/monitoring/reports')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const reports = data.reports;
+                        displayDailyReport(reports.daily_summary);
+                        displayWeeklyReport(reports.weekly_trends);
+                        displayMonthlyReport(reports.monthly_business);
+                    }
+                })
+                .catch(error => console.error('Error loading reports:', error));
+        }
+        
+        function displayAlerts(alerts) {
+            const container = document.getElementById('alertsList');
+            container.innerHTML = '';
+            
+            if (!alerts || alerts.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #28a745;">✅ No active alerts</p>';
+                return;
+            }
+            
+            alerts.forEach(alert => {
+                const alertColor = alert.type === 'critical' ? '#dc3545' : 
+                                 alert.type === 'warning' ? '#ffc107' : '#17a2b8';
+                
+                const alertHTML = `
+                    <div style="padding: 10px; margin: 5px 0; border-left: 4px solid ${alertColor}; background: #f8f9fa; border-radius: 4px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong style="color: ${alertColor};">${alert.title}</strong>
+                            <span style="font-size: 0.8em; color: #666;">${new Date(alert.timestamp).toLocaleString()}</span>
+                        </div>
+                        <p style="margin: 5px 0; color: #333;">${alert.message}</p>
+                        <p style="margin: 5px 0; font-size: 0.9em; color: #666;"><strong>Action:</strong> ${alert.action}</p>
+                    </div>
+                `;
+                container.innerHTML += alertHTML;
+            });
+        }
+        
+        function displaySystemHealth(health) {
+            const container = document.getElementById('systemHealthDetails');
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                    <div class="trend-item">
+                        <span class="trend-month">CPU Usage</span>
+                        <span class="trend-value">${health.cpu_usage}%</span>
+                    </div>
+                    <div class="trend-item">
+                        <span class="trend-month">Memory Usage</span>
+                        <span class="trend-value">${health.memory_usage}%</span>
+                    </div>
+                    <div class="trend-item">
+                        <span class="trend-month">Disk Usage</span>
+                        <span class="trend-value">${health.disk_usage}%</span>
+                    </div>
+                    <div class="trend-item">
+                        <span class="trend-month">Active Connections</span>
+                        <span class="trend-value">${health.active_connections}</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function displayDailyReport(report) {
+            const container = document.getElementById('dailyReport');
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
+                    <div class="trend-item">
+                        <span class="trend-month">New Users</span>
+                        <span class="trend-value">${report.new_users}</span>
+                    </div>
+                    <div class="trend-item">
+                        <span class="trend-month">New Subscriptions</span>
+                        <span class="trend-value">${report.new_subscriptions}</span>
+                    </div>
+                    <div class="trend-item">
+                        <span class="trend-month">Daily Revenue</span>
+                        <span class="trend-value">$${report.daily_revenue}</span>
+                    </div>
+                    <div class="trend-item">
+                        <span class="trend-month">Total Users</span>
+                        <span class="trend-value">${report.total_users}</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function displayWeeklyReport(trends) {
+            const container = document.getElementById('weeklyReport');
+            container.innerHTML = '';
+            
+            if (!trends || trends.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">No weekly data available</p>';
+                return;
+            }
+            
+            trends.forEach(day => {
+                container.innerHTML += `
+                    <div class="trend-item">
+                        <span class="trend-month">${day.date}</span>
+                        <span class="trend-value">${day.new_users} users, ${day.new_subscriptions} subs, $${day.revenue}</span>
+                    </div>
+                `;
+            });
+        }
+        
+        function displayMonthlyReport(report) {
+            const container = document.getElementById('monthlyReport');
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                    <div class="trend-item">
+                        <span class="trend-month">New Subscriptions</span>
+                        <span class="trend-value">${report.new_subscriptions}</span>
+                    </div>
+                    <div class="trend-item">
+                        <span class="trend-month">Cancellations</span>
+                        <span class="trend-value">${report.cancellations}</span>
+                    </div>
+                    <div class="trend-item">
+                        <span class="trend-month">Net Growth</span>
+                        <span class="trend-value" style="color: ${report.net_growth >= 0 ? '#28a745' : '#dc3545'};">${report.net_growth >= 0 ? '+' : ''}${report.net_growth}</span>
+                    </div>
+                    <div class="trend-item">
+                        <span class="trend-month">Monthly Revenue</span>
+                        <span class="trend-value">$${report.revenue}</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function exportData(type, format) {
+            const url = `/api/export/data?type=${type}&format=${format}`;
+            
+            if (format === 'csv') {
+                // For CSV, trigger download
+                window.open(url, '_blank');
+            } else {
+                // For JSON, show in new tab
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        const newWindow = window.open();
+                        newWindow.document.write('<pre>' + JSON.stringify(data, null, 2) + '</pre>');
+                    })
+                    .catch(error => {
+                        console.error('Error exporting data:', error);
+                        alert('Error exporting data: ' + error.message);
+                    });
+            }
+        }
+        
+        // Load basic stats on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+        });
     </script>
 </body>
 </html>

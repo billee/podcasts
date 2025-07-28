@@ -143,16 +143,6 @@ class AuthService {
     required Map<String, dynamic> userProfile,
   }) async {
     try {
-      final usernameQuery = await _firestore
-          .collection('users')
-          .where('username', isEqualTo: username)
-          .limit(1)
-          .get();
-
-      if (usernameQuery.docs.isNotEmpty) {
-        throw 'Username already exists';
-      }
-
       final tempEmail = '$username@kapwa.local';
       return await signUpWithEmailAndPassword(
         email: tempEmail,
@@ -580,17 +570,6 @@ class AuthService {
     required String email,
   }) async {
     try {
-      // Check if username already exists
-      final usernameQuery = await _firestore
-          .collection('users')
-          .where('username', isEqualTo: username)
-          .limit(1)
-          .get();
-
-      if (usernameQuery.docs.isNotEmpty) {
-        throw 'Username already exists';
-      }
-
       // Check if email already exists
       final emailQuery = await _firestore
           .collection('users')

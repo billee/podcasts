@@ -158,10 +158,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
       } else if (username.length < 3) {
         _usernameValidationError = 'Username must be at least 3 characters';
         _isUsernameValid = false;
-      } else if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(username)) {
-        _usernameValidationError = 'Only letters, numbers, and underscores allowed';
-        _isUsernameValid = false;
       } else {
+      // Removed uniqueness constraint and special character restrictions
         _usernameValidationError = null;
         _isUsernameValid = true;
       }
@@ -290,10 +288,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   String _extractErrorMessage(String error) {
-    if (error.contains('username-already-exists') ||
-        error.contains('Username already exists')) {
-      return 'Username already taken. Please choose a different username.';
-    } else if (error.contains('email-already-in-use')) {
+  // Removed username uniqueness check
+  if (error.contains('email-already-in-use')) {
       return 'Email already registered. Please use a different email.';
     } else if (error.contains('weak-password')) {
       return 'Password is too weak. Please use a stronger password.';
@@ -341,6 +337,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _logger.info('User registered successfully');
 
       if (mounted) {
+        // Reset loading state before showing dialog
+        setState(() {
+          _isLoading = false;
+        });
+        
         // Show email verification dialog
         _showEmailVerificationDialog();
       }
@@ -501,69 +502,158 @@ class _SignUpScreenState extends State<SignUpScreen> {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return AlertDialog(
+        final screenHeight = MediaQuery.of(context).size.height;
+        final screenWidth = MediaQuery.of(context).size.width;
+        
+        return Dialog(
           backgroundColor: Colors.grey[800],
-          title: Row(
-            children: [
-              Icon(Icons.email, color: Colors.blue[800]),
-              const SizedBox(width: 8),
-              const Text(
-                'Verify Your Email',
-                style: TextStyle(color: Colors.white),
-              ),
-            ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Account created successfully!',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'We\'ve sent a verification email to:',
-                style: TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _emailController.text.trim(),
-                style: TextStyle(
-                  color: Colors.blue[300],
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Please check your email and click the verification link to activate your account.',
-                style: TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'You can sign in after verifying your email.',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop(); // Close dialog
-                
-                // Sign out the user since they need to verify email first
-                await FirebaseAuth.instance.signOut();
-                _logger.info('User signed out after registration - email verification required');
-                
-                // Navigate back to login screen
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              },
-              child: const Text('OK'),
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: screenWidth * 0.85,
+              maxHeight: screenHeight * 0.6, // Limit height to 60% of screen
             ),
-          ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[750],
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.email, color: Colors.blue[800], size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Verify Your Email',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Content
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Success message
+                        Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.green, size: 16),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'Account created successfully!',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 12),
+                        
+                        // Email info
+                        const Text(
+                          'Verification email sent to:',
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[700],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            _emailController.text.trim(),
+                            style: TextStyle(
+                              color: Colors.blue[300],
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 12),
+                        
+                        // Instructions
+                        const Text(
+                          'Please check your email and click the verification link to activate your account. You can sign in after verifying.',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            height: 1.3,
+                          ),
+                          softWrap: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Actions
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[750],
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(12),
+                      bottomRight: Radius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () async {
+                          Navigator.of(context).pop(); // Close dialog
+                          
+                          // Sign out the user since they need to verify email first
+                          await FirebaseAuth.instance.signOut();
+                          _logger.info('User signed out after registration - email verification required');
+                          
+                          // Navigate back to login screen
+                          Navigator.of(context).popUntil((route) => route.isFirst);
+                        },
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.blue[800],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -1053,19 +1143,25 @@ class _SignUpScreenState extends State<SignUpScreen> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      'Password Strength: ',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text(
-                      _getPasswordStrengthText(),
-                      style: TextStyle(
-                        color: _getPasswordStrengthColor(),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                    Expanded( 
+                      child: Row(
+                        children: [
+                          Text(
+                            'Password Strength: ',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            _getPasswordStrengthText(),
+                            style: TextStyle(
+                              color: _getPasswordStrengthColor(),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

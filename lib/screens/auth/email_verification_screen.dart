@@ -65,28 +65,36 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height - 
+                         MediaQuery.of(context).padding.top - 
+                         MediaQuery.of(context).padding.bottom - 
+                         kToolbarHeight - 48, // Account for AppBar and padding
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
             Icon(
               Icons.email_outlined,
-              size: 80,
+              size: 64,
               color: Colors.blue[800],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             
             Text(
               'Verify Your Email',
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: Colors.blue[800],
               ),
             ),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             
             const Text(
               'We\'ve sent a verification email to:',
@@ -97,19 +105,28 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               textAlign: TextAlign.center,
             ),
             
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             
-            Text(
-              user?.email ?? 'your email',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue[300],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.grey[700],
+                borderRadius: BorderRadius.circular(6),
               ),
-              textAlign: TextAlign.center,
+              child: Text(
+                user?.email ?? 'your email',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue[300],
+                ),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             ),
             
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             
             Container(
               padding: const EdgeInsets.all(16),
@@ -150,12 +167,12 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               ),
             ),
             
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             
             // Go to Login Button
             SizedBox(
               width: double.infinity,
-              height: 48,
+              height: 44,
               child: ElevatedButton(
                 onPressed: () async {
                   try {
@@ -210,12 +227,12 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               ),
             ),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             
             // Resend Email Button with cooldown
             SizedBox(
               width: double.infinity,
-              height: 48,
+              height: 44,
               child: OutlinedButton(
                 onPressed: (_isResending || !_canResend) ? null : _resendVerification,
                 style: OutlinedButton.styleFrom(
@@ -252,7 +269,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               ),
             ),
             
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
             
             const Text(
               'Didn\'t receive the email? Check your spam folder or try resending.',
@@ -262,7 +279,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               ),
               textAlign: TextAlign.center,
             ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );

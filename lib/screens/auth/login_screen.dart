@@ -55,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } else if (email.length < 3) {
         _emailValidationError = 'Must be at least 3 characters';
         _isEmailValid = false;
-      } else if (email.contains('@') && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
         _emailValidationError = 'Invalid email format';
         _isEmailValid = false;
       } else {
@@ -415,27 +415,38 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: Colors.grey[850],
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height - 
+                         MediaQuery.of(context).padding.top - 
+                         MediaQuery.of(context).padding.bottom - 48,
+      ),
+      child: IntrinsicHeight(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 60),
+                  const SizedBox(height: 40),
 
-              // App Logo/Title
-              Icon(
-                Icons.chat_bubble_outline,
-                size: 80,
-                color: Colors.blue[800],
-              ),
-              const SizedBox(height: 16),
-
-              Text(
-                'Kapwa Companion',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue[800],
-                ),
+            // App Logo/Title - Horizontal layout to save space
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.chat_bubble_outline,
+                  size: 40,
+                    color: Colors.blue[800],
+                  ),
+                const SizedBox(width: 12),
+                  Text(
+                    'Kapwa Companion',
+                    style: TextStyle(
+                    fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[800],
+                    ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 8),
@@ -448,14 +459,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 textAlign: TextAlign.center,
               ),
 
-              const SizedBox(height: 48),
+            const SizedBox(height: 32),
 
-              // Login Form
-              Form(
+            // Login Form - Wrap in Container with constraints
+            Container(
+              constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width - 40,
+              ),
+              child: Form(
                 key: _formKey,
                 child: Column(
                   children: [
-                    // Email Field (preferred) or Username with real-time validation
+                          // Email Field (preferred) or Username with real-time validation
                     TextFormField(
                       controller: _loginController,
                       keyboardType: TextInputType.emailAddress,
@@ -470,10 +485,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: _isEmailValid ? Colors.green : Colors.white70
                         ),
                         suffixIcon: _loginController.text.isNotEmpty
-                            ? Icon(
+                            ? Container(
+                                      width: 24,
+                                alignment: Alignment.center,
+                                child: Icon(
                                 _isEmailValid ? Icons.check_circle : Icons.error,
                                 color: _isEmailValid ? Colors.green : Colors.red,
-                                size: 20,
+                                  size: 18,
+                                ),
                               )
                             : null,
                         filled: true,
@@ -511,6 +530,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: _emailValidationError != null ? Colors.red : Colors.white54, 
                           fontSize: 12
                         ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
                       style: const TextStyle(color: Colors.white),
                       validator: (value) {
@@ -526,7 +546,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Password Field with real-time validation
+                          // Password Field with real-time validation
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -539,16 +559,32 @@ class _LoginScreenState extends State<LoginScreen> {
                           Icons.lock, 
                           color: _isPasswordValid ? Colors.green : Colors.white70
                         ),
-                        suffixIcon: Row(
-                          mainAxisSize: MainAxisSize.min,
+                        suffixIcon: Container(
+                                width: 80,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             if (_passwordController.text.isNotEmpty)
-                              Icon(
-                                _isPasswordValid ? Icons.check_circle : Icons.error,
-                                color: _isPasswordValid ? Colors.green : Colors.red,
-                                size: 20,
+                                Container(
+                                  width: 24,
+                                  alignment: Alignment.center,
+                                child: Icon(
+                                  _isPasswordValid ? Icons.check_circle : Icons.error,
+                                  color: _isPasswordValid ? Colors.green : Colors.red,
+                                    size: 16,
+                                ),
                               ),
-                            IconButton(
+                              Container(
+                                width: 40,
+                                alignment: Alignment.center,
+                                child: IconButton(
+                                  iconSize: 18,
+                                  padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                    minWidth: 24,
+                                    minHeight: 24,
+                              ),
                               icon: Icon(
                                 _obscurePassword
                                     ? Icons.visibility
@@ -560,8 +596,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                   _obscurePassword = !_obscurePassword;
                                 });
                               },
+                                ),
                             ),
                           ],
+                        ),
                         ),
                         filled: true,
                         fillColor: Colors.grey[800],
@@ -597,6 +635,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: _passwordValidationError != null ? Colors.red : Colors.white54, 
                           fontSize: 12
                         ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
                       style: const TextStyle(color: Colors.white),
                       validator: (value) {
@@ -694,10 +733,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
               ),
+            ),
 
-              const SizedBox(height: 20),
-              
-              const SizedBox(height: 32),
+                  const SizedBox(height: 20),
+                  
+                  const SizedBox(height: 32),
 
               // Sign Up Link
               Row(
@@ -730,6 +770,8 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+  ),
+),
     );
   }
 }
