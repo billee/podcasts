@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
+import 'package:kapwa_companion_basic/services/billing_scheduler_service.dart';
 import 'package:logging/logging.dart';
+import 'user_billing_details_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -11,16 +13,27 @@ class AdminDashboardScreen extends StatefulWidget {
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
-class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+class _AdminDashboardScreenState extends State<AdminDashboardScreen> 
+    with SingleTickerProviderStateMixin {
   final Logger _logger = Logger('AdminDashboard');
   List<UserJourney> _userJourneys = [];
   bool _isLoading = true;
   String _searchQuery = '';
+  Map<String, dynamic> _billingStats = {};
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _loadUserJourneys();
+    _loadBillingStats();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserJourneys() async {
@@ -111,7 +124,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadUserJourneys,
+            onPressed: () {
+              _loadUserJourneys();
+              _loadBillingStats();
+            },
             tooltip: 'Refresh Data',
           ),
           IconButton(
@@ -122,55 +138,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             tooltip: 'Sign Out',
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(text: 'Users', icon: Icon(Icons.people, size: 18)),
+            Tab(text: 'Billing', icon: Icon(Icons.payment, size: 18)),
+            Tab(text: 'Analytics', icon: Icon(Icons.analytics, size: 18)),
+          ],
+        ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Search by email, name, or username...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                filled: true,
-                fillColor: Colors.grey[800],
-              ),
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-          
-          // Stats Summary
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              children: [
-                _buildStatCard('Total Users', _userJourneys.length.toString(), Colors.blue),
-                const SizedBox(width: 8),
-                _buildStatCard('Active Trials', _userJourneys.where((j) => j.currentStatus == SubscriptionStatus.trial).length.toString(), Colors.orange),
-                const SizedBox(width: 8),
-                _buildStatCard('Subscribers', _userJourneys.where((j) => j.currentStatus == SubscriptionStatus.active).length.toString(), Colors.green),
-                const SizedBox(width: 8),
-                _buildStatCard('Cancelled', _userJourneys.where((j) => j.currentStatus == SubscriptionStatus.cancelled).length.toString(), Colors.red),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // User Journey Table
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _buildUserJourneyTable(),
-          ),
+          _buildUsersTab(),
+          _buildBillingTab(),
+          _buildAnalyticsTab(),
         ],
       ),
     );
@@ -363,10 +348,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         
         // Actions
         DataCell(
-          IconButton(
-            icon: const Icon(Icons.info, color: Colors.blue, size: 20),
-            onPressed: () => _showUserDetails(journey),
-            tooltip: 'View Details',
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.info, color: Colors.blue, size: 20),
+                onPressed: () => _showUserDetails(journey),
+                tooltip: 'View Details',
+              ),
+              IconButton(
+                icon: const Icon(Icons.payment, color: Colors.green, size: 20),
+                onPressed: () => _showUserBilling(journey),
+                tooltip: 'View Billing',
+              ),
+            ],
           ),
         ),
       ],
@@ -461,6 +456,62 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showUserBilling(UserJourney journey) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => UserBillingDetailsScreen(
+          userId: journey.userId,
+          userName: journey.name,
+          userEmail: journey.email,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadBillingStats() async {
+    try {
+      final stats = await BillingSchedulerService.getBillingStatistics();
+      setState(() {
+        _billingStats = stats;
+      });
+    } catch (e) {
+      _logger.severe('Error loading billing stats: $e');
+    }
+  }
+
+  Widget _buildBillingStatCard(String title, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 10,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

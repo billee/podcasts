@@ -186,6 +186,8 @@ class _MainScreenState extends State<MainScreen> {
               },
               tooltip: 'Upgrade',
             ),
+
+
             IconButton(
               icon: const Icon(Icons.logout),
               onPressed: () async {
@@ -280,6 +282,7 @@ class _MainScreenState extends State<MainScreen> {
           selectedItemColor: Colors.blue[800],
           unselectedItemColor: Colors.grey[500],
         ),
+
       ),
     );
   }

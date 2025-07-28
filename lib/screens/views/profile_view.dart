@@ -179,6 +179,7 @@ class ProfileView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+
         Text(
           'Profile Information',
           style: TextStyle(
@@ -224,6 +225,8 @@ class ProfileView extends StatelessWidget {
         const PaymentMethodManagementWidget(),
         const SizedBox(height: 16),
         _buildSubscriptionManagementButton(context),
+        const SizedBox(height: 12),
+
         const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,
@@ -418,4 +421,7 @@ class ProfileView extends StatelessWidget {
       ),
     );
   }
+
+
+
 }
