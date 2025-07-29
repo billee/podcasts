@@ -54,6 +54,7 @@ dev_dependencies:
 dependency_overrides:
   js: 0.7.2
   plugin_platform_interface: 2.1.5
+  intl: 0.20.2
 
 flutter:
   uses-material-design: true

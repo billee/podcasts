@@ -40,8 +40,19 @@ jobs:
           echo "dummy" > assets/audio_sources/placeholder.mp3
           touch .env
 
+      # ADD THIS STEP TO FIX DEPENDENCY CONFLICT
+      - name: Patch pubspec.yaml for dependency resolution
+        run: |
+          # Update intl version to resolve conflict with pay package
+          sed -i 's/intl: ^0.19.0/intl: ^0.20.2/' pubspec.yaml
+          # Verify the change was applied
+          grep 'intl:' pubspec.yaml
+          
       - name: Install Dependencies
-        run: flutter pub get
+        run: |
+          # Clean cache to ensure fresh installation
+          flutter pub cache clean
+          flutter pub get
         
       - name: Build Web
         run: |
