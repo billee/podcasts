@@ -31,13 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final List<String> _nonEditableFields = [
     'uid',
     'email',
-    'emailVerified',
-    'createdAt',
-    'lastActiveAt',
-    'lastLoginAt',
-    'hasRealEmail',
-    'subscription',
-    // Removed unwanted metadata fields as requested
+    // TEST: Temporarily removing other fields to see if this works
   ];
 
   @override

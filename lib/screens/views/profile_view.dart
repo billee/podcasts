@@ -73,14 +73,11 @@ class ProfileView extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.grey[850],
-      appBar: AppBar(
-        backgroundColor: Colors.blue[800],
-        foregroundColor: Colors.white,
-        // Removed title and actions as requested
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), // Removed top padding to move content up
-        child: isEditing ? _buildEditView() : _buildViewOnly(context),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: isEditing ? _buildEditView() : _buildViewOnly(context),
+        ),
       ),
     );
   }
@@ -117,12 +114,11 @@ class ProfileView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Column(
-            children: nonEditableEntries
-                .map<Widget>((entry) => _buildNonEditableInfo(
-                    formatFieldName(entry.key), entry.value))
+            children: _getLogicallyOrderedFields()
+                .map<Widget>((entry) =>
+                    _buildInfoRowWithDateFormatting(formatFieldName(entry.key), entry.value))
                 .toList(),
           ),
-          const SubscriptionStatusWidget(),
           const SizedBox(height: 20),
           Row(
             children: [
@@ -188,58 +184,17 @@ class ProfileView extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Column(
-          children: editableEntries
+          children: _getLogicallyOrderedFields()
               .map<Widget>((entry) =>
-                  buildInfoRow(formatFieldName(entry.key), entry.value))
+                  _buildInfoRowWithDateFormatting(formatFieldName(entry.key), entry.value))
               .toList(),
         ),
-        const SizedBox(height: 24),
-        Text(
-          'Account Information',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue[800],
-          ),
-        ),
+
         const SizedBox(height: 12),
-        Column(
-          children: nonEditableEntries
-              .map<Widget>((entry) =>
-                  buildInfoRow(formatFieldName(entry.key), entry.value))
-              .toList(),
-        ),
+
         _buildSubscriptionSection(context),
 
-        const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: ElevatedButton(
-            onPressed: onLogoutPressed,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[600],
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.logout),
-                SizedBox(width: 8),
-                Text(
-                  'Sign Out',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+
 
       ],
     );
@@ -383,24 +338,23 @@ class ProfileView extends StatelessWidget {
   Widget _buildSubscriptionSection(BuildContext context) {
     final subscription = userProfile?['subscription'] as Map<String, dynamic>?;
     final isTrialActive = subscription?['isTrialActive'] ?? false;
-    final hasActiveSubscription = subscription?['isActive'] ?? false;
     
-    String statusTitle;
-    String buttonText;
-    Color buttonColor;
-    
-    if (isTrialActive) {
-      statusTitle = 'Trial Status';
-      buttonText = 'Subscribe';
-      buttonColor = Colors.green[600]!;
-    } else if (hasActiveSubscription) {
-      statusTitle = 'Subscription Status';
-      buttonText = 'Cancel Subscription';
-      buttonColor = Colors.red[600]!;
-    } else {
-      statusTitle = 'Subscription Status';
-      buttonText = 'Subscribe';
-      buttonColor = Colors.blue[600]!;
+    // Calculate trial information
+    String trialInfo = 'No trial information available';
+    if (subscription != null && isTrialActive) {
+      final trialStartDate = subscription['trialStartDate'];
+      final trialEndDate = subscription['trialEndDate'];
+      
+      if (trialStartDate != null && trialEndDate != null) {
+        final startDate = (trialStartDate as Timestamp).toDate();
+        final endDate = (trialEndDate as Timestamp).toDate();
+        final now = DateTime.now();
+        final daysLeft = endDate.difference(now).inDays;
+        
+        trialInfo = '''Trial started: ${_formatDate(startDate)}
+Trial ends: ${_formatDate(endDate)}
+Days remaining: ${daysLeft > 0 ? daysLeft : 0} days''';
+      }
     }
     
     return Column(
@@ -408,7 +362,7 @@ class ProfileView extends StatelessWidget {
       children: [
         const SizedBox(height: 24),
         Text(
-          statusTitle,
+          'Trial Status',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -416,37 +370,46 @@ class ProfileView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        const SubscriptionStatusWidget(),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey[800],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            trialInfo,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+        ),
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
             onPressed: () {
-              // Handle subscription action
-              if (hasActiveSubscription && !isTrialActive) {
-                // Cancel subscription logic
-                _showCancelSubscriptionDialog(context);
-              } else {
-                // Subscribe logic
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SubscriptionManagementScreen(),
-                  ),
-                );
-              }
+              // Subscribe logic
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SubscriptionManagementScreen(),
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: buttonColor,
+              backgroundColor: Colors.green[600],
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: Text(
-              buttonText,
-              style: const TextStyle(
+            child: const Text(
+              'Subscribe',
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -457,6 +420,136 @@ class ProfileView extends StatelessWidget {
     );
   }
   
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+  
+  List<MapEntry<String, dynamic>> _getLogicallyOrderedFields() {
+    if (userProfile == null) return [];
+    
+    // Define the logical order of fields to display
+    final fieldOrder = [
+      // Personal Information
+      'name', 'email', 'age', 'gender',
+      // Location & Work
+      'workLocation', 'occupation', 'educationalAttainment',
+      // Personal Status
+      'isMarried', 'hasChildren',
+      // Account Information
+      'uid', 'emailVerified', 'createdAt', 'lastActiveAt', 'lastLoginAt', 'lastUpdated'
+    ];
+    
+    // Get all available fields and remove unwanted ones
+    final availableFields = userProfile!.entries
+        .where((entry) => !['metadata', 'preferences', 'profileCompleted', 'deviceInfo', 'hasRealEmail', 'subscription'].contains(entry.key))
+        .toList();
+    
+    // Create a map for quick lookup
+    final fieldMap = Map.fromEntries(availableFields);
+    
+    // Return fields in logical order, only including fields that exist
+    final orderedFields = <MapEntry<String, dynamic>>[];
+    final addedFields = <String>{};
+    
+    // Add fields in the specified order
+    for (final fieldName in fieldOrder) {
+      if (fieldMap.containsKey(fieldName) && !addedFields.contains(fieldName)) {
+        orderedFields.add(MapEntry(fieldName, fieldMap[fieldName]));
+        addedFields.add(fieldName);
+      }
+    }
+    
+    // Add any remaining fields that weren't in our order list
+    for (final entry in availableFields) {
+      if (!addedFields.contains(entry.key)) {
+        orderedFields.add(entry);
+      }
+    }
+    
+    return orderedFields;
+  }
+
+  Widget _buildInfoRowWithDateFormatting(String label, dynamic value) {
+    if (value == null || value.toString().isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Format specific fields with user-friendly dates
+    String displayValue;
+    bool isDateField = label.toLowerCase().contains('created at') || 
+        label.toLowerCase().contains('last active') || 
+        label.toLowerCase().contains('last login') ||
+        label.toLowerCase().contains('last updated') ||
+        label.toLowerCase().contains('email verified');
+        
+    if (isDateField) {
+      displayValue = _formatUserFriendlyDate(value);
+    } else if (value is bool) {
+      displayValue = value ? 'Yes' : 'No';
+    } else {
+      displayValue = value.toString();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              displayValue,
+              style: const TextStyle(
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatUserFriendlyDate(dynamic value) {
+    if (value == null) return 'N/A';
+    
+    try {
+      DateTime date;
+      if (value is Timestamp) {
+        date = value.toDate();
+      } else if (value is String) {
+        date = DateTime.parse(value);
+      } else if (value is DateTime) {
+        date = value;
+      } else {
+        return value.toString();
+      }
+      
+      final now = DateTime.now();
+      final difference = now.difference(date);
+      
+      if (difference.inDays == 0) {
+        return 'Today at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return value.toString();
+    }
+  }
+
   void _showCancelSubscriptionDialog(BuildContext context) {
     showDialog(
       context: context,
