@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kapwa_companion_basic/widgets/subscription_status_widget.dart';
 import 'package:kapwa_companion_basic/widgets/loading_state_widget.dart';
-import 'package:kapwa_companion_basic/widgets/payment_method_management_widget.dart';
 import 'package:kapwa_companion_basic/screens/subscription/subscription_management_screen.dart';
 
 class ProfileView extends StatelessWidget {
@@ -75,24 +74,12 @@ class ProfileView extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.grey[850],
       appBar: AppBar(
-        title: const Text('Profile'),
         backgroundColor: Colors.blue[800],
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: Icon(isEditing ? Icons.save : Icons.edit),
-            onPressed: onEditPressed,
-            tooltip: isEditing ? 'Save Changes' : 'Edit Profile',
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: onLogoutPressed,
-            tooltip: 'Sign Out',
-          ),
-        ],
+        // Removed title and actions as requested
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), // Removed top padding to move content up
         child: isEditing ? _buildEditView() : _buildViewOnly(context),
       ),
     );
@@ -180,13 +167,24 @@ class ProfileView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
 
-        Text(
-          'Profile Information',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue[800],
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Profile Information',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue[800],
+              ),
+            ),
+            IconButton(
+              icon: Icon(isEditing ? Icons.save : Icons.edit),
+              onPressed: onEditPressed,
+              tooltip: isEditing ? 'Save Changes' : 'Edit Profile',
+              color: Colors.blue[800],
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         Column(
@@ -211,21 +209,7 @@ class ProfileView extends StatelessWidget {
                   buildInfoRow(formatFieldName(entry.key), entry.value))
               .toList(),
         ),
-        const SubscriptionStatusWidget(),
-        const SizedBox(height: 24),
-        Text(
-          'Payment & Billing',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue[800],
-          ),
-        ),
-        const SizedBox(height: 12),
-        const PaymentMethodManagementWidget(),
-        const SizedBox(height: 16),
-        _buildSubscriptionManagementButton(context),
-        const SizedBox(height: 12),
+        _buildSubscriptionSection(context),
 
         const SizedBox(height: 20),
         SizedBox(
@@ -396,29 +380,115 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  Widget _buildSubscriptionManagementButton(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const SubscriptionManagementScreen(),
-            ),
-          );
-        },
-        icon: const Icon(Icons.settings),
-        label: const Text('Manage Subscription'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue[800],
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+  Widget _buildSubscriptionSection(BuildContext context) {
+    final subscription = userProfile?['subscription'] as Map<String, dynamic>?;
+    final isTrialActive = subscription?['isTrialActive'] ?? false;
+    final hasActiveSubscription = subscription?['isActive'] ?? false;
+    
+    String statusTitle;
+    String buttonText;
+    Color buttonColor;
+    
+    if (isTrialActive) {
+      statusTitle = 'Trial Status';
+      buttonText = 'Subscribe';
+      buttonColor = Colors.green[600]!;
+    } else if (hasActiveSubscription) {
+      statusTitle = 'Subscription Status';
+      buttonText = 'Cancel Subscription';
+      buttonColor = Colors.red[600]!;
+    } else {
+      statusTitle = 'Subscription Status';
+      buttonText = 'Subscribe';
+      buttonColor = Colors.blue[600]!;
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        Text(
+          statusTitle,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue[800],
           ),
         ),
-      ),
+        const SizedBox(height: 12),
+        const SubscriptionStatusWidget(),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () {
+              // Handle subscription action
+              if (hasActiveSubscription && !isTrialActive) {
+                // Cancel subscription logic
+                _showCancelSubscriptionDialog(context);
+              } else {
+                // Subscribe logic
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SubscriptionManagementScreen(),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: buttonColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              buttonText,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  void _showCancelSubscriptionDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[800],
+          title: const Text(
+            'Cancel Subscription',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const Text(
+            'Are you sure you want to cancel your subscription? You will lose access to premium features.',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Keep Subscription'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Add actual cancellation logic here
+              },
+              child: const Text(
+                'Cancel Subscription',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

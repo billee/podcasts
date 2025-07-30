@@ -137,9 +137,13 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                       color: Colors.white70,
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      fileName,
-                      style: const TextStyle(color: Colors.white70),
+                    Flexible(
+                      child: Text(
+                        fileName,
+                        style: const TextStyle(color: Colors.white70),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
                     ),
                   ],
                 ),

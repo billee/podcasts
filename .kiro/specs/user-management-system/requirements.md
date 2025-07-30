@@ -333,7 +333,29 @@ The OFW (Overseas Filipino Worker) app requires a comprehensive user management 
 14. WHEN user accesses premium content THEN the system SHALL restrict exclusive podcasts and stories to premium subscribers
 15. WHEN user wants to connect THEN the system SHALL enable following favorite storytellers and podcast creators
 
-### Requirement 18: Data Security and Privacy
+### Requirement 18: Conversation Summarization and State Preservation
+
+**User Story:** As an OFW user, I want my conversations to be intelligently managed and preserved, so that I can continue meaningful discussions seamlessly even after closing the app or switching between apps.
+
+#### Acceptance Criteria
+
+1. WHEN user conversation reaches 10 conversation pairs THEN the system SHALL automatically trigger LLM-based conversation summarization
+2. WHEN user conversation reaches 20 conversation pairs THEN the system SHALL perform comprehensive conversation summarization and reset conversation counter
+3. WHEN conversation is summarized THEN the system SHALL save the summary to the user's chatSummaries collection in Firestore with fields: summary, timestamp, conversationPairs, lastMessagesCount
+4. WHEN user closes and reopens the app THEN the system SHALL load the latest conversation summary and display it as context for continuing the conversation
+5. WHEN user switches to another app THEN the system SHALL preserve the current conversation state using AutomaticKeepAliveClientMixin
+6. WHEN user returns from another app THEN the system SHALL restore the exact conversation state including message history, typing indicators, and scroll position
+7. WHEN conversation summary is generated THEN the system SHALL trim older messages while keeping the summary and recent 20 messages for optimal performance
+8. WHEN summarization fails THEN the system SHALL log the error and continue conversation without interruption
+9. WHEN user clears chat THEN the system SHALL delete the conversation summary from Firestore and reset all conversation counters
+10. WHEN conversation continues after summary THEN the system SHALL include the summary as system context for the LLM to maintain conversation continuity
+11. WHEN multiple conversation sessions occur THEN the system SHALL maintain cumulative conversation summaries that build upon previous summaries
+12. WHEN app is backgrounded THEN the system SHALL preserve message input text, scroll position, and UI state
+13. WHEN network connectivity is lost during summarization THEN the system SHALL retry summarization when connection is restored
+14. WHEN conversation summary is loaded THEN the system SHALL display it as a system message indicating "Continuing from our last conversation"
+15. WHEN conversation pairs counter reaches threshold THEN the system SHALL perform summarization in background without blocking user interaction
+
+### Requirement 19: Data Security and Privacy
 
 **User Story:** As a user, I want my personal data to be secure and private, so that I can trust the app with my information.
 

@@ -98,6 +98,13 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         brightness: Brightness.dark,
         useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          titleTextStyle: TextStyle(
+            fontSize: 18, // Smaller than default (usually 20-22)
+            fontWeight: FontWeight.w500, // Slightly less bold
+            color: Colors.white,
+          ),
+        ),
       ),
       home: const AuthWrapper(),
     );

@@ -33,48 +33,50 @@ class _StoryScreenState extends State<StoryScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[900],
       appBar: AppBar(
-        title: const Text(
-          'Story',
-          style: TextStyle(color: Colors.white),
-        ),
         backgroundColor: Colors.grey[900],
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
+        // Removed title as requested, keeping AppBar for back button
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 32),
-          Icon(
-            Icons.book,
-            size: 80,
-            color: Colors.greenAccent,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Mga Kuwento',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height - 
+                         MediaQuery.of(context).padding.top - 
+                         kToolbarHeight,
+            ),
+            child: IntrinsicHeight(
+              child: Column(
+                children: [
+                  const SizedBox(height: 32),
+                  Icon(
+                    Icons.book,
+                    size: 80,
+                    color: Colors.greenAccent,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Mga Kuwento',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  // AudioPlayerWidget with flexible sizing
+                  Expanded(
+                    child: Center(
+                      child: AudioPlayerWidget(),
+                    ),
+                  ),
+                  const SizedBox(height: 16), // Reduced from 32 to save space
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Listen to inspiring stories',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.white70,
-            ),
-          ),
-          const SizedBox(height: 32),
-          // Centered AudioPlayerWidget
-          Expanded(
-            child: Center(
-              child: AudioPlayerWidget(),
-            ),
-          ),
-          const SizedBox(height: 32),
-        ],
+        ),
       ),
     );
   }

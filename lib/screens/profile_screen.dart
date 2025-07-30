@@ -29,22 +29,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final Map<String, TextEditingController> _controllers = {};
   final List<String> _nonEditableFields = [
-    'userType',
-    'profileCompleted',
-    'createdAt',
-    'isOnline',
-    'lastSeen',
-    'lastLoginAt',
-    'lastActiveAt',
-    'isActive',
-    'deviceInfo',
-    'loginCount',
     'uid',
     'email',
-    'preferences',
-    'language',
+    'emailVerified',
+    'createdAt',
+    'lastActiveAt',
+    'lastLoginAt',
+    'hasRealEmail',
     'subscription',
-    'hasRealEmail', // Added this field to non-editable list
+    // Removed unwanted metadata fields as requested
   ];
 
   @override
@@ -317,6 +310,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return const SizedBox.shrink();
     }
 
+    // Format specific fields with user-friendly dates
+    String displayValue;
+    if (label.toLowerCase().contains('created at') || 
+        label.toLowerCase().contains('last active') || 
+        label.toLowerCase().contains('last login') ||
+        label.toLowerCase().contains('email verified')) {
+      displayValue = _formatUserFriendlyDate(value);
+    } else if (value is bool) {
+      displayValue = value ? 'Yes' : 'No';
+    } else {
+      displayValue = value.toString();
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -334,7 +340,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           Expanded(
             child: Text(
-              value is bool ? (value ? 'Yes' : 'No') : value.toString(),
+              displayValue,
               style: const TextStyle(
                 color: Colors.white,
               ),
@@ -353,6 +359,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
             word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1))
         .join(' ')
         .trim();
+  }
+
+  String _formatUserFriendlyDate(dynamic value) {
+    if (value == null) return 'N/A';
+    
+    try {
+      DateTime date;
+      if (value is Timestamp) {
+        date = value.toDate();
+      } else if (value is String) {
+        date = DateTime.parse(value);
+      } else if (value is DateTime) {
+        date = value;
+      } else {
+        return value.toString();
+      }
+      
+      final now = DateTime.now();
+      final difference = now.difference(date);
+      
+      if (difference.inDays == 0) {
+        return 'Today at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return value.toString();
+    }
   }
 
 

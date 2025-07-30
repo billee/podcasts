@@ -37,8 +37,8 @@ class _PodcastScreenState extends State<PodcastScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Podcast'),
         backgroundColor: Colors.grey[900],
+        // Removed title as requested, keeping AppBar for back button
       ),
       body: Column(
         children: [

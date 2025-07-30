@@ -55,8 +55,13 @@ class ChatScreenView extends StatelessWidget {
                 onSuggestionSelected(
                     suggestion); // <--- ENSURE THIS CALLS THE PASSED FUNCTION
               },
-              backgroundColor: Colors.blue[700],
-              labelStyle: const TextStyle(color: Colors.white),
+              backgroundColor: Colors.teal[600], // Nice teal color - professional yet friendly
+              labelStyle: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+              elevation: 2,
+              shadowColor: Colors.teal[200],
             ),
           );
         }).toList(),
@@ -67,35 +72,14 @@ class ChatScreenView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      // Removed AppBar completely to maximize chat space
+      body: SafeArea(
+        child: Column(
           children: [
-            const Text('Chat'),
-            if (conversationPairs > 0)
-              Text(
-                'Conversations: $conversationPairs/10',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[400],
-                ),
-              ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.clear_all),
-            onPressed: onClearChat,
-            tooltip: 'Clear Chat',
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: scrollController,
-              padding: const EdgeInsets.all(8.0),
+            Expanded(
+              child: ListView.builder(
+                controller: scrollController,
+                padding: const EdgeInsets.all(8.0),
               itemCount: messages.length,
               itemBuilder: (context, index) {
                 final message = messages[index];
@@ -112,8 +96,9 @@ class ChatScreenView extends StatelessWidget {
               },
             ),
           ),
-          _buildSuggestionChips(),
+          // Typing indicator now appears above suggestions
           isTyping ? const TypingIndicator() : const SizedBox.shrink(),
+          _buildSuggestionChips(),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -132,12 +117,20 @@ class ChatScreenView extends StatelessWidget {
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 20.0, vertical: 10.0),
                     ),
-                    onSubmitted: (value) => onSendMessage(value),
+                    onSubmitted: (value) {
+                      // Dismiss keyboard when user presses enter
+                      FocusScope.of(context).unfocus();
+                      onSendMessage(value);
+                    },
                   ),
                 ),
                 const SizedBox(width: 8.0),
                 FloatingActionButton(
-                  onPressed: () => onSendMessage(messageController.text),
+                  onPressed: () {
+                    // Dismiss keyboard when user taps send button
+                    FocusScope.of(context).unfocus();
+                    onSendMessage(messageController.text);
+                  },
                   backgroundColor: Colors.blue[800],
                   mini: true,
                   child: const Icon(Icons.send, color: Colors.white),
@@ -146,6 +139,7 @@ class ChatScreenView extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }
