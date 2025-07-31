@@ -6,6 +6,11 @@ import 'package:flutter/material.dart'; // Required for defaultTargetPlatform
 class AppConfig {
   static late String _backendBaseUrl;
 
+  // Token limit configurations
+  static const int trialUserDailyTokenLimit = 10000;
+  static const int subscribedUserDailyTokenLimit = 50000;
+  static const bool tokenLimitsEnabled = true;
+
   // Existing openAiKey getter
   static String get openAiKey {
     const fromEnvironment = String.fromEnvironment('OPENAI_API_KEY');
@@ -41,5 +46,28 @@ class AppConfig {
     }
 
     Logger('AppConfig').info('Backend Base URL set to: $_backendBaseUrl');
+    
+    // Validate token limit configuration
+    validateTokenLimits();
+  }
+
+  /// Validates token limit configuration values
+  static void validateTokenLimits() {
+    if (trialUserDailyTokenLimit <= 0) {
+      throw ArgumentError('Trial user daily token limit must be positive, got: $trialUserDailyTokenLimit');
+    }
+    
+    if (subscribedUserDailyTokenLimit <= 0) {
+      throw ArgumentError('Subscribed user daily token limit must be positive, got: $subscribedUserDailyTokenLimit');
+    }
+    
+    if (subscribedUserDailyTokenLimit < trialUserDailyTokenLimit) {
+      Logger('AppConfig').warning(
+        'Subscribed user limit ($subscribedUserDailyTokenLimit) is less than trial user limit ($trialUserDailyTokenLimit). '
+        'Consider making subscribed limits higher than trial limits.'
+      );
+    }
+    
+    Logger('AppConfig').info('Token limits validated successfully - Trial: $trialUserDailyTokenLimit, Subscribed: $subscribedUserDailyTokenLimit, Enabled: $tokenLimitsEnabled');
   }
 }

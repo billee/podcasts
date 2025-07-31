@@ -97,12 +97,15 @@ class ProfileView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          
+          // Show only clean editable fields (exclude unwanted metadata)
           Column(
-            children: editableEntries
+            children: _getCleanEditableFields()
                 .map<Widget>((entry) =>
                     buildEditableField(formatFieldName(entry.key), entry.key))
                 .toList(),
           ),
+          
           const SizedBox(height: 24),
           Text(
             'Account Information',
@@ -113,12 +116,15 @@ class ProfileView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          
+          // Show only essential non-editable fields
           Column(
-            children: _getLogicallyOrderedFields()
+            children: _getNonEditableFieldsForEditMode()
                 .map<Widget>((entry) =>
-                    _buildInfoRowWithDateFormatting(formatFieldName(entry.key), entry.value))
+                    _buildInfoRowWithDateFormatting(formatFieldName(entry.key), entry.value, fieldKey: entry.key))
                 .toList(),
           ),
+          
           const SizedBox(height: 20),
           Row(
             children: [
@@ -186,7 +192,7 @@ class ProfileView extends StatelessWidget {
         Column(
           children: _getLogicallyOrderedFields()
               .map<Widget>((entry) =>
-                  _buildInfoRowWithDateFormatting(formatFieldName(entry.key), entry.value))
+                  _buildInfoRowWithDateFormatting(formatFieldName(entry.key), entry.value, fieldKey: entry.key))
               .toList(),
         ),
 
@@ -420,8 +426,83 @@ Days remaining: ${daysLeft > 0 ? daysLeft : 0} days''';
     );
   }
   
+  List<MapEntry<String, dynamic>> _getCleanEditableFields() {
+    // Fields that should NOT be shown in edit mode
+    final excludedFields = [
+      'metadata', 'isOnline', 'language', 'isActive', 'lastUpdated', 
+      'createdAt', 'preferences', 'profileCompleted', 'loginCount', 
+      'deviceInfo', 'lastActiveAt', 'emailVerified', 'lastLoginAt', 
+      'emailVerifiedAt', 'userType', 'hasRealEmail', 'subscription', 'uid', 'email'
+    ];
+    
+    return editableEntries
+        .where((entry) => !excludedFields.contains(entry.key))
+        .toList();
+  }
+
+  List<MapEntry<String, dynamic>> _getNonEditableFieldsForEditMode() {
+    if (userProfile == null) return [];
+    
+    // Only show essential account fields: uid and email
+    final allowedFields = ['uid', 'email'];
+    
+    return userProfile!.entries
+        .where((entry) => allowedFields.contains(entry.key))
+        .toList();
+  }
+
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+
+  // Enhanced date field detection method
+  bool _isDateField(String label, String? fieldKey, dynamic value) {
+    // First check value type - this is the most reliable
+    if (value is Timestamp || value is DateTime) {
+      return true;
+    }
+    
+    // Check if string looks like a date
+    if (value is String) {
+      try {
+        DateTime.parse(value);
+        return true;
+      } catch (e) {
+        // Not a valid date string, continue with other checks
+      }
+    }
+    
+    // List of known date field keys
+    final dateFieldKeys = [
+      'createdAt', 'created_at', 'created',
+      'emailVerified', 'email_verified', 'emailVerifiedAt',
+      'lastUpdated', 'last_updated', 'updatedAt',
+      'lastActiveAt', 'last_active_at',
+      'lastLoginAt', 'last_login_at', 'lastLogin'
+    ];
+    
+    // Check field key directly
+    if (fieldKey != null && dateFieldKeys.contains(fieldKey)) {
+      return true;
+    }
+    
+    // Check label text patterns (be more specific)
+    final labelLower = label.toLowerCase();
+    
+    // Exact matches first
+    if (labelLower == 'created at' || labelLower == 'email verified' || labelLower == 'last updated') {
+      return true;
+    }
+    
+    // Pattern matches
+    final datePatterns = ['created', 'verified', 'updated'];
+    for (final pattern in datePatterns) {
+      if (labelLower.contains(pattern)) {
+        return true;
+      }
+    }
+    
+    return false;
   }
   
   List<MapEntry<String, dynamic>> _getLogicallyOrderedFields() {
@@ -436,12 +517,12 @@ Days remaining: ${daysLeft > 0 ? daysLeft : 0} days''';
       // Personal Status
       'isMarried', 'hasChildren',
       // Account Information
-      'uid', 'emailVerified', 'createdAt', 'lastActiveAt', 'lastLoginAt', 'lastUpdated'
+      'uid', 'emailVerified'
     ];
     
     // Get all available fields and remove unwanted ones
     final availableFields = userProfile!.entries
-        .where((entry) => !['metadata', 'preferences', 'profileCompleted', 'deviceInfo', 'hasRealEmail', 'subscription'].contains(entry.key))
+        .where((entry) => !['metadata', 'preferences', 'profileCompleted', 'deviceInfo', 'hasRealEmail', 'subscription', 'lastUpdated', 'lastActiveAt', 'lastLoginAt', 'createdAt'].contains(entry.key))
         .toList();
     
     // Create a map for quick lookup
@@ -469,18 +550,16 @@ Days remaining: ${daysLeft > 0 ? daysLeft : 0} days''';
     return orderedFields;
   }
 
-  Widget _buildInfoRowWithDateFormatting(String label, dynamic value) {
+  Widget _buildInfoRowWithDateFormatting(String label, dynamic value, {String? fieldKey}) {
     if (value == null || value.toString().isEmpty) {
       return const SizedBox.shrink();
     }
 
     // Format specific fields with user-friendly dates
     String displayValue;
-    bool isDateField = label.toLowerCase().contains('created at') || 
-        label.toLowerCase().contains('last active') || 
-        label.toLowerCase().contains('last login') ||
-        label.toLowerCase().contains('last updated') ||
-        label.toLowerCase().contains('email verified');
+    
+    // Enhanced date field detection - be more aggressive about detecting date fields
+    bool isDateField = _isDateField(label, fieldKey, value);
         
     if (isDateField) {
       displayValue = _formatUserFriendlyDate(value);

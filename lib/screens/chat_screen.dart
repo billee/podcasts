@@ -45,7 +45,7 @@ class _ChatScreenState extends State<ChatScreen>
   List<String> _allSuggestions = [];
   List<String> _currentSuggestions = [];
 
-  final int _summaryThreshold = 6; // TEMPORARILY SET TO 6 FOR MANUAL TESTING
+  final int _summaryThreshold = 20; // TEMPORARILY SET TO 6 FOR MANUAL TESTING
   int _conversationPairs = 0;
 
   // User profile variables (assuming they are fetched or passed)
@@ -316,7 +316,7 @@ class _ChatScreenState extends State<ChatScreen>
         curve: Curves.easeOut,
       );
 
-      if (_conversationPairs >= 6) { // TEMPORARILY SET TO 6 FOR MANUAL TESTING
+      if (_conversationPairs >= 10) { // TEMPORARILY SET TO 6 FOR MANUAL TESTING
         _logger.info(
             'Conversation pair threshold reached ($_conversationPairs >= 6). Triggering summarization in background.');
         _generateSummary().catchError((error) {

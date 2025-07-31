@@ -92,10 +92,10 @@ class _FeedbackWidgetState extends State<FeedbackWidget>
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: _getBackgroundColor().withOpacity(0.15),
+                color: _getBackgroundColor().withOpacity(0.9), // Changed from 0.15 to 0.9 for solid background
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: _getBackgroundColor().withOpacity(0.5),
+                  color: _getBackgroundColor(),
                   width: 2,
                 ),
               ),
@@ -104,7 +104,7 @@ class _FeedbackWidgetState extends State<FeedbackWidget>
                   if (widget.showIcon) ...[
                     Icon(
                       _getIcon(),
-                      color: _getBackgroundColor(),
+                      color: Colors.white,
                       size: 24,
                     ),
                     const SizedBox(width: 12),
@@ -117,8 +117,8 @@ class _FeedbackWidgetState extends State<FeedbackWidget>
                         if (widget.title != null) ...[
                           Text(
                             widget.title!,
-                            style: TextStyle(
-                              color: _getBackgroundColor(),
+                            style: const TextStyle(
+                              color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
@@ -127,8 +127,8 @@ class _FeedbackWidgetState extends State<FeedbackWidget>
                         ],
                         Text(
                           widget.message,
-                          style: TextStyle(
-                            color: _getBackgroundColor().withOpacity(0.9),
+                          style: const TextStyle(
+                            color: Colors.white,
                             fontSize: 14,
                           ),
                         ),
@@ -139,9 +139,9 @@ class _FeedbackWidgetState extends State<FeedbackWidget>
                     const SizedBox(width: 8),
                     IconButton(
                       onPressed: _dismiss,
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.close,
-                        color: _getBackgroundColor(),
+                        color: Colors.white,
                         size: 20,
                       ),
                       padding: EdgeInsets.zero,
