@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kapwa_companion_basic/widgets/subscription_status_widget.dart';
 import 'package:kapwa_companion_basic/widgets/loading_state_widget.dart';
 import 'package:kapwa_companion_basic/screens/subscription/subscription_management_screen.dart';
+import 'package:kapwa_companion_basic/services/subscription_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:kapwa_companion_basic/widgets/profile_subscription_section.dart';
 
 class ProfileView extends StatelessWidget {
   final bool isLoading;
@@ -198,7 +201,7 @@ class ProfileView extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        _buildSubscriptionSection(context),
+        const ProfileSubscriptionSection(),
 
 
 
@@ -341,90 +344,7 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  Widget _buildSubscriptionSection(BuildContext context) {
-    final subscription = userProfile?['subscription'] as Map<String, dynamic>?;
-    final isTrialActive = subscription?['isTrialActive'] ?? false;
-    
-    // Calculate trial information
-    String trialInfo = 'No trial information available';
-    if (subscription != null && isTrialActive) {
-      final trialStartDate = subscription['trialStartDate'];
-      final trialEndDate = subscription['trialEndDate'];
-      
-      if (trialStartDate != null && trialEndDate != null) {
-        final startDate = (trialStartDate as Timestamp).toDate();
-        final endDate = (trialEndDate as Timestamp).toDate();
-        final now = DateTime.now();
-        final daysLeft = endDate.difference(now).inDays;
-        
-        trialInfo = '''Trial started: ${_formatDate(startDate)}
-Trial ends: ${_formatDate(endDate)}
-Days remaining: ${daysLeft > 0 ? daysLeft : 0} days''';
-      }
-    }
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-        Text(
-          'Trial Status',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue[800],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey[800],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            trialInfo,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              height: 1.5,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () {
-              // Subscribe logic
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SubscriptionManagementScreen(),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green[600],
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              'Subscribe',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+
   
   List<MapEntry<String, dynamic>> _getCleanEditableFields() {
     // Fields that should NOT be shown in edit mode

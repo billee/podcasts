@@ -13,6 +13,7 @@ import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:kapwa_companion_basic/widgets/email_verification_banner.dart';
+import 'package:kapwa_companion_basic/widgets/subscription_status_indicator.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -160,6 +161,8 @@ class _MainScreenState extends State<MainScreen> {
         title: const Text('Kapwa Companion'),
         backgroundColor: Colors.grey[900],
         actions: [
+          const SubscriptionStatusIndicator(),
+          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
