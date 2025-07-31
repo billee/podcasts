@@ -8,7 +8,9 @@ import 'package:kapwa_companion_basic/services/suggestion_service.dart';
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/services/audio_service.dart'; // Keep import
 import 'package:kapwa_companion_basic/services/system_prompt_service.dart';
+import 'package:kapwa_companion_basic/services/token_limit_service.dart';
 import 'package:kapwa_companion_basic/core/config.dart';
+import 'package:kapwa_companion_basic/core/token_counter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kapwa_companion_basic/screens/views/chat_screen_view.dart';
 
@@ -274,6 +276,20 @@ class _ChatScreenState extends State<ChatScreen>
   Future<void> _sendMessage(String message) async {
     if (message.trim().isEmpty) return;
 
+    // Pre-chat validation: Check if user can send messages
+    if (widget.userId != null) {
+      final canChat = await TokenLimitService.canUserChat(widget.userId!);
+      if (!canChat) {
+        _logger.info('User ${widget.userId} has reached daily token limit');
+        _showTokenLimitReachedDialog();
+        return;
+      }
+    }
+
+    // Count tokens in the user's input message
+    final inputTokens = TokenCounter.countTokens(message);
+    _logger.info('User message token count: $inputTokens');
+
     setState(() {
       _messages.add(
           {"role": "user", "content": message, "senderName": widget.username});
@@ -307,6 +323,12 @@ class _ChatScreenState extends State<ChatScreen>
         _conversationPairs++;
       });
 
+      // Record token usage for the input message only
+      if (widget.userId != null) {
+        await TokenLimitService.recordTokenUsage(widget.userId!, inputTokens);
+        _logger.info('Recorded $inputTokens tokens for user ${widget.userId}');
+      }
+
       _logger.info(
           'Assistant message added to UI and local buffer. Current local messages count: ${_messages.length}, Conversation pairs: $_conversationPairs');
 
@@ -333,6 +355,12 @@ class _ChatScreenState extends State<ChatScreen>
         };
         _isTyping = false;
       });
+      
+      // Still record token usage even if LLM call fails, since user input was processed
+      if (widget.userId != null) {
+        await TokenLimitService.recordTokenUsage(widget.userId!, inputTokens);
+        _logger.info('Recorded $inputTokens tokens for user ${widget.userId} (despite LLM error)');
+      }
     }
     _refreshSuggestions();
   }
@@ -417,6 +445,73 @@ class _ChatScreenState extends State<ChatScreen>
         _logger.info('Chat summary cleared from Firestore.');
       } catch (e) {
         _logger.severe('Error clearing chat summary from Firestore: $e');
+      }
+    }
+  }
+
+  /// Show dialog when user reaches daily token limit
+  void _showTokenLimitReachedDialog() async {
+    if (widget.userId == null) return;
+    
+    try {
+      final usageInfo = await TokenLimitService.getUserUsageInfo(widget.userId!);
+      final resetTime = usageInfo.resetTime;
+      final now = DateTime.now();
+      final timeUntilReset = resetTime.difference(now);
+      
+      String resetMessage;
+      if (timeUntilReset.inHours > 0) {
+        resetMessage = 'Your tokens will reset in ${timeUntilReset.inHours} hours and ${timeUntilReset.inMinutes % 60} minutes.';
+      } else {
+        resetMessage = 'Your tokens will reset in ${timeUntilReset.inMinutes} minutes.';
+      }
+      
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Daily Token Limit Reached'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('You have used all ${usageInfo.tokenLimit} tokens for today.'),
+                  const SizedBox(height: 8),
+                  Text(resetMessage),
+                  const SizedBox(height: 8),
+                  const Text('Come back tomorrow to continue chatting!'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    } catch (e) {
+      _logger.severe('Error showing token limit dialog: $e');
+      // Show generic dialog on error
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Daily Token Limit Reached'),
+              content: const Text('You have reached your daily chat limit. Please try again tomorrow.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
       }
     }
   }

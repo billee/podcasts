@@ -10,6 +10,7 @@ import 'package:kapwa_companion_basic/core/config.dart';
 import 'package:kapwa_companion_basic/services/audio_service.dart';
 import 'package:kapwa_companion_basic/services/payment_service.dart';
 import 'package:kapwa_companion_basic/services/payment_config_service.dart';
+import 'package:kapwa_companion_basic/services/daily_reset_service.dart';
 
 void _setupLogging() {
   Logger.root.level = Level.ALL;
@@ -77,6 +78,15 @@ void main() async {
       logger.info('PaymentService initialized successfully.');
     } catch (e, s) {
       logger.warning('PaymentService initialization failed: $e', e, s);
+    }
+
+    // Initialize DailyResetService for token limit management
+    logger.info('Starting DailyResetService...');
+    try {
+      DailyResetService.startService();
+      logger.info('DailyResetService started successfully.');
+    } catch (e, s) {
+      logger.warning('DailyResetService initialization failed: $e', e, s);
     }
 
     runApp(const MyApp());

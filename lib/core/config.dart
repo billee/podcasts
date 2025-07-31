@@ -10,6 +10,11 @@ class AppConfig {
   static const int trialUserDailyTokenLimit = 10000;
   static const int subscribedUserDailyTokenLimit = 50000;
   static const bool tokenLimitsEnabled = true;
+  
+  // Daily reset configuration
+  static const String resetTimezone = 'UTC'; // Timezone for daily resets
+  static const int resetHour = 0; // Hour of day for reset (0-23)
+  static const int resetMinute = 0; // Minute of hour for reset (0-59)
 
   // Existing openAiKey getter
   static String get openAiKey {
