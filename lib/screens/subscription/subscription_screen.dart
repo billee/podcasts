@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
 import 'package:kapwa_companion_basic/screens/main_screen.dart';
+import 'package:kapwa_companion_basic/screens/terms_conditions_screen.dart';
 import 'package:logging/logging.dart';
 
 class SubscriptionScreen extends StatefulWidget {
@@ -153,7 +154,17 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _handleSubscribe,
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const TermsConditionsScreen(),
+                            ),
+                          );
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue[800],
                     foregroundColor: Colors.white,
