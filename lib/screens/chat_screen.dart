@@ -13,6 +13,7 @@ import 'package:kapwa_companion_basic/core/config.dart';
 import 'package:kapwa_companion_basic/core/token_counter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kapwa_companion_basic/screens/views/chat_screen_view.dart';
+import 'package:kapwa_companion_basic/widgets/chat_limit_dialog.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? userId;
@@ -455,41 +456,14 @@ class _ChatScreenState extends State<ChatScreen>
     
     try {
       final usageInfo = await TokenLimitService.getUserUsageInfo(widget.userId!);
-      final resetTime = usageInfo.resetTime;
-      final now = DateTime.now();
-      final timeUntilReset = resetTime.difference(now);
-      
-      String resetMessage;
-      if (timeUntilReset.inHours > 0) {
-        resetMessage = 'Your tokens will reset in ${timeUntilReset.inHours} hours and ${timeUntilReset.inMinutes % 60} minutes.';
-      } else {
-        resetMessage = 'Your tokens will reset in ${timeUntilReset.inMinutes} minutes.';
-      }
       
       if (mounted) {
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('Daily Token Limit Reached'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('You have used all ${usageInfo.tokenLimit} tokens for today.'),
-                  const SizedBox(height: 8),
-                  Text(resetMessage),
-                  const SizedBox(height: 8),
-                  const Text('Come back tomorrow to continue chatting!'),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('OK'),
-                ),
-              ],
-            );
+        await ChatLimitDialog.show(
+          context,
+          usageInfo,
+          onUpgradePressed: () {
+            // TODO: Navigate to subscription/upgrade screen
+            _logger.info('User requested upgrade from token limit dialog');
           },
         );
       }
@@ -531,6 +505,7 @@ class _ChatScreenState extends State<ChatScreen>
       conversationPairs: _conversationPairs,
       assistantName: _assistantName,
       username: widget.username,
+      userId: widget.userId,
       onSuggestionSelected: (suggestion) {
         _messageController.text = suggestion;
         _sendMessage(suggestion);

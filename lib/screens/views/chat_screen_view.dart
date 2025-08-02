@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:kapwa_companion_basic/widgets/typing_indicator.dart';
+import 'package:kapwa_companion_basic/widgets/token_usage_widget.dart';
 
 // This is a stateless widget that takes the necessary data and callbacks
 // from the _ChatScreenState to build the UI.
@@ -18,6 +19,7 @@ class ChatScreenView extends StatelessWidget {
   final String assistantName;
   final String? username; // Pass username to ChatBubble if needed
   final Function(String) onSuggestionSelected; // <--- ADD THIS LINE
+  final String? userId; // Add userId for token usage widget
 
   const ChatScreenView({
     super.key,
@@ -33,6 +35,7 @@ class ChatScreenView extends StatelessWidget {
     required this.assistantName,
     this.username,
     required this.onSuggestionSelected, // <--- ADD THIS LINE to the constructor
+    this.userId, // Add userId parameter
   });
 
   Widget _buildSuggestionChips() {
@@ -101,40 +104,46 @@ class ChatScreenView extends StatelessWidget {
           _buildSuggestionChips(),
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: messageController,
-                    decoration: InputDecoration(
-                      hintText: 'Type your message...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20.0),
-                        borderSide: BorderSide.none,
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: messageController,
+                        decoration: InputDecoration(
+                          hintText: 'Type your message...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20.0),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey[800],
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20.0, vertical: 10.0),
+                        ),
+                        onSubmitted: (value) {
+                          // Dismiss keyboard when user presses enter
+                          FocusScope.of(context).unfocus();
+                          onSendMessage(value);
+                        },
                       ),
-                      filled: true,
-                      fillColor: Colors.grey[800],
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20.0, vertical: 10.0),
                     ),
-                    onSubmitted: (value) {
-                      // Dismiss keyboard when user presses enter
-                      FocusScope.of(context).unfocus();
-                      onSendMessage(value);
-                    },
-                  ),
+                    const SizedBox(width: 8.0),
+                    FloatingActionButton(
+                      onPressed: () {
+                        // Dismiss keyboard when user taps send button
+                        FocusScope.of(context).unfocus();
+                        onSendMessage(messageController.text);
+                      },
+                      backgroundColor: Colors.blue[800],
+                      mini: true,
+                      child: const Icon(Icons.send, color: Colors.white),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8.0),
-                FloatingActionButton(
-                  onPressed: () {
-                    // Dismiss keyboard when user taps send button
-                    FocusScope.of(context).unfocus();
-                    onSendMessage(messageController.text);
-                  },
-                  backgroundColor: Colors.blue[800],
-                  mini: true,
-                  child: const Icon(Icons.send, color: Colors.white),
-                ),
+                // Token usage widget underneath the chatbox
+                TokenUsageWidget(userId: userId),
               ],
             ),
           ),
