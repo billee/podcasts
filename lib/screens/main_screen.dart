@@ -7,9 +7,11 @@ import 'package:kapwa_companion_basic/screens/profile_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
 import 'package:kapwa_companion_basic/screens/podcast_screen.dart';
 import 'package:kapwa_companion_basic/screens/story_screen.dart';
+import 'package:kapwa_companion_basic/screens/subscription/subscription_screen.dart';
 import 'dart:async';
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
+import 'package:kapwa_companion_basic/services/subscription_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:kapwa_companion_basic/widgets/email_verification_banner.dart';
@@ -30,6 +32,7 @@ class _MainScreenState extends State<MainScreen> {
   StreamSubscription<User?>? _authStateSubscription;
   String? _currentUserId;
   String? _currentUsername;
+  SubscriptionStatus? _subscriptionStatus;
 
   List<Widget> _screens = [];
 
@@ -78,6 +81,22 @@ class _MainScreenState extends State<MainScreen> {
       _currentUserId = user.uid;
       _logger.info('User logged in. Fetching profile for UID: $_currentUserId');
       try {
+        // Check subscription status first
+        _subscriptionStatus =
+            await SubscriptionService.getSubscriptionStatus(_currentUserId!);
+
+        if (_subscriptionStatus == SubscriptionStatus.trialExpired ||
+            _subscriptionStatus == SubscriptionStatus.expired) {
+          _logger.info(
+              'Subscription expired. Redirecting to subscription screen.');
+          if (mounted) {
+            setState(() {
+              _screens = [const SubscriptionScreen()];
+            });
+          }
+          return;
+        }
+
         final result = await compute(_fetchUserProfileIsolate, _currentUserId!)
             .timeout(const Duration(seconds: 10));
         final username = result['name'] as String?;
