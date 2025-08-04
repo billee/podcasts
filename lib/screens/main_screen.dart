@@ -12,6 +12,7 @@ import 'dart:async';
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
+import 'package:kapwa_companion_basic/services/payment_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:kapwa_companion_basic/widgets/email_verification_banner.dart';
@@ -36,11 +37,22 @@ class _MainScreenState extends State<MainScreen> {
 
   List<Widget> _screens = [];
 
+  Future<void> _initializeServices() async {
+    try {
+      _logger.info('Initializing services...');
+      await PaymentService.initialize();
+      _logger.info('Payment service initialized successfully');
+      await _initializeUserAndScreens();
+    } catch (e) {
+      _logger.severe('Error initializing services: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _logger.info('MainScreen initState called.');
-    _initializeUserAndScreens();
+    _initializeServices();
     _authStateSubscription =
         FirebaseAuth.instance.authStateChanges().listen((user) {
       _logger.info('Auth state changed in MainScreen. User: ${user?.uid}');
@@ -59,14 +71,19 @@ class _MainScreenState extends State<MainScreen> {
     if (cachedUsername != null) {
       return {'name': cachedUsername, 'fromCache': true};
     }
+
     final userProfile = await AuthService.getUserProfile(userId);
-    final username = userProfile?['name'];
+    if (userProfile == null) {
+      return {'name': null, 'fromCache': false, 'profile': null};
+    }
+
+    final username = userProfile['name'] as String?;
     if (username != null) {
       await prefs.setString('cached_username_$userId', username);
-      if (userProfile?['preferences'] != null) {
+      if (userProfile['preferences'] != null) {
         await prefs.setString(
           'cached_preferences_$userId',
-          userProfile!['preferences'].toString(),
+          userProfile['preferences'].toString(),
         );
       }
     }

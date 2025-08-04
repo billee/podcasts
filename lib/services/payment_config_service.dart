@@ -4,8 +4,22 @@ import 'package:logging/logging.dart';
 
 class PaymentConfigService {
   static final Logger _logger = Logger('PaymentConfigService');
-  
+
   // Stripe configuration
+  // Backend server URL
+  static String get backendServerUrl {
+    if (kDebugMode) {
+      // For local development, try environment variable first
+      if (dotenv.env['BACKEND_SERVER_URL']?.isNotEmpty == true) {
+        return dotenv.env['BACKEND_SERVER_URL']!;
+      }
+      // If no environment variable, use production URL
+      return 'https://kapwa-companion-server.onrender.com';
+    } else {
+      return 'https://kapwa-companion-server.onrender.com';
+    }
+  }
+
   static String get stripePublishableKey {
     if (kDebugMode) {
       return dotenv.env['STRIPE_PUBLISHABLE_KEY_TEST'] ?? 'pk_test_default_key';
@@ -46,20 +60,12 @@ class PaymentConfigService {
 
   // Apple Pay configuration
   static String get applePayMerchantId {
-    return dotenv.env['APPLE_PAY_MERCHANT_ID'] ?? 'merchant.com.yourcompany.ofwcompanion';
+    return dotenv.env['APPLE_PAY_MERCHANT_ID'] ??
+        'merchant.com.yourcompany.ofwcompanion';
   }
 
   // Payment environment
   static bool get isTestEnvironment => kDebugMode;
-
-  // Backend server configuration
-  static String get backendServerUrl {
-    if (kDebugMode) {
-      return dotenv.env['BACKEND_SERVER_URL_TEST'] ?? 'http://localhost:3000';
-    } else {
-      return dotenv.env['BACKEND_SERVER_URL_LIVE'] ?? 'https://your-backend-server.com';
-    }
-  }
 
   // Webhook configuration
   static String get stripeWebhookSecret {
@@ -82,16 +88,21 @@ class PaymentConfigService {
       ];
 
       final isValid = checks.every((check) => check);
-      
+
       if (isValid) {
         _logger.info('Payment configuration validation passed');
       } else {
         _logger.warning('Payment configuration validation failed');
-        _logger.warning('Stripe key present: ${stripePublishableKey.isNotEmpty}');
-        _logger.warning('PayPal client ID present: ${paypalClientId.isNotEmpty}');
-        _logger.warning('Google Pay merchant ID present: ${googlePayMerchantId.isNotEmpty}');
-        _logger.warning('Apple Pay merchant ID present: ${applePayMerchantId.isNotEmpty}');
-        _logger.warning('Backend server URL present: ${backendServerUrl.isNotEmpty}');
+        _logger
+            .warning('Stripe key present: ${stripePublishableKey.isNotEmpty}');
+        _logger
+            .warning('PayPal client ID present: ${paypalClientId.isNotEmpty}');
+        _logger.warning(
+            'Google Pay merchant ID present: ${googlePayMerchantId.isNotEmpty}');
+        _logger.warning(
+            'Apple Pay merchant ID present: ${applePayMerchantId.isNotEmpty}');
+        _logger.warning(
+            'Backend server URL present: ${backendServerUrl.isNotEmpty}');
       }
 
       return isValid;
@@ -117,7 +128,7 @@ class PaymentConfigService {
   static Future<void> initialize() async {
     try {
       _logger.info('Initializing payment configuration...');
-      
+
       final isValid = validateConfiguration();
       if (!isValid) {
         _logger.warning('Payment configuration is incomplete');
@@ -125,7 +136,7 @@ class PaymentConfigService {
 
       final configInfo = getConfigurationInfo();
       _logger.info('Payment configuration: $configInfo');
-      
+
       _logger.info('Payment configuration initialized');
     } catch (e) {
       _logger.severe('Error initializing payment configuration: $e');

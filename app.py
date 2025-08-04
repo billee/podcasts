@@ -17,6 +17,21 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
+# Initialize Stripe with your test keys
+import stripe
+
+# Get Stripe API key from environment
+stripe.api_key = os.getenv('STRIPE_SECRET_KEY_TEST')
+if not stripe.api_key:
+    app.logger.error("❌ STRIPE_SECRET_KEY_TEST environment variable is not set!")
+    raise ValueError("Stripe secret key not configured")
+
+# Get webhook secret from environment
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
+if not STRIPE_WEBHOOK_SECRET:
+    app.logger.error("❌ STRIPE_WEBHOOK_SECRET environment variable is not set!")
+    raise ValueError("Stripe webhook secret not configured")
+
 # Configure logging AFTER app creation
 for handler in app.logger.handlers:
     app.logger.removeHandler(handler)
@@ -47,6 +62,96 @@ if not OPENAI_API_KEY:
 
 # Initialize OpenAI client
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# ============================================================================
+# ADMIN DASHBOARD ROUTES
+# ============================================================================
+
+# ============================================================================
+# PAYMENT ROUTES
+# ============================================================================
+
+@app.route('/create-payment-intent', methods=['POST'])
+def create_payment_intent():
+    """Create a payment intent for Stripe"""
+    try:
+        data = request.get_json()
+        app.logger.info(f"Received payment intent request: {data}")
+        
+        # Convert amount to cents if needed
+        amount = data.get('amount', 0)
+        if isinstance(amount, float):
+            amount = int(amount * 100)
+        elif isinstance(amount, int):
+            amount = amount * 100
+            
+        app.logger.info(f"Processing payment for amount: {amount} cents")
+        
+        # Create a PaymentIntent with the order amount and currency
+        payment_intent = stripe.PaymentIntent.create(
+            amount=amount,
+            currency=data.get('currency', 'usd').lower(),
+            metadata=data.get('metadata', {}),
+            automatic_payment_methods={
+                'enabled': True,
+            },
+        )
+
+        app.logger.info(f"Created payment intent: {payment_intent.id}")
+        return jsonify({
+            'client_secret': payment_intent.client_secret,
+            'payment_intent_id': payment_intent.id,
+            'amount': amount
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error creating payment intent: {str(e)}")
+        return jsonify({'error': str(e)}), 403
+
+@app.route('/stripe-webhook', methods=['POST'])
+def stripe_webhook():
+    """Handle webhook events from Stripe"""
+    event = None
+    payload = request.data
+    sig_header = request.headers.get('stripe-signature')
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError as e:
+        # Invalid payload
+        app.logger.error(f"Invalid webhook payload: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+    except stripe.error.SignatureVerificationError as e:
+        # Invalid signature
+        app.logger.error(f"Invalid webhook signature: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
+    # Handle the event
+    if event.type == 'payment_intent.succeeded':
+        payment_intent = event.data.object
+        # Update subscription status in Firestore
+        try:
+            metadata = payment_intent.metadata
+            user_id = metadata.get('userId')
+            if user_id:
+                # Update subscription in Firestore
+                db.collection('subscriptions').document(user_id).set({
+                    'status': 'active',
+                    'paymentId': payment_intent.id,
+                    'updatedAt': firestore.SERVER_TIMESTAMP,
+                    'expiresAt': datetime.now() + timedelta(days=30),
+                })
+                app.logger.info(f"Updated subscription for user {user_id}")
+        except Exception as e:
+            app.logger.error(f"Error updating subscription: {str(e)}")
+    
+    elif event.type == 'payment_intent.payment_failed':
+        payment_intent = event.data.object
+        app.logger.error(f"Payment failed for intent: {payment_intent.id}")
+
+    return jsonify({'status': 'success'})
 
 # ============================================================================
 # ADMIN DASHBOARD ROUTES

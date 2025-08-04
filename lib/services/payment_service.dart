@@ -10,12 +10,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'payment_config_service.dart';
 
-enum PaymentMethod {
-  creditCard,
-  paypal,
-  googlePay,
-  applePay
+/// Custom exception for payment-related errors
+class PaymentException implements Exception {
+  final String message;
+  PaymentException(this.message);
+  @override
+  String toString() => message;
 }
+
+enum PaymentMethod { creditCard, paypal, googlePay, applePay }
 
 enum PaymentStatus {
   pending,
@@ -64,17 +67,17 @@ class PaymentService {
     try {
       // Initialize payment configuration
       await PaymentConfigService.initialize();
-      
+
       // Initialize Stripe
       Stripe.publishableKey = PaymentConfigService.stripePublishableKey;
       await Stripe.instance.applySettings();
-      
+
       // Validate PCI compliance
       final isCompliant = validatePCICompliance();
       if (!isCompliant) {
         _logger.warning('PCI compliance validation failed');
       }
-      
+
       _logger.info('Payment service initialized successfully');
     } catch (e) {
       _logger.severe('Error initializing payment service: $e');
@@ -93,7 +96,8 @@ class PaymentService {
       // In a real implementation, this would call your backend server
       // For now, we'll simulate the payment intent creation
       final response = await http.post(
-        Uri.parse('${PaymentConfigService.backendServerUrl}/create-payment-intent'),
+        Uri.parse(
+            '${PaymentConfigService.backendServerUrl}/create-payment-intent'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${await _getAuthToken()}',
@@ -106,30 +110,67 @@ class PaymentService {
         }),
       );
 
+      _logger
+          .info('Payment intent request sent. Status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['client_secret'] as String?;
+        try {
+          final data = jsonDecode(response.body);
+          if (data['client_secret'] == null) {
+            _logger.severe(
+                'Payment intent creation failed: missing client_secret in response');
+            throw PaymentException(
+                'Failed to create payment intent: Invalid server response');
+          }
+          _logger.info('Successfully created payment intent');
+          return data['client_secret'] as String;
+        } catch (e) {
+          _logger
+              .severe('Failed to parse successful response: ${response.body}');
+          throw PaymentException('Failed to parse payment intent response');
+        }
+      } else if (response.statusCode == 404) {
+        _logger.severe('Payment endpoint not found: ${response.body}');
+        throw PaymentException(
+            'Payment service endpoint not found. Please check server configuration.');
       } else {
-        _logger.severe('Failed to create payment intent: ${response.body}');
-        return null;
+        String errorMessage;
+        try {
+          final errorBody = jsonDecode(response.body);
+          errorMessage = errorBody['error'] ?? 'Unknown error';
+        } catch (e) {
+          // If we can't parse JSON, use the raw response
+          errorMessage = response.body;
+        }
+        _logger.severe('Failed to create payment intent: $errorMessage');
+        throw PaymentException(
+            'Failed to create payment intent: $errorMessage');
       }
-    } catch (e) {
-      _logger.severe('Error creating payment intent: $e');
-      return null;
+    } catch (e, stackTrace) {
+      _logger.severe('Error creating payment intent', e, stackTrace);
+      throw PaymentException(
+          'Failed to create payment intent: ${e.toString()}');
     }
   }
 
   /// Get authentication token for backend calls
-  static Future<String?> _getAuthToken() async {
+  static Future<String> _getAuthToken() async {
     try {
       final user = _auth.currentUser;
-      if (user != null) {
-        return await user.getIdToken();
+      if (user == null) {
+        throw PaymentException('User must be logged in to make payments');
       }
-      return null;
-    } catch (e) {
-      _logger.severe('Error getting auth token: $e');
-      return null;
+
+      final token = await user.getIdToken();
+      if (token == null) {
+        throw PaymentException('Failed to get authentication token');
+      }
+
+      return token;
+    } catch (e, stackTrace) {
+      _logger.severe('Error getting auth token', e, stackTrace);
+      if (e is PaymentException) rethrow;
+      throw PaymentException('Failed to get auth token: ${e.toString()}');
     }
   }
 
@@ -140,7 +181,8 @@ class PaymentService {
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      _logger.info('Processing credit card payment for user: $userId, amount: \$${amount.toStringAsFixed(2)}');
+      _logger.info(
+          'Processing credit card payment for user: $userId, amount: \$${amount.toStringAsFixed(2)}');
 
       // Create payment intent
       final clientSecret = await _createPaymentIntent(
@@ -151,11 +193,16 @@ class PaymentService {
       );
 
       if (clientSecret == null) {
+        const errorMsg = 'Failed to create payment intent';
+        _logger.severe(errorMsg);
         return PaymentResult(
           status: PaymentStatus.failed,
-          error: 'Failed to create payment intent',
+          error: errorMsg,
         );
       }
+
+      _logger.info(
+          'Payment intent created successfully, initializing payment sheet');
 
       // Present payment sheet
       await Stripe.instance.initPaymentSheet(
@@ -172,7 +219,7 @@ class PaymentService {
 
       // If we reach here, payment was successful
       final transactionId = _generateTransactionId();
-      
+
       // Record the payment
       await _recordPaymentTransaction(
         userId: userId,
@@ -184,28 +231,37 @@ class PaymentService {
       );
 
       _logger.info('Credit card payment successful for user: $userId');
-      
+
       return PaymentResult(
         status: PaymentStatus.succeeded,
         transactionId: transactionId,
         metadata: {'paymentMethod': 'credit_card'},
       );
-
     } on StripeException catch (e) {
       _logger.warning('Stripe payment failed: ${e.error.localizedMessage}');
-      
+
       return PaymentResult(
-        status: e.error.code == FailureCode.Canceled 
-            ? PaymentStatus.cancelled 
+        status: e.error.code == FailureCode.Canceled
+            ? PaymentStatus.cancelled
             : PaymentStatus.failed,
         error: e.error.localizedMessage,
       );
-    } catch (e) {
-      _logger.severe('Error processing credit card payment: $e');
-      
+    } on PaymentException catch (e, stackTrace) {
+      _logger.severe('Payment creation failed', e, stackTrace);
       return PaymentResult(
         status: PaymentStatus.failed,
-        error: 'Payment processing failed: $e',
+        error: e.toString(),
+      );
+    } catch (e, stackTrace) {
+      _logger.severe('Error processing credit card payment', e, stackTrace);
+
+      String errorMessage = e is StripeException
+          ? e.error.localizedMessage ?? 'Stripe payment error'
+          : 'Payment processing failed: ${e.toString()}';
+
+      return PaymentResult(
+        status: PaymentStatus.failed,
+        error: errorMessage,
       );
     }
   }
@@ -217,7 +273,8 @@ class PaymentService {
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      _logger.info('Processing PayPal payment for user: $userId, amount: \$${amount.toStringAsFixed(2)}');
+      _logger.info(
+          'Processing PayPal payment for user: $userId, amount: \$${amount.toStringAsFixed(2)}');
 
       // Create PayPal payment order
       final paypalOrderId = await _createPayPalOrder(
@@ -240,7 +297,7 @@ class PaymentService {
 
       if (paymentApproved) {
         final transactionId = _generateTransactionId();
-        
+
         // Record the payment
         await _recordPaymentTransaction(
           userId: userId,
@@ -255,11 +312,14 @@ class PaymentService {
         );
 
         _logger.info('PayPal payment successful for user: $userId');
-        
+
         return PaymentResult(
           status: PaymentStatus.succeeded,
           transactionId: transactionId,
-          metadata: {'paymentMethod': 'paypal', 'paypal_order_id': paypalOrderId},
+          metadata: {
+            'paymentMethod': 'paypal',
+            'paypal_order_id': paypalOrderId
+          },
         );
       } else {
         return PaymentResult(
@@ -267,10 +327,9 @@ class PaymentService {
           error: 'PayPal payment was cancelled or failed',
         );
       }
-
     } catch (e) {
       _logger.severe('Error processing PayPal payment: $e');
-      
+
       return PaymentResult(
         status: PaymentStatus.failed,
         error: 'PayPal payment processing failed: $e',
@@ -292,14 +351,16 @@ class PaymentService {
         );
       }
 
-      _logger.info('Processing Google Pay payment for user: $userId, amount: \$${amount.toStringAsFixed(2)}');
+      _logger.info(
+          'Processing Google Pay payment for user: $userId, amount: \$${amount.toStringAsFixed(2)}');
 
       // For now, simulate Google Pay payment processing
       // In a real implementation, you would integrate with the Google Pay API
-      await Future.delayed(const Duration(seconds: 2)); // Simulate processing time
+      await Future.delayed(
+          const Duration(seconds: 2)); // Simulate processing time
 
       final transactionId = _generateTransactionId();
-      
+
       // Record the payment
       await _recordPaymentTransaction(
         userId: userId,
@@ -314,16 +375,15 @@ class PaymentService {
       );
 
       _logger.info('Google Pay payment successful for user: $userId');
-      
+
       return PaymentResult(
         status: PaymentStatus.succeeded,
         transactionId: transactionId,
         metadata: {'paymentMethod': 'google_pay'},
       );
-
     } catch (e) {
       _logger.severe('Error processing Google Pay payment: $e');
-      
+
       return PaymentResult(
         status: PaymentStatus.failed,
         error: 'Google Pay payment processing failed: $e',
@@ -345,14 +405,16 @@ class PaymentService {
         );
       }
 
-      _logger.info('Processing Apple Pay payment for user: $userId, amount: \$${amount.toStringAsFixed(2)}');
+      _logger.info(
+          'Processing Apple Pay payment for user: $userId, amount: \$${amount.toStringAsFixed(2)}');
 
       // For now, simulate Apple Pay payment processing
       // In a real implementation, you would integrate with the Apple Pay API
-      await Future.delayed(const Duration(seconds: 2)); // Simulate processing time
+      await Future.delayed(
+          const Duration(seconds: 2)); // Simulate processing time
 
       final transactionId = _generateTransactionId();
-      
+
       // Record the payment
       await _recordPaymentTransaction(
         userId: userId,
@@ -367,16 +429,15 @@ class PaymentService {
       );
 
       _logger.info('Apple Pay payment successful for user: $userId');
-      
+
       return PaymentResult(
         status: PaymentStatus.succeeded,
         transactionId: transactionId,
         metadata: {'paymentMethod': 'apple_pay'},
       );
-
     } catch (e) {
       _logger.severe('Error processing Apple Pay payment: $e');
-      
+
       return PaymentResult(
         status: PaymentStatus.failed,
         error: 'Apple Pay payment processing failed: $e',
@@ -390,14 +451,14 @@ class PaymentService {
       switch (method) {
         case PaymentMethod.creditCard:
           return true; // Always available through Stripe
-        
+
         case PaymentMethod.paypal:
           return true; // Available through web integration
-        
+
         case PaymentMethod.googlePay:
           // For now, assume Google Pay is available on Android devices
           return Platform.isAndroid;
-        
+
         case PaymentMethod.applePay:
           // For now, assume Apple Pay is available on iOS devices
           return Platform.isIOS;
@@ -442,21 +503,21 @@ class PaymentService {
             amount: amount,
             metadata: subscriptionMetadata,
           );
-        
+
         case PaymentMethod.paypal:
           return await processPayPalPayment(
             userId: userId,
             amount: amount,
             metadata: subscriptionMetadata,
           );
-        
+
         case PaymentMethod.googlePay:
           return await processGooglePayPayment(
             userId: userId,
             amount: amount,
             metadata: subscriptionMetadata,
           );
-        
+
         case PaymentMethod.applePay:
           return await processApplePayPayment(
             userId: userId,
@@ -481,7 +542,8 @@ class PaymentService {
     int retryCount = 0,
   }) async {
     try {
-      _logger.info('Handling failed payment for user: $userId, retry: $retryCount');
+      _logger.info(
+          'Handling failed payment for user: $userId, retry: $retryCount');
 
       if (retryCount >= 3) {
         // Max retries reached, mark as permanently failed
@@ -544,7 +606,8 @@ class PaymentService {
     String? reason,
   }) async {
     try {
-      _logger.info('Processing refund for transaction: $transactionId, amount: \$${amount.toStringAsFixed(2)}');
+      _logger.info(
+          'Processing refund for transaction: $transactionId, amount: \$${amount.toStringAsFixed(2)}');
 
       // Get original transaction
       final transactionDoc = await _firestore
@@ -572,7 +635,7 @@ class PaymentService {
 
       // Process refund based on payment method
       final refundId = _generateTransactionId();
-      
+
       // In a real implementation, you would call the respective payment provider's refund API
       // For now, we'll simulate the refund process
       final refundSuccessful = await _processRefundWithProvider(
@@ -591,7 +654,7 @@ class PaymentService {
         );
 
         _logger.info('Refund processed successfully: $refundId');
-        
+
         return PaymentResult(
           status: PaymentStatus.succeeded,
           transactionId: refundId,
@@ -606,7 +669,6 @@ class PaymentService {
           error: 'Refund processing failed with payment provider',
         );
       }
-
     } catch (e) {
       _logger.severe('Error processing refund: $e');
       return PaymentResult(
@@ -631,10 +693,8 @@ class PaymentService {
       });
 
       // If user has active subscription, update subscription record
-      final subscriptionDoc = await _firestore
-          .collection('subscriptions')
-          .doc(userId)
-          .get();
+      final subscriptionDoc =
+          await _firestore.collection('subscriptions').doc(userId).get();
 
       if (subscriptionDoc.exists) {
         await _firestore.collection('subscriptions').doc(userId).update({
@@ -652,7 +712,8 @@ class PaymentService {
   }
 
   /// Get payment history for user
-  static Future<List<Map<String, dynamic>>> getPaymentHistory(String userId) async {
+  static Future<List<Map<String, dynamic>>> getPaymentHistory(
+      String userId) async {
     try {
       final transactions = await _firestore
           .collection('payment_transactions')
@@ -744,7 +805,10 @@ class PaymentService {
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      await _firestore.collection('payment_transactions').doc(transactionId).set({
+      await _firestore
+          .collection('payment_transactions')
+          .doc(transactionId)
+          .set({
         'userId': userId,
         'transactionId': transactionId,
         'amount': amount,
@@ -808,7 +872,8 @@ class PaymentService {
           .doc(transactionId)
           .update(updateData);
 
-      _logger.info('Payment transaction status updated: $transactionId -> ${status.name}');
+      _logger.info(
+          'Payment transaction status updated: $transactionId -> ${status.name}');
     } catch (e) {
       _logger.severe('Error updating payment transaction status: $e');
     }
@@ -820,7 +885,7 @@ class PaymentService {
       // Check that sensitive data is not stored locally
       // Verify encryption is enabled
       // Ensure secure transmission protocols
-      
+
       // Basic checks for PCI compliance
       final checks = [
         PaymentConfigService.stripePublishableKey.isNotEmpty,
@@ -830,7 +895,7 @@ class PaymentService {
       ];
 
       final isCompliant = checks.every((check) => check);
-      
+
       if (isCompliant) {
         _logger.info('PCI compliance validation passed');
       } else {
@@ -853,7 +918,7 @@ class PaymentService {
 
   static Map<String, dynamic> sanitizePaymentData(Map<String, dynamic> data) {
     final sanitized = Map<String, dynamic>.from(data);
-    
+
     // Remove sensitive fields that should never be stored
     final sensitiveFields = [
       'cardNumber',
