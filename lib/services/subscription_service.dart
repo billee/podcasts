@@ -2,18 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logging/logging.dart';
 
-enum SubscriptionStatus {
-  trial,
-  active,
-  expired,
-  cancelled,
-  trialExpired
-}
+enum SubscriptionStatus { trial, active, expired, cancelled, trialExpired }
 
-enum SubscriptionPlan {
-  trial,
-  monthly
-}
+enum SubscriptionPlan { trial, monthly }
 
 class SubscriptionService {
   static final Logger _logger = Logger('SubscriptionService');
@@ -33,8 +24,33 @@ class SubscriptionService {
   static const int trialDurationDays = 7;
   static const double monthlyPrice = 3.0;
 
+  /// Activate subscription after successful payment
+  static Future<void> activateSubscription({
+    required String userId,
+    required String plan,
+    required double amount,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final expiryDate =
+          now.add(const Duration(days: 30)); // 30-day subscription
 
+      await _firestore.collection('subscriptions').doc(userId).set({
+        'userId': userId,
+        'status': SubscriptionStatus.active.name,
+        'plan': plan,
+        'amount': amount,
+        'startDate': now,
+        'subscriptionEndDate': expiryDate,
+        'lastPayment': {'amount': amount, 'date': now, 'status': 'succeeded'}
+      });
 
+      _logger.info('Subscription activated for user: $userId');
+    } catch (e) {
+      _logger.severe('Error activating subscription: $e');
+      rethrow;
+    }
+  }
 
   /// Check current subscription status
   static Future<SubscriptionStatus> getSubscriptionStatus(String userId) async {
@@ -42,7 +58,8 @@ class SubscriptionService {
       // First check if user's email is verified
       final user = _auth.currentUser;
       if (user == null || !user.emailVerified) {
-        _logger.info('User email not verified, no subscription access for user: $userId');
+        _logger.info(
+            'User email not verified, no subscription access for user: $userId');
         return SubscriptionStatus.expired; // No access until email verified
       }
 
@@ -51,66 +68,47 @@ class SubscriptionService {
       if (!userDoc.exists) {
         return SubscriptionStatus.expired;
       }
-      
+
       final userData = userDoc.data() as Map<String, dynamic>;
       final userEmail = userData['email'] as String?;
       final emailVerified = userData['emailVerified'] as bool? ?? false;
-      
+
       if (userEmail == null || !emailVerified) {
         return SubscriptionStatus.expired;
       }
 
       // Check if user has an active subscription first
-      final subscriptionDoc = await _firestore.collection('subscriptions').doc(userId).get();
-      
+      final subscriptionDoc =
+          await _firestore.collection('subscriptions').doc(userId).get();
+
       if (subscriptionDoc.exists) {
         final subscription = subscriptionDoc.data() as Map<String, dynamic>;
         final status = subscription['status'] as String?;
-        final subscriptionEndDate = subscription['subscriptionEndDate'] as Timestamp?;
 
-        final now = DateTime.now();
+        _logger.info('Checking subscription for user $userId. Status: $status');
 
-        // Check if subscription is active or cancelled but still valid
-        if (status == 'active' && subscriptionEndDate != null) {
-          if (now.isBefore(subscriptionEndDate.toDate())) {
+        // First check if the subscription is marked as active
+        if (status == SubscriptionStatus.active.name) {
+          final now = DateTime.now();
+          final subscriptionEndDate = subscription['subscriptionEndDate'];
+
+          if (subscriptionEndDate == null) {
+            _logger.info('No end date found, treating as active subscription');
             return SubscriptionStatus.active;
-          } else {
-            // Subscription expired
-            await _updateSubscriptionStatus(userId, SubscriptionStatus.expired);
-            return SubscriptionStatus.expired;
           }
-        } else if (status == 'cancelled') {
-          // For cancelled subscriptions, check willExpireAt date
-          final willExpireAt = subscription['willExpireAt'] as Timestamp?;
-          if (willExpireAt != null) {
-            if (now.isBefore(willExpireAt.toDate())) {
-              return SubscriptionStatus.cancelled;
-            } else {
-              // Cancelled subscription has expired
-              await _updateSubscriptionStatus(userId, SubscriptionStatus.expired);
-              return SubscriptionStatus.expired;
-            }
-          } else {
-            // Fallback to subscriptionEndDate if willExpireAt is not set
-            if (subscriptionEndDate != null && now.isBefore(subscriptionEndDate.toDate())) {
-              return SubscriptionStatus.cancelled;
-            } else {
-              await _updateSubscriptionStatus(userId, SubscriptionStatus.expired);
-              return SubscriptionStatus.expired;
-            }
-          }
-        }
 
-        // Handle other subscription statuses
-        switch (status) {
-          case 'expired':
-            return SubscriptionStatus.expired;
-          default:
-            break;
+          final endDate = (subscriptionEndDate as Timestamp).toDate();
+          if (now.isBefore(endDate)) {
+            _logger.info('Subscription is active and not expired');
+            return SubscriptionStatus.active;
+          }
+
+          _logger.info('Subscription has expired. Setting expired status.');
+          await _updateSubscriptionStatus(userId, SubscriptionStatus.expired);
         }
       }
 
-      // No active subscription, check trial status from trial_history
+      // No active subscription or not marked as active
       final trialQuery = await _firestore
           .collection('trial_history')
           .where('userId', isEqualTo: userId)
@@ -122,7 +120,7 @@ class SubscriptionService {
         final trialDoc = trialQuery.docs.first;
         final trialData = trialDoc.data();
         final trialEndDate = trialData['trialEndDate'] as Timestamp?;
-        
+
         if (trialEndDate != null) {
           final now = DateTime.now();
           if (now.isBefore(trialEndDate.toDate())) {
@@ -152,20 +150,23 @@ class SubscriptionService {
   }
 
   /// Update subscription status
-  static Future<void> _updateSubscriptionStatus(String userId, SubscriptionStatus status) async {
+  static Future<void> _updateSubscriptionStatus(
+      String userId, SubscriptionStatus status) async {
     try {
       await _firestore.collection('subscriptions').doc(userId).update({
         'status': status.name,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      _logger.info('Updated subscription status for user $userId to ${status.name}');
+      _logger.info(
+          'Updated subscription status for user $userId to ${status.name}');
     } catch (e) {
       _logger.severe('Error updating subscription status: $e');
     }
   }
 
   /// Get subscription details
-  static Future<Map<String, dynamic>?> getSubscriptionDetails(String userId) async {
+  static Future<Map<String, dynamic>?> getSubscriptionDetails(
+      String userId) async {
     try {
       final now = DateTime.now();
       Map<String, dynamic> details = {};
@@ -173,24 +174,26 @@ class SubscriptionService {
       // Get user email
       final userDoc = await _firestore.collection('users').doc(userId).get();
       if (!userDoc.exists) return null;
-      
+
       final userData = userDoc.data() as Map<String, dynamic>;
       final userEmail = userData['email'] as String?;
       if (userEmail == null) return null;
 
       // Check subscription first
-      final subscriptionDoc = await _firestore.collection('subscriptions').doc(userId).get();
-      
+      final subscriptionDoc =
+          await _firestore.collection('subscriptions').doc(userId).get();
+
       if (subscriptionDoc.exists) {
         final subscription = subscriptionDoc.data() as Map<String, dynamic>;
         details = Map<String, dynamic>.from(subscription);
-        
-        final subscriptionEndDate = subscription['subscriptionEndDate'] as Timestamp?;
+
+        final subscriptionEndDate =
+            subscription['subscriptionEndDate'] as Timestamp?;
         if (subscriptionEndDate != null) {
           final daysLeft = subscriptionEndDate.toDate().difference(now).inDays;
           details['subscriptionDaysLeft'] = daysLeft > 0 ? daysLeft : 0;
         }
-        
+
         return details;
       }
 
@@ -205,11 +208,11 @@ class SubscriptionService {
       if (trialQuery.docs.isNotEmpty) {
         final trialDoc = trialQuery.docs.first;
         final trialData = trialDoc.data();
-        
+
         details = Map<String, dynamic>.from(trialData);
         details['status'] = 'trial';
         details['plan'] = 'trial';
-        
+
         final trialEndDate = trialData['trialEndDate'] as Timestamp?;
         if (trialEndDate != null) {
           final daysLeft = trialEndDate.toDate().difference(now).inDays;
@@ -217,7 +220,7 @@ class SubscriptionService {
           details['trialDaysLeft'] = daysLeft > 0 ? daysLeft : 0;
           details['trialHoursLeft'] = hoursLeft > 0 ? hoursLeft : 0;
         }
-        
+
         return details;
       }
 
@@ -229,7 +232,8 @@ class SubscriptionService {
   }
 
   /// Subscribe to monthly plan
-  static Future<bool> subscribeToMonthlyPlan(String userId, {
+  static Future<bool> subscribeToMonthlyPlan(
+    String userId, {
     required String paymentMethod,
     String? transactionId,
   }) async {
@@ -260,7 +264,8 @@ class SubscriptionService {
       });
 
       // Record payment transaction
-      await _recordPaymentTransaction(userId, monthlyPrice, transactionId, 'monthly_subscription');
+      await _recordPaymentTransaction(
+          userId, monthlyPrice, transactionId, 'monthly_subscription');
 
       _logger.info('Monthly subscription activated for user: $userId');
       return true;
@@ -271,7 +276,8 @@ class SubscriptionService {
   }
 
   /// Record payment transaction
-  static Future<void> _recordPaymentTransaction(String userId, double amount, String? transactionId, String type) async {
+  static Future<void> _recordPaymentTransaction(
+      String userId, double amount, String? transactionId, String type) async {
     try {
       await _firestore.collection('payment_transactions').add({
         'userId': userId,
@@ -290,7 +296,8 @@ class SubscriptionService {
   /// Check if user has access to premium features
   static Future<bool> hasActiveSubscription(String userId) async {
     final status = await getSubscriptionStatus(userId);
-    return status == SubscriptionStatus.trial || status == SubscriptionStatus.active;
+    return status == SubscriptionStatus.trial ||
+        status == SubscriptionStatus.active;
   }
 
   /// Get trial days remaining
@@ -298,7 +305,7 @@ class SubscriptionService {
     try {
       final details = await getSubscriptionDetails(userId);
       if (details == null) return 0;
-      
+
       return details['trialDaysLeft'] as int? ?? 0;
     } catch (e) {
       _logger.severe('Error getting trial days remaining: $e');
@@ -310,14 +317,16 @@ class SubscriptionService {
   static Future<bool> cancelSubscription(String userId) async {
     try {
       // Get current subscription details
-      final subscriptionDoc = await _firestore.collection('subscriptions').doc(userId).get();
+      final subscriptionDoc =
+          await _firestore.collection('subscriptions').doc(userId).get();
       if (!subscriptionDoc.exists) {
         _logger.warning('No subscription found to cancel for user: $userId');
         return false;
       }
 
       final subscription = subscriptionDoc.data() as Map<String, dynamic>;
-      final subscriptionEndDate = subscription['subscriptionEndDate'] as Timestamp?;
+      final subscriptionEndDate =
+          subscription['subscriptionEndDate'] as Timestamp?;
 
       // Update subscription to cancelled but keep it active until end date
       await _firestore.collection('subscriptions').doc(userId).update({
@@ -328,7 +337,8 @@ class SubscriptionService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      _logger.info('Subscription cancelled for user: $userId - will expire at: ${subscriptionEndDate?.toDate()}');
+      _logger.info(
+          'Subscription cancelled for user: $userId - will expire at: ${subscriptionEndDate?.toDate()}');
       return true;
     } catch (e) {
       _logger.severe('Error cancelling subscription: $e');
@@ -337,7 +347,8 @@ class SubscriptionService {
   }
 
   /// Renew monthly subscription
-  static Future<bool> renewMonthlySubscription(String userId, {
+  static Future<bool> renewMonthlySubscription(
+    String userId, {
     required String paymentMethod,
     String? transactionId,
   }) async {
@@ -354,7 +365,8 @@ class SubscriptionService {
       });
 
       // Record payment transaction
-      await _recordPaymentTransaction(userId, monthlyPrice, transactionId, 'monthly_renewal');
+      await _recordPaymentTransaction(
+          userId, monthlyPrice, transactionId, 'monthly_renewal');
 
       _logger.info('Monthly subscription renewed for user: $userId');
       return true;
@@ -383,7 +395,7 @@ class SubscriptionService {
   static Future<Map<String, int>> getSubscriptionStats() async {
     try {
       final subscriptions = await _firestore.collection('subscriptions').get();
-      
+
       int trialUsers = 0;
       int activeSubscribers = 0;
       int expiredUsers = 0;
@@ -392,7 +404,7 @@ class SubscriptionService {
       for (var doc in subscriptions.docs) {
         final subscription = doc.data();
         final status = subscription['status'] as String?;
-        
+
         switch (status) {
           case 'trial':
             trialUsers++;

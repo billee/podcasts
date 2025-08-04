@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
 import 'package:kapwa_companion_basic/screens/main_screen.dart';
-import 'package:kapwa_companion_basic/screens/terms_conditions_screen.dart';
+import 'package:kapwa_companion_basic/screens/payment/mock_payment_screen.dart';
 import 'package:logging/logging.dart';
 
 class SubscriptionScreen extends StatefulWidget {
@@ -160,8 +160,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  const TermsConditionsScreen(),
+                              builder: (context) => const MockPaymentScreen(
+                                amount: 3.00,
+                                planType: 'monthly',
+                              ),
                             ),
                           );
                         },
@@ -287,34 +289,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _handleSubscribe() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // In a real app, you would integrate with a payment processor here
-      // For now, we'll simulate a successful payment
-      await _simulatePayment();
-    } catch (e) {
-      _logger.severe('Error during subscription: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Subscription failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
   }
 
   Future<void> _simulatePayment() async {

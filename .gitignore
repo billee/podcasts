@@ -68,3 +68,4 @@ local.properties # Contains SDK path, specific to your machine
 anaconda_projects/
 *.ipynb
 
+venv/

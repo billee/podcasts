@@ -22,10 +22,10 @@ class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  State<MainScreen> createState() => MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class MainScreenState extends State<MainScreen> {
   final Logger _logger = Logger('MainScreen');
   int _currentIndex = 0;
   final PageController _pageController = PageController();
@@ -42,7 +42,7 @@ class _MainScreenState extends State<MainScreen> {
       _logger.info('Initializing services...');
       await PaymentService.initialize();
       _logger.info('Payment service initialized successfully');
-      await _initializeUserAndScreens();
+      await initializeUserAndScreens();
     } catch (e) {
       _logger.severe('Error initializing services: $e');
     }
@@ -56,7 +56,7 @@ class _MainScreenState extends State<MainScreen> {
     _authStateSubscription =
         FirebaseAuth.instance.authStateChanges().listen((user) {
       _logger.info('Auth state changed in MainScreen. User: ${user?.uid}');
-      _initializeUserAndScreens();
+      initializeUserAndScreens();
 
       // Email verification is now handled directly in AuthService.checkEmailVerification()
       // No need for complex monitoring service
@@ -90,7 +90,7 @@ class _MainScreenState extends State<MainScreen> {
     return {'name': username, 'fromCache': false, 'profile': userProfile};
   }
 
-  Future<void> _initializeUserAndScreens() async {
+  Future<void> initializeUserAndScreens() async {
     final user = FirebaseAuth.instance.currentUser;
     _logger.info('_initializeUserAndScreens called. User: ${user?.uid}');
 
@@ -101,18 +101,29 @@ class _MainScreenState extends State<MainScreen> {
         // Check subscription status first
         _subscriptionStatus =
             await SubscriptionService.getSubscriptionStatus(_currentUserId!);
+        _logger.info('Current subscription status: $_subscriptionStatus');
 
-        if (_subscriptionStatus == SubscriptionStatus.trialExpired ||
-            _subscriptionStatus == SubscriptionStatus.expired) {
+        // Show main screens ONLY if user has an active subscription
+        // For all other states (null, trial, expired, trialExpired, cancelled), show subscription screen
+        if (_subscriptionStatus != SubscriptionStatus.active) {
+          // Always show subscription screen unless user has an active subscription
           _logger.info(
-              'Subscription expired. Redirecting to subscription screen.');
+              'User needs subscription. Current status: $_subscriptionStatus');
           if (mounted) {
             setState(() {
               _screens = [const SubscriptionScreen()];
+              _currentIndex = 0; // Reset to first screen
+              if (_pageController.hasClients) {
+                _pageController.jumpToPage(0);
+              }
             });
           }
           return;
         }
+
+        _logger.info('User has active subscription, showing main app screens.');
+
+        _logger.info('User has active subscription, showing main app screens.');
 
         final result = await compute(_fetchUserProfileIsolate, _currentUserId!)
             .timeout(const Duration(seconds: 10));

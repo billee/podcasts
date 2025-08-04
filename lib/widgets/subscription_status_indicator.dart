@@ -8,10 +8,12 @@ class SubscriptionStatusIndicator extends StatefulWidget {
   const SubscriptionStatusIndicator({super.key});
 
   @override
-  State<SubscriptionStatusIndicator> createState() => _SubscriptionStatusIndicatorState();
+  State<SubscriptionStatusIndicator> createState() =>
+      _SubscriptionStatusIndicatorState();
 }
 
-class _SubscriptionStatusIndicatorState extends State<SubscriptionStatusIndicator> {
+class _SubscriptionStatusIndicatorState
+    extends State<SubscriptionStatusIndicator> {
   SubscriptionStatus? _status;
   int _trialDaysLeft = 0;
   bool _isLoading = true;
@@ -23,25 +25,30 @@ class _SubscriptionStatusIndicatorState extends State<SubscriptionStatusIndicato
   }
 
   Future<void> _loadSubscriptionStatus() async {
+    if (!mounted) return;
+
+    setState(() => _isLoading = true);
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       return;
     }
 
     try {
       final status = await SubscriptionService.getSubscriptionStatus(user.uid);
-      final trialDays = await SubscriptionService.getTrialDaysRemaining(user.uid);
-      
-      if (mounted) {
-        setState(() {
-          _status = status;
-          _trialDaysLeft = trialDays;
-          _isLoading = false;
-        });
-      }
+      final trialDays =
+          await SubscriptionService.getTrialDaysRemaining(user.uid);
+
+      if (!mounted) return;
+
+      setState(() {
+        _status = status;
+        _trialDaysLeft = trialDays;
+        _isLoading = false;
+      });
     } catch (e) {
       if (mounted) {
         setState(() {

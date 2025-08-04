@@ -1,8 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:crypto/crypto.dart';
@@ -68,17 +66,7 @@ class PaymentService {
       // Initialize payment configuration
       await PaymentConfigService.initialize();
 
-      // Initialize Stripe
-      Stripe.publishableKey = PaymentConfigService.stripePublishableKey;
-      await Stripe.instance.applySettings();
-
-      // Validate PCI compliance
-      final isCompliant = validatePCICompliance();
-      if (!isCompliant) {
-        _logger.warning('PCI compliance validation failed');
-      }
-
-      _logger.info('Payment service initialized successfully');
+      _logger.info('Mock payment service initialized successfully');
     } catch (e) {
       _logger.severe('Error initializing payment service: $e');
       rethrow;
@@ -174,7 +162,7 @@ class PaymentService {
     }
   }
 
-  /// Process credit card payment with Stripe
+  /// Process credit card payment using mock payment system
   static Future<PaymentResult> processCreditCardPayment({
     required String userId,
     required double amount,
@@ -182,72 +170,63 @@ class PaymentService {
   }) async {
     try {
       _logger.info(
-          'Processing credit card payment for user: $userId, amount: \$${amount.toStringAsFixed(2)}');
+          'Processing mock credit card payment for user: $userId, amount: \$${amount.toStringAsFixed(2)}');
 
-      // Create payment intent
-      final clientSecret = await _createPaymentIntent(
-        amount: amount,
-        currency: currency,
-        userId: userId,
-        metadata: metadata,
+      // Create payment intent with mock payment system
+      final response = await http.post(
+        Uri.parse(
+            '${PaymentConfigService.backendServerUrl}/create-payment-intent'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${await _getAuthToken()}',
+        },
+        body: jsonEncode({
+          'amount': amount,
+          'currency': currency,
+          'metadata': {
+            'userId': userId,
+            ...(metadata ?? {}),
+          },
+        }),
       );
 
-      if (clientSecret == null) {
-        const errorMsg = 'Failed to create payment intent';
-        _logger.severe(errorMsg);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final paymentId = data['payment_intent_id'] as String;
+
+        // Record the successful payment
+        await _recordPaymentTransaction(
+          userId: userId,
+          amount: amount,
+          paymentMethod: PaymentMethod.creditCard,
+          transactionId: paymentId,
+          status: PaymentStatus.succeeded,
+          metadata: metadata,
+        );
+
+        _logger.info('Mock credit card payment successful for user: $userId');
+
+        return PaymentResult(
+          status: PaymentStatus.succeeded,
+          transactionId: paymentId,
+          metadata: {'paymentMethod': 'credit_card'},
+        );
+      } else {
+        String errorMessage;
+        try {
+          final errorBody = jsonDecode(response.body);
+          errorMessage = errorBody['error'] ?? 'Unknown error';
+        } catch (_) {
+          errorMessage = response.body;
+        }
+        _logger.severe('Payment failed: $errorMessage');
         return PaymentResult(
           status: PaymentStatus.failed,
-          error: errorMsg,
+          error: errorMessage,
         );
       }
-
-      _logger.info(
-          'Payment intent created successfully, initializing payment sheet');
-
-      // Present payment sheet
-      await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: SetupPaymentSheetParameters(
-          paymentIntentClientSecret: clientSecret,
-          merchantDisplayName: 'OFW Companion App',
-          style: ThemeMode.system,
-          billingDetails: await _getBillingDetails(userId),
-        ),
-      );
-
-      // Present the payment sheet
-      await Stripe.instance.presentPaymentSheet();
-
-      // If we reach here, payment was successful
-      final transactionId = _generateTransactionId();
-
-      // Record the payment
-      await _recordPaymentTransaction(
-        userId: userId,
-        amount: amount,
-        paymentMethod: PaymentMethod.creditCard,
-        transactionId: transactionId,
-        status: PaymentStatus.succeeded,
-        metadata: metadata,
-      );
-
-      _logger.info('Credit card payment successful for user: $userId');
-
-      return PaymentResult(
-        status: PaymentStatus.succeeded,
-        transactionId: transactionId,
-        metadata: {'paymentMethod': 'credit_card'},
-      );
-    } on StripeException catch (e) {
-      _logger.warning('Stripe payment failed: ${e.error.localizedMessage}');
-
-      return PaymentResult(
-        status: e.error.code == FailureCode.Canceled
-            ? PaymentStatus.cancelled
-            : PaymentStatus.failed,
-        error: e.error.localizedMessage,
-      );
-    } on PaymentException catch (e, stackTrace) {
-      _logger.severe('Payment creation failed', e, stackTrace);
+    } on PaymentException catch (e) {
+      _logger.severe('Payment creation failed', e);
       return PaymentResult(
         status: PaymentStatus.failed,
         error: e.toString(),
@@ -255,13 +234,9 @@ class PaymentService {
     } catch (e, stackTrace) {
       _logger.severe('Error processing credit card payment', e, stackTrace);
 
-      String errorMessage = e is StripeException
-          ? e.error.localizedMessage ?? 'Stripe payment error'
-          : 'Payment processing failed: ${e.toString()}';
-
       return PaymentResult(
         status: PaymentStatus.failed,
-        error: errorMessage,
+        error: 'Payment processing failed: ${e.toString()}',
       );
     }
   }
@@ -735,19 +710,15 @@ class PaymentService {
 
   // Private helper methods
 
-  static Future<BillingDetails?> _getBillingDetails(String userId) async {
+  static Future<Map<String, dynamic>?> _getUserDetails(String userId) async {
     try {
       final userDoc = await _firestore.collection('users').doc(userId).get();
       if (userDoc.exists) {
-        final userData = userDoc.data() as Map<String, dynamic>;
-        return BillingDetails(
-          email: userData['email'] as String?,
-          name: userData['displayName'] as String?,
-        );
+        return userDoc.data() as Map<String, dynamic>;
       }
       return null;
     } catch (e) {
-      _logger.warning('Error getting billing details: $e');
+      _logger.warning('Error getting user details: $e');
       return null;
     }
   }
