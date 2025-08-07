@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/subscription_service.dart';
 import '../screens/subscription/subscription_management_screen.dart';
+import 'subscription_status_indicator.dart';
 
 /// Widget that displays subscription information in the profile screen
 /// Shows trial status for trial users and subscription status for subscribers
@@ -428,12 +429,111 @@ class _ProfileSubscriptionSectionState extends State<ProfileSubscriptionSection>
   }
 
   void _navigateToSubscription() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const SubscriptionManagementScreen(),
-      ),
-    );
+    // For cancelled subscriptions, we need to handle reactivation differently
+    if (_status == SubscriptionStatus.cancelled) {
+      _handleReactivateSubscription();
+    } else {
+      // For other statuses (trial, expired), go to subscription management
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const SubscriptionManagementScreen(),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleReactivateSubscription() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Check if subscription is still within the valid period (not expired)
+    final willExpireAt = _subscriptionDetails?['willExpireAt'];
+    final now = DateTime.now();
+    bool isStillValid = false;
+
+    if (willExpireAt != null) {
+      try {
+        DateTime expirationDate;
+        if (willExpireAt.runtimeType.toString().contains('Timestamp')) {
+          expirationDate = willExpireAt.toDate();
+        } else if (willExpireAt is DateTime) {
+          expirationDate = willExpireAt;
+        } else {
+          expirationDate = DateTime.parse(willExpireAt.toString());
+        }
+        isStillValid = now.isBefore(expirationDate);
+      } catch (e) {
+        print('Error parsing expiration date: $e');
+        isStillValid = false;
+      }
+    }
+
+    if (isStillValid) {
+      // Case 1: Cancelled but not expired - just reactivate
+      await _reactivateCancelledSubscription();
+    } else {
+      // Case 2: Expired - go through payment process
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const SubscriptionManagementScreen(),
+        ),
+      );
+    }
+  }
+
+  Future<void> _reactivateCancelledSubscription() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Reactivate the subscription by changing status back to 'active'
+      await SubscriptionService.reactivateSubscription(user.uid);
+
+      // Close loading dialog
+      if (mounted) Navigator.of(context).pop();
+
+      // Reload subscription info
+      await _loadSubscriptionInfo();
+
+      // Trigger refresh of SubscriptionStatusIndicator immediately
+      subscriptionIndicatorKey.currentState?.refreshStatus();
+      print('DEBUG: Subscription reactivated - forcing UI refresh');
+      print('DEBUG: New status should be active');
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Subscription reactivated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) Navigator.of(context).pop();
+
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error reactivating subscription: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _showCancelSubscriptionDialog() {
@@ -493,6 +593,11 @@ class _ProfileSubscriptionSectionState extends State<ProfileSubscriptionSection>
 
       // Reload subscription info
       await _loadSubscriptionInfo();
+
+      // Trigger refresh of SubscriptionStatusIndicator immediately
+      subscriptionIndicatorKey.currentState?.refreshStatus();
+      print('DEBUG: Subscription cancelled - forcing UI refresh');
+      print('DEBUG: New status should be cancelled');
 
       // Show success message
       if (mounted) {

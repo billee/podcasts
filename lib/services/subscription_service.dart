@@ -347,6 +347,27 @@ class SubscriptionService {
     }
   }
 
+  /// Reactivate a cancelled subscription (if not expired)
+  static Future<bool> reactivateSubscription(String userId) async {
+    try {
+      _logger.info('Reactivating subscription for user: $userId');
+
+      // Update subscription status back to active and remove cancellation fields
+      await _firestore.collection('subscriptions').doc(userId).update({
+        'status': 'active',
+        'cancelledAt': FieldValue.delete(),
+        'willExpireAt': FieldValue.delete(),
+        'autoRenew': true,
+      });
+
+      _logger.info('Subscription reactivated successfully for user: $userId');
+      return true;
+    } catch (e) {
+      _logger.severe('Error reactivating subscription: $e');
+      return false;
+    }
+  }
+
   /// Renew monthly subscription
   static Future<bool> renewMonthlySubscription(
     String userId, {

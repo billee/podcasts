@@ -12,6 +12,10 @@ class SubscriptionStatusIndicator extends StatefulWidget {
       _SubscriptionStatusIndicatorState();
 }
 
+// Global key to access the indicator from anywhere
+final GlobalKey<_SubscriptionStatusIndicatorState> subscriptionIndicatorKey = 
+    GlobalKey<_SubscriptionStatusIndicatorState>();
+
 class _SubscriptionStatusIndicatorState
     extends State<SubscriptionStatusIndicator> {
   SubscriptionStatus? _status;
@@ -21,6 +25,11 @@ class _SubscriptionStatusIndicatorState
   @override
   void initState() {
     super.initState();
+    _loadSubscriptionStatus();
+  }
+
+  // Public method to refresh the subscription status
+  void refreshStatus() {
     _loadSubscriptionStatus();
   }
 

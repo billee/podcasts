@@ -208,7 +208,7 @@ class MainScreenState extends State<MainScreen> {
         title: const Text('Kapwa Companion'),
         backgroundColor: Colors.grey[900],
         actions: [
-          const SubscriptionStatusIndicator(),
+          SubscriptionStatusIndicator(key: subscriptionIndicatorKey),
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.logout),
