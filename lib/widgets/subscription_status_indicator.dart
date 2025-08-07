@@ -161,13 +161,13 @@ class _SubscriptionStatusIndicatorState
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.diamond_outlined,
+            Icons.cancel,
             size: 16,
             color: Colors.white,
           ),
           const SizedBox(width: 4),
           Text(
-            'ENDING',
+            'CANCEL',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 10,

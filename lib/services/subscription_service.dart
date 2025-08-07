@@ -87,20 +87,20 @@ class SubscriptionService {
 
         _logger.info('Checking subscription for user $userId. Status: $status');
 
-        // First check if the subscription is marked as active
-        if (status == SubscriptionStatus.active.name) {
+        // Check if the subscription is active or cancelled
+        if (status == SubscriptionStatus.active.name || status == 'cancelled') {
           final now = DateTime.now();
           final subscriptionEndDate = subscription['subscriptionEndDate'];
 
           if (subscriptionEndDate == null) {
             _logger.info('No end date found, treating as active subscription');
-            return SubscriptionStatus.active;
+            return status == 'cancelled' ? SubscriptionStatus.cancelled : SubscriptionStatus.active;
           }
 
           final endDate = (subscriptionEndDate as Timestamp).toDate();
           if (now.isBefore(endDate)) {
-            _logger.info('Subscription is active and not expired');
-            return SubscriptionStatus.active;
+            _logger.info('Subscription is ${status == 'cancelled' ? 'cancelled but' : ''} active and not expired');
+            return status == 'cancelled' ? SubscriptionStatus.cancelled : SubscriptionStatus.active;
           }
 
           _logger.info('Subscription has expired. Setting expired status.');
@@ -297,7 +297,8 @@ class SubscriptionService {
   static Future<bool> hasActiveSubscription(String userId) async {
     final status = await getSubscriptionStatus(userId);
     return status == SubscriptionStatus.trial ||
-        status == SubscriptionStatus.active;
+        status == SubscriptionStatus.active ||
+        status == SubscriptionStatus.cancelled; // Cancelled users still have access until expiration
   }
 
   /// Get trial days remaining

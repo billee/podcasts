@@ -31,6 +31,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   _setupLogging();
   final logger = Logger('main');
+  logger.info("---------------------------------------------------");
 
   try {
     // Initialize Firebase

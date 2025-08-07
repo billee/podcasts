@@ -35,14 +35,14 @@ class AppConfig {
     if (kIsWeb) {
       _backendBaseUrl = 'http://localhost:5000'; // For web app development
     } else if (defaultTargetPlatform == TargetPlatform.android) {
-      // FOR PRODUCTION: Use your Render deployment URL
-      _backendBaseUrl = 'https://ofw-admin-server.onrender.com';
+      // FOR PRODUCTION: Use your main Render deployment URL
+      _backendBaseUrl = 'https://ofw-admin-dashboard.onrender.com';
 
       // FOR LOCAL DEVELOPMENT: Uncomment the line below and comment the line above
       // _backendBaseUrl = 'http://10.0.0.93:5000';
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      // FOR PRODUCTION: Use your Render deployment URL
-      _backendBaseUrl = 'https://ofw-admin-server.onrender.com';
+      // FOR PRODUCTION: Use your main Render deployment URL
+      _backendBaseUrl = 'https://ofw-admin-dashboard.onrender.com';
 
       // FOR LOCAL DEVELOPMENT: Uncomment the line below and comment the line above
       // _backendBaseUrl = 'http://10.0.0.93:5000';

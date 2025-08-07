@@ -66,6 +66,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             .doc(userId)
             .get();
 
+        // Log subscription data for debugging
+        if (subscriptionSnapshot.exists) {
+          final subData = subscriptionSnapshot.data();
+          _logger.info('Subscription data for user $userId (${userData['email']}): ${subData?.keys.toList()}');
+          if (subData != null) {
+            // Log the actual field names and types
+            subData.forEach((key, value) {
+              _logger.info('  $key: ${value.runtimeType} = $value');
+            });
+            
+            // Specifically check for date fields
+            final possibleDateFields = ['startDate', 'subscriptionStartDate', 'createdAt', 'updatedAt'];
+            for (final field in possibleDateFields) {
+              if (subData.containsKey(field)) {
+                _logger.info('  Found date field $field: ${subData[field]}');
+              }
+            }
+          }
+        } else {
+          _logger.info('No subscription document found for user $userId (${userData['email']})');
+        }
+
         // Get current subscription status
         SubscriptionStatus currentStatus = SubscriptionStatus.expired;
         try {
@@ -306,11 +328,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       journey.subscriptionData!['plan']?.toString().toUpperCase() ?? 'N/A',
                       style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12),
                     ),
-                    if (journey.subscriptionData!['subscriptionStartDate'] != null)
-                      Text(
-                        'Started: ${_formatDateTime(journey.subscriptionData!['subscriptionStartDate'])}',
-                        style: const TextStyle(color: Colors.white70, fontSize: 10),
-                      ),
+                    // Direct access to startDate field
+                    _buildDirectStartDate(journey.subscriptionData!),
                     if (journey.subscriptionData!['subscriptionEndDate'] != null)
                       Text(
                         'Ends: ${_formatDateTime(journey.subscriptionData!['subscriptionEndDate'])}',
@@ -361,6 +380,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 onPressed: () => _showUserBilling(journey),
                 tooltip: 'View Billing',
               ),
+              IconButton(
+                icon: const Icon(Icons.bug_report, color: Colors.orange, size: 20),
+                onPressed: () => _debugUserSubscription(journey.email),
+                tooltip: 'Debug Subscription',
+              ),
             ],
           ),
         ),
@@ -373,14 +397,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     
     try {
       DateTime date;
+      
       if (timestamp is DateTime) {
         date = timestamp;
+      } else if (timestamp is Timestamp) {
+        date = timestamp.toDate();
+      } else if (timestamp is String) {
+        // Try to parse string timestamp
+        date = DateTime.parse(timestamp);
+      } else if (timestamp is int) {
+        // Handle milliseconds since epoch
+        date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+      } else if (timestamp.toString().contains('FieldValue')) {
+        // Handle FieldValue.serverTimestamp() - this shouldn't happen in read data but just in case
+        _logger.warning('Encountered FieldValue in timestamp: $timestamp');
+        return 'Pending';
       } else {
+        // Try to call toDate() method if available
         date = timestamp.toDate();
       }
-      return '${date.day}/${date.month}/${date.year}\n${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      
+      // Validate the date is reasonable (not too far in past or future)
+      final now = DateTime.now();
+      final minDate = DateTime(2020, 1, 1); // Reasonable minimum date
+      final maxDate = now.add(const Duration(days: 365 * 10)); // 10 years in future
+      
+      if (date.isBefore(minDate) || date.isAfter(maxDate)) {
+        _logger.warning('Date out of range: $date (from $timestamp)');
+        return 'Invalid Date';
+      }
+      
+      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}\n${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } catch (e) {
-      return 'Invalid Date';
+      _logger.warning('Error formatting timestamp: $timestamp (${timestamp.runtimeType}), error: $e');
+      return 'Format Error';
     }
   }
 
@@ -441,8 +491,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 Text('4. Trial Ends: ${_formatDateTime(journey.trialData!['trialEndDate'])}'),
               ],
               if (journey.subscriptionData != null) ...[
-                if (journey.subscriptionData!['subscriptionStartDate'] != null)
-                  Text('5. Subscribed: ${_formatDateTime(journey.subscriptionData!['subscriptionStartDate'])}'),
+                // Check for subscription start date
+                ..._getSubscriptionStartDateText(journey.subscriptionData!),
                 if (journey.subscriptionData!['cancelledAt'] != null)
                   Text('6. Cancelled: ${_formatDateTime(journey.subscriptionData!['cancelledAt'])}'),
               ],
@@ -516,6 +566,228 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         ],
       ),
     );
+  }
+
+  Widget _buildUsersTab() {
+    return Column(
+      children: [
+        // Search bar
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Search users by email, name, or username...',
+              hintStyle: const TextStyle(color: Colors.white70),
+              prefixIcon: const Icon(Icons.search, color: Colors.white70),
+              filled: true,
+              fillColor: Colors.grey[800],
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            style: const TextStyle(color: Colors.white),
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value;
+              });
+            },
+          ),
+        ),
+        
+        // Stats row
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            children: [
+              _buildStatCard('Total Users', _userJourneys.length.toString(), Colors.blue),
+              const SizedBox(width: 8),
+              _buildStatCard('Active Subs', 
+                _userJourneys.where((j) => j.currentStatus == SubscriptionStatus.active).length.toString(), 
+                Colors.green),
+              const SizedBox(width: 8),
+              _buildStatCard('Trial Users', 
+                _userJourneys.where((j) => j.currentStatus == SubscriptionStatus.trial).length.toString(), 
+                Colors.orange),
+              const SizedBox(width: 8),
+              _buildStatCard('Expired', 
+                _userJourneys.where((j) => j.currentStatus == SubscriptionStatus.expired || j.currentStatus == SubscriptionStatus.trialExpired).length.toString(), 
+                Colors.red),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // User table
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _buildUserJourneyTable(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBillingTab() {
+    return const Center(
+      child: Text(
+        'Billing Tab - Coming Soon',
+        style: TextStyle(color: Colors.white70, fontSize: 18),
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsTab() {
+    return const Center(
+      child: Text(
+        'Analytics Tab - Coming Soon',
+        style: TextStyle(color: Colors.white70, fontSize: 18),
+      ),
+    );
+  }
+
+  Widget _buildDirectStartDate(Map<String, dynamic> subscriptionData) {
+    // Direct approach - just look for startDate as mentioned in Firestore
+    _logger.info('Direct startDate check. Has startDate: ${subscriptionData.containsKey('startDate')}');
+    
+    if (subscriptionData.containsKey('startDate')) {
+      final startDateValue = subscriptionData['startDate'];
+      _logger.info('startDate value: $startDateValue (${startDateValue.runtimeType})');
+      
+      if (startDateValue != null) {
+        final formattedDate = _formatDateTime(startDateValue);
+        _logger.info('Formatted startDate: $formattedDate');
+        
+        return Text(
+          'Started: $formattedDate',
+          style: const TextStyle(color: Colors.white70, fontSize: 10),
+        );
+      }
+    }
+    
+    // If startDate not found, show what fields are available
+    _logger.warning('startDate not found. Available fields: ${subscriptionData.keys.toList()}');
+    return Text(
+      'Started: startDate not found (${subscriptionData.keys.length} fields)',
+      style: const TextStyle(color: Colors.red, fontSize: 10),
+    );
+  }
+
+  Widget _buildSubscriptionStartDate(Map<String, dynamic> subscriptionData) {
+    // Log the subscription data for debugging
+    _logger.info('Building subscription start date. Available fields: ${subscriptionData.keys.toList()}');
+    
+    // Check for startDate first since that's what exists in Firestore
+    if (subscriptionData.containsKey('startDate') && subscriptionData['startDate'] != null) {
+      final dateValue = subscriptionData['startDate'];
+      _logger.info('Found startDate: $dateValue (${dateValue.runtimeType})');
+      final formattedDate = _formatDateTime(dateValue);
+      _logger.info('Formatted startDate: $formattedDate');
+      
+      if (formattedDate != 'N/A' && formattedDate != 'Invalid Date' && formattedDate != 'Format Error') {
+        return Text(
+          'Started: $formattedDate',
+          style: const TextStyle(color: Colors.white70, fontSize: 10),
+        );
+      }
+    }
+    
+    // Check for other possible field names as fallback
+    final possibleFields = ['subscriptionStartDate', 'createdAt', 'updatedAt'];
+    
+    for (final field in possibleFields) {
+      if (subscriptionData.containsKey(field) && subscriptionData[field] != null) {
+        final dateValue = subscriptionData[field];
+        _logger.info('Found fallback field $field: $dateValue (${dateValue.runtimeType})');
+        final formattedDate = _formatDateTime(dateValue);
+        
+        if (formattedDate != 'N/A' && formattedDate != 'Invalid Date' && formattedDate != 'Format Error') {
+          return Text(
+            'Started: $formattedDate (from $field)',
+            style: const TextStyle(color: Colors.white70, fontSize: 10),
+          );
+        }
+      }
+    }
+    
+    // If no valid date found, show debug info
+    _logger.warning('No valid subscription start date found. Available fields: ${subscriptionData.keys.toList()}');
+    subscriptionData.forEach((key, value) {
+      _logger.warning('  $key: ${value.runtimeType} = $value');
+    });
+    
+    return Text(
+      'Started: No Date Found (${subscriptionData.keys.join(', ')})',
+      style: const TextStyle(color: Colors.red, fontSize: 10),
+    );
+  }
+
+  List<Widget> _getSubscriptionStartDateText(Map<String, dynamic> subscriptionData) {
+    // Check for startDate first since that's what exists in Firestore
+    if (subscriptionData.containsKey('startDate') && subscriptionData['startDate'] != null) {
+      final dateValue = subscriptionData['startDate'];
+      final formattedDate = _formatDateTime(dateValue);
+      
+      if (formattedDate != 'N/A' && formattedDate != 'Invalid Date' && formattedDate != 'Format Error') {
+        return [Text('5. Subscribed: $formattedDate')];
+      }
+    }
+    
+    // Check for other possible field names as fallback
+    final possibleFields = ['subscriptionStartDate', 'createdAt', 'updatedAt'];
+    
+    for (final field in possibleFields) {
+      if (subscriptionData.containsKey(field) && subscriptionData[field] != null) {
+        final dateValue = subscriptionData[field];
+        final formattedDate = _formatDateTime(dateValue);
+        
+        if (formattedDate != 'N/A' && formattedDate != 'Invalid Date' && formattedDate != 'Format Error') {
+          return [Text('5. Subscribed: $formattedDate (from $field)')];
+        }
+      }
+    }
+    
+    // If no valid date found, show debug info
+    return [Text('5. Subscribed: No Date Found - Available fields: ${subscriptionData.keys.join(', ')}')];
+  }
+
+  /// Debug method to inspect subscription data for a specific user
+  Future<void> _debugUserSubscription(String email) async {
+    try {
+      // Find user by email
+      final userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+      
+      if (userQuery.docs.isEmpty) {
+        _logger.info('No user found with email: $email');
+        return;
+      }
+      
+      final userId = userQuery.docs.first.id;
+      _logger.info('Found user $email with ID: $userId');
+      
+      // Get subscription document
+      final subscriptionDoc = await FirebaseFirestore.instance
+          .collection('subscriptions')
+          .doc(userId)
+          .get();
+      
+      if (subscriptionDoc.exists) {
+        final data = subscriptionDoc.data()!;
+        _logger.info('Subscription document for $email:');
+        data.forEach((key, value) {
+          _logger.info('  $key: ${value.runtimeType} = $value');
+        });
+      } else {
+        _logger.info('No subscription document found for $email');
+      }
+    } catch (e) {
+      _logger.severe('Error debugging user subscription: $e');
+    }
   }
 }
 

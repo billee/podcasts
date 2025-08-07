@@ -1,4 +1,6 @@
 # Combined Flask App: OFW Admin Dashboard + Chat/Daily.co API
+# 
+# Main production app.py file for the OFW admin dashboard and chat API
 import os
 import time
 from flask import Flask, request, jsonify, render_template
@@ -145,13 +147,15 @@ def get_users():
                 else:
                     app.logger.info(f"No trial history found for user {user_id} / {email}")
             
-            # Get subscription data for this user
+            # Get subscription data for this user by UID only
             subscription = None
-            if email:
-                subscription_ref = db.collection('subscriptions').document(email)
-                subscription_doc = subscription_ref.get()
-                if subscription_doc.exists:
-                    subscription = subscription_doc.to_dict()
+            subscription_ref = db.collection('subscriptions').document(user_id)
+            subscription_doc = subscription_ref.get()
+            if subscription_doc.exists:
+                subscription = subscription_doc.to_dict()
+                app.logger.info(f"✅ Found subscription for user {user_id}")
+            else:
+                app.logger.info(f"❌ No subscription found for user {user_id}")
             
             # Calculate days remaining for trial
             days_remaining = get_trial_days_remaining(trial_history)
@@ -160,7 +164,7 @@ def get_users():
             journey_data = {
                 'user_id': user_id,
                 'email': email or 'N/A',
-                'username': user_data.get('username', 'N/A'),
+                'uid': user_id,
                 'registration_date': format_timestamp(user_data.get('createdAt')),
                 'email_verified': user_data.get('emailVerified', False),
                 'email_verification_date': format_timestamp(user_data.get('emailVerifiedAt')),
@@ -168,16 +172,24 @@ def get_users():
                 'trial_end_date': format_timestamp(trial_history.get('trialEndDate') if trial_history else None),
                 'trial_days_remaining': days_remaining,
                 'trial_status': get_trial_status(trial_history),
-                'subscription_start_date': format_timestamp(subscription.get('subscriptionStartDate') if subscription else None),
+                'subscription_start_date': format_timestamp(subscription.get('startDate') if subscription else None),
                 'subscription_end_date': format_timestamp(subscription.get('subscriptionEndDate') if subscription else None),
                 'subscription_status': get_subscription_status(subscription),
                 'cancellation_date': format_timestamp(subscription.get('willExpireAt') if subscription and subscription.get('cancelled') else None),
-                'is_premium': subscription.get('isActive', False) if subscription else False,
+                'is_premium': subscription.get('status') == 'active' if subscription else False,
                 'last_login': format_timestamp(user_data.get('lastLoginAt')),
                 'current_status': get_current_user_status(user_data, trial_history, subscription)
             }
             
             users_data.append(journey_data)
+            
+            # Debug: log the first user's data to see what fields are being sent
+            if len(users_data) == 1:
+                app.logger.info(f"First user data fields: {list(journey_data.keys())}")
+                app.logger.info(f"UID field value: {journey_data.get('uid')}")
+                app.logger.info(f"Username field (should not exist): {journey_data.get('username', 'NOT_FOUND')}")
+            
+
         
         # Sort by registration date (newest first)
         users_data.sort(key=lambda x: x['registration_date'] or '', reverse=True)
@@ -214,7 +226,20 @@ def get_stats():
         # Get active subscriptions
         subscription_ref = db.collection('subscriptions')
         all_subscriptions = list(subscription_ref.stream())
-        active_subscriptions = sum(1 for sub in all_subscriptions if sub.to_dict().get('isActive', False))
+        
+        # Debug: log subscription data
+        app.logger.info(f"aaaaaa: {all_subscriptions}")
+        print("nnnnnnnnnnnnnnnnnnnnnnn")
+        app.logger.info(f"Total subscription documents: {len(all_subscriptions)}")
+        
+        for i, sub in enumerate(all_subscriptions):
+            sub_data = sub.to_dict()
+            app.logger.info(f"Subscription {i+1}: status={sub_data.get('status')}, isActive={sub_data.get('isActive')}, cancelled={sub_data.get('cancelled')}")
+            print(f"Subscription data: {sub_data}")
+        
+        active_subscriptions = sum(1 for sub in all_subscriptions if sub.to_dict().get('status') == 'active')
+        app.logger.info(f"Active subscriptions count: {active_subscriptions}")
+        print(f"Active count: {active_subscriptions}")
         
         # Get cancelled subscriptions
         cancelled_subscriptions = sum(1 for sub in all_subscriptions if sub.to_dict().get('cancelled', False))
@@ -255,7 +280,7 @@ def get_revenue_analytics():
         all_subscriptions = list(subscription_ref.stream())
         
         # Calculate MRR (Monthly Recurring Revenue)
-        active_subscriptions = [sub for sub in all_subscriptions if sub.to_dict().get('isActive', False)]
+        active_subscriptions = [sub for sub in all_subscriptions if sub.to_dict().get('status') == 'active']
         mrr = len(active_subscriptions) * 3.0  # $3/month per subscription
         
         # Calculate ARPU (Average Revenue Per User)
@@ -312,7 +337,7 @@ def get_conversion_funnel():
         # Get active subscriptions
         subscription_ref = db.collection('subscriptions')
         all_subscriptions = list(subscription_ref.stream())
-        total_subscriptions = len([sub for sub in all_subscriptions if sub.to_dict().get('isActive', False)])
+        total_subscriptions = len([sub for sub in all_subscriptions if sub.to_dict().get('status') == 'active'])
         
         # Calculate conversion rates
         verification_rate = (total_verified / total_registrations * 100) if total_registrations > 0 else 0
@@ -533,22 +558,44 @@ def format_timestamp(timestamp):
         return None
     
     try:
-        # Handle Firestore DatetimeWithNanoseconds
+        # Handle Firestore DatetimeWithNanoseconds (most common)
         if hasattr(timestamp, 'timestamp'):
             dt = timestamp.replace(tzinfo=None)  # Remove timezone info
+        elif hasattr(timestamp, 'seconds') and hasattr(timestamp, 'nanoseconds'):
+            # Firestore timestamp object
+            dt = datetime.fromtimestamp(timestamp.seconds + timestamp.nanoseconds / 1e9)
         elif hasattr(timestamp, 'seconds'):
-            # Firestore timestamp
+            # Simple timestamp with seconds only
             dt = datetime.fromtimestamp(timestamp.seconds)
         elif isinstance(timestamp, str):
-            # ISO string
-            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00')).replace(tzinfo=None)
+            # Handle string representation of Timestamp object
+            if 'Timestamp(' in timestamp and 'seconds=' in timestamp:
+                # Parse string like "Timestamp(seconds=1753482044, nanoseconds=992000000)"
+                import re
+                seconds_match = re.search(r'seconds=(\d+)', timestamp)
+                nanoseconds_match = re.search(r'nanoseconds=(\d+)', timestamp)
+                
+                if seconds_match:
+                    seconds = int(seconds_match.group(1))
+                    nanoseconds = int(nanoseconds_match.group(1)) if nanoseconds_match else 0
+                    dt = datetime.fromtimestamp(seconds + nanoseconds / 1e9)
+                else:
+                    app.logger.warning(f"Could not parse Timestamp string: {timestamp}")
+                    return "Parse Error"
+            else:
+                # ISO string
+                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00')).replace(tzinfo=None)
+        elif isinstance(timestamp, datetime):
+            # Already a datetime object
+            dt = timestamp.replace(tzinfo=None) if timestamp.tzinfo else timestamp
         else:
+            app.logger.warning(f"Unknown timestamp format: {timestamp} ({type(timestamp)})")
             return str(timestamp)
         
         return dt.strftime('%Y-%m-%d %H:%M:%S')
     except Exception as e:
         app.logger.error(f"Error formatting timestamp {timestamp}: {e}")
-        return str(timestamp)
+        return "Format Error"
 
 def get_trial_status(trial_history):
     """Determine current trial status"""
@@ -617,15 +664,24 @@ def get_trial_days_remaining(trial_history):
 
 def get_current_user_status(user_data, trial_history, subscription):
     """Determine the user's current overall status"""
+    email = user_data.get('email', '')
+    
     if not user_data.get('emailVerified'):
         return 'Unverified'
     
-    if subscription and subscription.get('isActive') and not subscription.get('cancelled'):
-        return 'Premium Subscriber'
+    # Check if user has an active subscription (status: "active")
+    if subscription and subscription.get('status') == 'active':
+        return 'Pro'
     
+    # Also check for legacy isActive field as fallback
+    if subscription and subscription.get('isActive') and not subscription.get('cancelled'):
+        return 'Pro'
+    
+    # Check for cancelled subscription
     if subscription and subscription.get('cancelled'):
         return 'Cancelled Subscriber'
     
+    # Check trial status
     if trial_history:
         trial_status = get_trial_status(trial_history)
         if trial_status == 'Active Trial':
@@ -1068,9 +1124,9 @@ def export_subscriptions_data(format_type):
             export_data.append({
                 'subscription_id': sub_doc.id,
                 'email': sub_data.get('email', ''),
-                'is_active': sub_data.get('isActive', False),
+                'is_active': sub_data.get('status') == 'active',
                 'cancelled': sub_data.get('cancelled', False),
-                'subscription_start': format_timestamp(sub_data.get('subscriptionStartDate')),
+                'subscription_start': format_timestamp(sub_data.get('startDate')),
                 'subscription_end': format_timestamp(sub_data.get('subscriptionEndDate')),
                 'will_expire_at': format_timestamp(sub_data.get('willExpireAt')),
                 'monthly_fee': 3.0
@@ -1228,7 +1284,7 @@ def generate_daily_summary_report(users, subscriptions, trials):
     
     for sub_doc in subscriptions:
         sub_data = sub_doc.to_dict()
-        start_date = sub_data.get('subscriptionStartDate')
+        start_date = sub_data.get('startDate')
         if start_date:
             if hasattr(start_date, 'seconds'):
                 start_date_obj = datetime.fromtimestamp(start_date.seconds).date()
@@ -1275,7 +1331,7 @@ def generate_weekly_trend_report(users, subscriptions):
         # Count subscriptions for this day
         for sub_doc in subscriptions:
             sub_data = sub_doc.to_dict()
-            start_date = sub_data.get('subscriptionStartDate')
+            start_date = sub_data.get('startDate')
             if start_date:
                 if hasattr(start_date, 'seconds'):
                     start_date_obj = datetime.fromtimestamp(start_date.seconds).date()
@@ -1307,7 +1363,7 @@ def generate_monthly_business_report(subscriptions):
         sub_data = sub_doc.to_dict()
         
         # Check for new subscriptions this month
-        start_date = sub_data.get('subscriptionStartDate')
+        start_date = sub_data.get('startDate')
         if start_date:
             if hasattr(start_date, 'seconds'):
                 start_dt = datetime.fromtimestamp(start_date.seconds)
@@ -1696,7 +1752,7 @@ def calculate_user_behavior_analytics(users, trials, subscriptions):
             
             if trial_data and subscription_data:
                 trial_start = trial_data.get('trialStartDate')
-                sub_start = subscription_data.get('subscriptionStartDate')
+                sub_start = subscription_data.get('startDate')
                 
                 if trial_start and sub_start:
                     # Parse dates
@@ -1882,7 +1938,7 @@ def calculate_payment_analysis(subscriptions):
                     payment_failures += 1
             
             # Analyze monthly payment trends
-            start_date = sub_data.get('subscriptionStartDate')
+            start_date = sub_data.get('startDate')
             if start_date:
                 if hasattr(start_date, 'seconds'):
                     start_dt = datetime.fromtimestamp(start_date.seconds)
@@ -2027,7 +2083,7 @@ def calculate_revenue_trends(subscriptions):
                 if not sub_data.get('isActive'):
                     continue
                 
-                start_date = sub_data.get('subscriptionStartDate')
+                start_date = sub_data.get('startDate')
                 if start_date:
                     if hasattr(start_date, 'seconds'):
                         start_dt = datetime.fromtimestamp(start_date.seconds)
@@ -2131,7 +2187,7 @@ def calculate_churn_metrics():
             sub_data = sub_doc.to_dict()
             
             # Check if subscription was active at start of month
-            start_date = sub_data.get('subscriptionStartDate')
+            start_date = sub_data.get('startDate')
             if start_date:
                 if hasattr(start_date, 'seconds'):
                     start_dt = datetime.fromtimestamp(start_date.seconds)
@@ -2177,7 +2233,7 @@ def calculate_subscription_health_metrics(subscriptions):
                 'customer_lifetime_value': 0
             }
         
-        active_subscriptions = [sub for sub in subscriptions if sub.to_dict().get('isActive', False)]
+        active_subscriptions = [sub for sub in subscriptions if sub.to_dict().get('status') == 'active']
         total_subscriptions = len(subscriptions)
         active_count = len(active_subscriptions)
         
@@ -2190,7 +2246,7 @@ def calculate_subscription_health_metrics(subscriptions):
         
         for sub_doc in subscriptions:
             sub_data = sub_doc.to_dict()
-            start_date = sub_data.get('subscriptionStartDate')
+            start_date = sub_data.get('startDate')
             end_date = sub_data.get('subscriptionEndDate') or sub_data.get('willExpireAt')
             
             if start_date:
@@ -2256,7 +2312,7 @@ def calculate_subscription_growth_trends(subscriptions):
                 sub_data = sub_doc.to_dict()
                 
                 # Check for new subscriptions
-                start_date = sub_data.get('subscriptionStartDate')
+                start_date = sub_data.get('startDate')
                 if start_date:
                     if hasattr(start_date, 'seconds'):
                         start_dt = datetime.fromtimestamp(start_date.seconds)
@@ -2321,7 +2377,7 @@ def calculate_total_revenue(subscriptions):
         
         for sub_doc in subscriptions:
             sub_data = sub_doc.to_dict()
-            start_date = sub_data.get('subscriptionStartDate')
+            start_date = sub_data.get('startDate')
             end_date = sub_data.get('subscriptionEndDate')
             
             if not start_date:
@@ -2478,7 +2534,7 @@ def calculate_churn_metrics():
         
         total_subscriptions = len(all_subscriptions)
         cancelled_subscriptions = len([sub for sub in all_subscriptions if sub.to_dict().get('cancelled', False)])
-        active_subscriptions = len([sub for sub in all_subscriptions if sub.to_dict().get('isActive', False)])
+        active_subscriptions = len([sub for sub in all_subscriptions if sub.to_dict().get('status') == 'active'])
         
         # Calculate churn rate
         churn_rate = (cancelled_subscriptions / total_subscriptions * 100) if total_subscriptions > 0 else 0
@@ -2523,7 +2579,7 @@ def calculate_subscription_health_metrics(subscriptions):
     """Calculate subscription growth and health metrics"""
     try:
         total_subscriptions = len(subscriptions)
-        active_subscriptions = len([sub for sub in subscriptions if sub.to_dict().get('isActive', False)])
+        active_subscriptions = len([sub for sub in subscriptions if sub.to_dict().get('status') == 'active'])
         cancelled_subscriptions = len([sub for sub in subscriptions if sub.to_dict().get('cancelled', False)])
         
         # Calculate subscription health score (0-100)
@@ -2568,7 +2624,7 @@ def calculate_average_subscription_duration(subscriptions):
         
         for sub_doc in subscriptions:
             sub_data = sub_doc.to_dict()
-            start_date = sub_data.get('subscriptionStartDate')
+            start_date = sub_data.get('startDate')
             
             if not start_date:
                 continue
@@ -2632,7 +2688,7 @@ def calculate_subscription_growth_trends(subscriptions):
                 sub_data = sub_doc.to_dict()
                 
                 # Check for new subscriptions
-                start_date = sub_data.get('subscriptionStartDate')
+                start_date = sub_data.get('startDate')
                 if start_date:
                     if hasattr(start_date, 'seconds'):
                         start_dt = datetime.fromtimestamp(start_date.seconds)

@@ -689,7 +689,7 @@
                     <thead>
                         <tr>
                             <th>Email</th>
-                            <th>Username</th>
+                            <th>UID</th>
                             <th>Registration</th>
                             <th>Email Verified</th>
                             <th>Trial Start</th>
@@ -790,11 +790,15 @@
             clearActiveButtons();
             
             // Load stats only
+            console.log('Loading stats...');
             fetch('/api/stats')
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Stats response:', data);
                     if (data.success) {
                         const stats = data.stats;
+                        console.log('Active subscriptions:', stats.active_subscriptions);
+                        console.log('Conversion rate:', stats.conversion_rate);
                         document.getElementById('totalUsers').textContent = stats.total_users;
                         document.getElementById('verifiedUsers').textContent = stats.verified_users;
                         document.getElementById('totalTrials').textContent = stats.total_trials;
@@ -817,6 +821,7 @@
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('loadingMessage').style.display = 'none';
+                    console.log('.............');
                     
                     if (data.success) {
                         displayUsers(data.users);
@@ -832,6 +837,7 @@
         }
         
         function displayUsers(users) {
+            console.log(users);
             const tbody = document.getElementById('usersTableBody');
             tbody.innerHTML = '';
             
@@ -839,7 +845,7 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td class="email-cell" title="${user.email}">${user.email}</td>
-                    <td class="username-cell" title="${user.username}">${user.username}</td>
+                    <td class="username-cell" title="${user.uid}">${user.uid}</td>
                     <td class="date-cell">${formatDate(user.registration_date)}</td>
                     <td class="date-cell">${user.email_verified ? '✅ ' + formatDate(user.email_verification_date) : '❌ No'}</td>
                     <td class="date-cell">${formatDate(user.trial_start_date)}</td>

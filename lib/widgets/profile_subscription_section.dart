@@ -36,6 +36,10 @@ class _ProfileSubscriptionSectionState extends State<ProfileSubscriptionSection>
       final status = await SubscriptionService.getSubscriptionStatus(user.uid);
       final details = await SubscriptionService.getSubscriptionDetails(user.uid);
       
+      // Debug logging
+      print('DEBUG ProfileSubscriptionSection: Status = ${status.name}');
+      print('DEBUG ProfileSubscriptionSection: Details = $details');
+      
       if (mounted) {
         setState(() {
           _status = status;
@@ -44,6 +48,7 @@ class _ProfileSubscriptionSectionState extends State<ProfileSubscriptionSection>
         });
       }
     } catch (e) {
+      print('DEBUG ProfileSubscriptionSection: Error = $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -155,9 +160,9 @@ class _ProfileSubscriptionSectionState extends State<ProfileSubscriptionSection>
           statusText = 'Premium Subscriber';
           break;
         case SubscriptionStatus.cancelled:
-          icon = Icons.diamond_outlined;
+          icon = Icons.cancel;
           color = Colors.orange;
-          statusText = 'Subscription Ending';
+          statusText = 'Subscription Cancelled';
           break;
         case SubscriptionStatus.expired:
         case SubscriptionStatus.trialExpired:
@@ -287,13 +292,42 @@ class _ProfileSubscriptionSectionState extends State<ProfileSubscriptionSection>
   }
 
   Widget _buildCancelledSubscriptionInfo() {
+    // Use willExpireAt field for cancelled subscriptions
+    final willExpireAt = _subscriptionDetails?['willExpireAt'];
+    String expirationText = 'the end of your billing period';
+    
+    if (willExpireAt != null) {
+      try {
+        DateTime endDate;
+        if (willExpireAt is DateTime) {
+          endDate = willExpireAt;
+        } else if (willExpireAt.runtimeType.toString().contains('Timestamp')) {
+          // Handle Firestore Timestamp
+          endDate = willExpireAt.toDate();
+        } else {
+          // Try parsing as string
+          endDate = DateTime.parse(willExpireAt.toString());
+        }
+        // Format as "Sept 3, 2025"
+        const monthNames = [
+          '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'
+        ];
+        final monthName = monthNames[endDate.month];
+        expirationText = '$monthName ${endDate.day}, ${endDate.year}';
+      } catch (e) {
+        print('DEBUG: Error parsing willExpireAt: $e, value: $willExpireAt, type: ${willExpireAt.runtimeType}');
+        expirationText = 'the end of your billing period';
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Your subscription has been cancelled but is still active until the end of your billing period.',
+          'Your subscription is cancelled and will expire on $expirationText.',
           style: TextStyle(
-            color: Colors.white,
+            color: Colors.orange[300],
             fontSize: 16,
             fontWeight: FontWeight.w500,
             height: 1.4,
@@ -301,7 +335,7 @@ class _ProfileSubscriptionSectionState extends State<ProfileSubscriptionSection>
         ),
         const SizedBox(height: 8),
         Text(
-          'You can reactivate your subscription at any time.',
+          'You can reactivate your subscription at any time before it expires.',
           style: TextStyle(
             color: Colors.white70,
             fontSize: 14,
@@ -353,9 +387,9 @@ class _ProfileSubscriptionSectionState extends State<ProfileSubscriptionSection>
         onPressed = _navigateToSubscription;
         break;
       case SubscriptionStatus.active:
-        buttonText = 'Manage Subscription';
-        buttonColor = Colors.blue[600]!;
-        onPressed = _navigateToSubscription;
+        buttonText = 'Cancel Subscription';
+        buttonColor = Colors.red[600]!;
+        onPressed = _showCancelSubscriptionDialog;
         break;
       case SubscriptionStatus.cancelled:
         buttonText = 'Reactivate Subscription';
@@ -400,5 +434,88 @@ class _ProfileSubscriptionSectionState extends State<ProfileSubscriptionSection>
         builder: (context) => const SubscriptionManagementScreen(),
       ),
     );
+  }
+
+  void _showCancelSubscriptionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[800],
+          title: const Text(
+            'Cancel Subscription',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const Text(
+            'Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your billing period.',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Keep Subscription'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _cancelSubscription();
+              },
+              child: const Text(
+                'Cancel Subscription',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _cancelSubscription() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Cancel the subscription
+      await SubscriptionService.cancelSubscription(user.uid);
+
+      // Close loading dialog
+      if (mounted) Navigator.of(context).pop();
+
+      // Reload subscription info
+      await _loadSubscriptionInfo();
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Subscription cancelled successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) Navigator.of(context).pop();
+
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error cancelling subscription: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

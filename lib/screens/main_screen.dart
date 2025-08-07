@@ -103,9 +103,9 @@ class MainScreenState extends State<MainScreen> {
             await SubscriptionService.getSubscriptionStatus(_currentUserId!);
         _logger.info('Current subscription status: $_subscriptionStatus');
 
-        // Show main screens ONLY if user has an active subscription
-        // For all other states (null, trial, expired, trialExpired, cancelled), show subscription screen
-        if (_subscriptionStatus != SubscriptionStatus.active) {
+        // Show main screens if user has an active subscription OR cancelled subscription (still has access until expiration)
+        // For all other states (null, trial, expired, trialExpired), show subscription screen
+        if (_subscriptionStatus != SubscriptionStatus.active && _subscriptionStatus != SubscriptionStatus.cancelled) {
           // Always show subscription screen unless user has an active subscription
           _logger.info(
               'User needs subscription. Current status: $_subscriptionStatus');
