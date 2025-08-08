@@ -85,7 +85,16 @@
   - Store historical data for at least 12 months as specified
   - _Requirements: 6.2, 6.5, 6.6_
 
-- [ ] 8. Build admin dashboard integration for usage reporting
+- [x] 8. Build admin dashboard integration for usage reporting
+
+
+
+
+
+
+
+
+
   - Add monthly token usage display to admin dashboard
   - Create user-specific usage history views in admin interface
   - Implement monthly usage reports with breakdown by user type
