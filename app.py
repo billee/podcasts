@@ -40,12 +40,22 @@ app.logger.setLevel(logging.INFO)
 # Initialize Firebase Admin SDK
 if not firebase_admin._apps:
     try:
+        # Try to use service account key file first (for local development)
         if os.path.exists('serviceAccountKey.json'):
             cred = credentials.Certificate('serviceAccountKey.json')
             firebase_admin.initialize_app(cred)
-            app.logger.info("✅ Firebase initialized successfully")
+            app.logger.info("✅ Firebase initialized successfully from file")
         else:
-            app.logger.error("❌ serviceAccountKey.json not found")
+            # Use environment variable (for production deployment)
+            firebase_key_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY')
+            if firebase_key_json:
+                import json
+                firebase_key_dict = json.loads(firebase_key_json)
+                cred = credentials.Certificate(firebase_key_dict)
+                firebase_admin.initialize_app(cred)
+                app.logger.info("✅ Firebase initialized successfully from environment variable")
+            else:
+                app.logger.error("❌ Neither serviceAccountKey.json file nor FIREBASE_SERVICE_ACCOUNT_KEY environment variable found")
     except Exception as e:
         app.logger.error(f"❌ Firebase initialization error: {e}")
 
