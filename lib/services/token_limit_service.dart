@@ -4,6 +4,7 @@ import '../core/config.dart';
 import '../models/daily_token_usage.dart';
 import '../models/token_usage_info.dart';
 import 'subscription_service.dart';
+import 'historical_usage_service.dart';
 
 /// Service for managing daily token limits and usage tracking
 /// Handles token limit enforcement, usage recording, and real-time monitoring
@@ -73,6 +74,16 @@ class TokenLimitService {
         });
         
         _logger.info('Updated token usage for user $userId: $tokenCount tokens added (total: $newTokensUsed)');
+        
+        // Update historical data for current month
+        final updatedUsage = currentUsage.copyWith(
+          tokensUsed: newTokensUsed,
+          lastUpdated: DateTime.now(),
+        );
+        await HistoricalUsageService.updateCurrentMonthHistory(
+          userId: userId,
+          dailyUsage: updatedUsage,
+        );
       } else {
         // Create new record for today
         final userType = await _getUserType(userId);
@@ -92,6 +103,12 @@ class TokenLimitService {
         await docRef.set(newUsage.toFirestore());
         
         _logger.info('Created new token usage record for user $userId: $tokenCount tokens (limit: $tokenLimit)');
+        
+        // Update historical data for current month
+        await HistoricalUsageService.updateCurrentMonthHistory(
+          userId: userId,
+          dailyUsage: newUsage,
+        );
       }
     } catch (e) {
       _logger.severe('Error recording token usage: $e');
