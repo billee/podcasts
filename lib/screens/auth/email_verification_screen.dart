@@ -78,23 +78,6 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-            Icon(
-              Icons.email_outlined,
-              size: 64,
-              color: Colors.blue[800],
-            ),
-            const SizedBox(height: 20),
-            
-            Text(
-              'Verify Your Email',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue[800],
-              ),
-            ),
-            
-            const SizedBox(height: 12),
             
             const Text(
               'We\'ve sent a verification email to:',

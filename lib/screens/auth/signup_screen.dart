@@ -4,6 +4,7 @@ import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:kapwa_companion_basic/models/user.dart';
 import 'package:logging/logging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -43,6 +44,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
   String? _emailValidationError;
   String? _passwordValidationError;
   String? _confirmPasswordValidationError;
+  
+  // Email checking state
+  bool _isCheckingEmail = false;
+  Timer? _emailCheckTimer;
   
   // Password strength
   int _passwordStrength = 0; // 0-4 scale
@@ -129,6 +134,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _confirmPasswordController.dispose();
     _occupationController.dispose();
     _pageController.dispose();
+    
+    // Cancel email check timer
+    _emailCheckTimer?.cancel();
+    
     super.dispose();
   }
 
@@ -168,18 +177,65 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   void _validateEmail() {
     final email = _emailController.text.trim();
+    
+    // Cancel previous timer if exists
+    _emailCheckTimer?.cancel();
+    
     setState(() {
       if (email.isEmpty) {
         _emailValidationError = null;
         _isEmailValid = false;
+        _isCheckingEmail = false;
       } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
         _emailValidationError = 'Invalid email format';
         _isEmailValid = false;
+        _isCheckingEmail = false;
       } else {
+        // Email format is valid, now check if it exists in database
         _emailValidationError = null;
-        _isEmailValid = true;
+        _isEmailValid = false; // Set to false until database check completes
+        _isCheckingEmail = true;
+        
+        // Debounce the database check by 800ms
+        _emailCheckTimer = Timer(const Duration(milliseconds: 800), () {
+          _checkEmailExists(email);
+        });
       }
     });
+  }
+  
+  Future<void> _checkEmailExists(String email) async {
+    try {
+      // Check in Firestore users collection
+      final userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+      
+      if (mounted) {
+        setState(() {
+          _isCheckingEmail = false;
+          if (userQuery.docs.isNotEmpty) {
+            _emailValidationError = 'This email address is already registered. Please use a different email or try signing in.';
+            _isEmailValid = false;
+          } else {
+            _emailValidationError = null;
+            _isEmailValid = true;
+          }
+        });
+      }
+    } catch (e) {
+      _logger.warning('Error checking email existence: $e');
+      if (mounted) {
+        setState(() {
+          _isCheckingEmail = false;
+          // On error, assume email is available but show a warning
+          _emailValidationError = 'Unable to verify email availability. Please try again.';
+          _isEmailValid = false;
+        });
+      }
+    }
   }
 
   void _validatePassword() {
@@ -277,7 +333,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _canProceedToNext() {
     switch (_currentPage) {
       case 0:
-        return _isNameValid && _isUsernameValid && _isEmailValid;
+        return _isNameValid && _isUsernameValid && _isEmailValid && !_isCheckingEmail;
       case 1:
         return _isPasswordValid && _isConfirmPasswordValid;
       case 2:
@@ -391,6 +447,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _pageController.jumpToPage(0);
       _showValidationError('Please enter a valid email address');
       return false;
+    } else if (_isCheckingEmail) {
+      _pageController.jumpToPage(0);
+      _showValidationError('Please wait while we verify your email address');
+      return false;
+    } else if (!_isEmailValid) {
+      _pageController.jumpToPage(0);
+      _showValidationError(_emailValidationError ?? 'Please enter a valid email address');
+      return false;
     }
 
 
@@ -457,7 +521,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   bool _validateCurrentPage() {
     if (_currentPage == 0) {
-      return _formKey.currentState!.validate();
+      // First validate the form fields
+      if (!_formKey.currentState!.validate()) {
+        return false;
+      }
+      
+      // Then check email validation state
+      if (_isCheckingEmail) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please wait while we verify your email address'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return false;
+      }
+      
+      if (!_isEmailValid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_emailValidationError ?? 'Please enter a valid email address'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return false;
+      }
+      
+      return true;
     }
     if (_currentPage == 1) {
       if (_passwordController.text.isEmpty ||
@@ -560,7 +650,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             Icon(Icons.check_circle, color: Colors.green, size: 16),
                             const SizedBox(width: 6),
                             const Text(
-                              'Account created successfully!',
+                              'Account created!',
                               style: TextStyle(
                                 color: Colors.green,
                                 fontWeight: FontWeight.bold,
@@ -908,7 +998,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               controller: _usernameController,
               decoration: InputDecoration(
                 labelText: 'Username *',
-                helperText: _usernameValidationError ?? 'This will be used to log in',
+                helperText: _usernameValidationError ?? '',
                 helperStyle: TextStyle(
                   color: _usernameValidationError != null ? Colors.red : Colors.white54,
                   fontSize: 12
@@ -977,9 +1067,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
               keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
                 labelText: 'Email Address *',
-                helperText: _emailValidationError ?? 'Required for account recovery and notifications',
+                helperText: _isCheckingEmail 
+                    ? 'Checking email availability...'
+                    : (_emailValidationError ?? 'Required for account recovery and notifications'),
                 helperStyle: TextStyle(
-                  color: _emailValidationError != null ? Colors.red : Colors.white54,
+                  color: _isCheckingEmail 
+                      ? Colors.blue
+                      : (_emailValidationError != null ? Colors.red : Colors.white54),
                   fontSize: 12
                 ),
                 prefixIcon: Icon(
@@ -987,11 +1081,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   color: _isEmailValid ? Colors.green : Colors.white70
                 ),
                 suffixIcon: _emailController.text.isNotEmpty
-                    ? Icon(
-                        _isEmailValid ? Icons.check_circle : Icons.error,
-                        color: _isEmailValid ? Colors.green : Colors.red,
-                        size: 20,
-                      )
+                    ? _isCheckingEmail
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Padding(
+                              padding: EdgeInsets.all(12.0),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                              ),
+                            ),
+                          )
+                        : Icon(
+                            _isEmailValid ? Icons.check_circle : Icons.error,
+                            color: _isEmailValid ? Colors.green : Colors.red,
+                            size: 20,
+                          )
                     : null,
                 filled: true,
                 fillColor: Colors.grey[800],
@@ -1002,22 +1108,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
-                    color: _emailValidationError != null 
-                        ? Colors.red.withOpacity(0.5)
-                        : _isEmailValid 
-                            ? Colors.green.withOpacity(0.5)
-                            : Colors.transparent,
+                    color: _isCheckingEmail
+                        ? Colors.blue.withOpacity(0.5)
+                        : (_emailValidationError != null 
+                            ? Colors.red.withOpacity(0.5)
+                            : _isEmailValid 
+                                ? Colors.green.withOpacity(0.5)
+                                : Colors.transparent),
                     width: 1,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
-                    color: _emailValidationError != null 
-                        ? Colors.red
-                        : _isEmailValid 
-                            ? Colors.green
-                            : Colors.blue,
+                    color: _isCheckingEmail
+                        ? Colors.blue
+                        : (_emailValidationError != null 
+                            ? Colors.red
+                            : _isEmailValid 
+                                ? Colors.green
+                                : Colors.blue),
                     width: 2,
                   ),
                 ),

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/subscription_service.dart';
 import '../screens/subscription/subscription_management_screen.dart';
 import 'subscription_status_indicator.dart';
+import '../core/config.dart';
 
 /// Widget that displays subscription information in the profile screen
 /// Shows trial status for trial users and subscription status for subscribers
@@ -449,7 +450,7 @@ class _ProfileSubscriptionSectionState extends State<ProfileSubscriptionSection>
 
     // Check if subscription is still within the valid period (not expired)
     final willExpireAt = _subscriptionDetails?['willExpireAt'];
-    final now = DateTime.now();
+    final now = AppConfig.currentDateTime;
     bool isStillValid = false;
 
     if (willExpireAt != null) {

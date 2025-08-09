@@ -1,5 +1,6 @@
 import 'package:logging/logging.dart';
 import 'historical_usage_service.dart';
+import '../core/config.dart';
 
 /// Service for handling monthly token usage aggregation
 /// Provides methods for scheduled monthly data processing and migration
@@ -10,7 +11,7 @@ class MonthlyAggregationService {
   /// This should be called at the beginning of each month (e.g., via cron job or scheduled task)
   static Future<Map<String, dynamic>> performMonthlyAggregation() async {
     try {
-      final now = DateTime.now();
+      final now = AppConfig.currentDateTime;
       final previousMonth = DateTime(now.year, now.month - 1, 1);
       final year = previousMonth.year;
       final month = previousMonth.month;
@@ -41,7 +42,7 @@ class MonthlyAggregationService {
         'migratedUsers': migratedUsers,
         'cleanedRecords': cleanedRecords,
         'statistics': statistics,
-        'processedAt': DateTime.now().toIso8601String(),
+        'processedAt': AppConfig.currentDateTime.toIso8601String(),
       };
 
       _logger.info('Monthly aggregation completed successfully: $migratedUsers users processed');
@@ -51,7 +52,7 @@ class MonthlyAggregationService {
       return {
         'success': false,
         'error': e.toString(),
-        'processedAt': DateTime.now().toIso8601String(),
+        'processedAt': AppConfig.currentDateTime.toIso8601String(),
       };
     }
   }
@@ -80,7 +81,7 @@ class MonthlyAggregationService {
         'month': month,
         'migratedUsers': migratedUsers,
         'statistics': statistics,
-        'processedAt': DateTime.now().toIso8601String(),
+        'processedAt': AppConfig.currentDateTime.toIso8601String(),
       };
 
       _logger.info('Aggregation for $year-$month completed: $migratedUsers users processed');
@@ -92,7 +93,7 @@ class MonthlyAggregationService {
         'error': e.toString(),
         'year': year,
         'month': month,
-        'processedAt': DateTime.now().toIso8601String(),
+        'processedAt': AppConfig.currentDateTime.toIso8601String(),
       };
     }
   }
@@ -106,7 +107,7 @@ class MonthlyAggregationService {
       _logger.info('Starting historical data backfill for last $months months');
 
       final results = <Map<String, dynamic>>[];
-      final now = DateTime.now();
+      final now = AppConfig.currentDateTime;
 
       for (int i = 1; i <= months; i++) {
         final targetDate = DateTime(now.year, now.month - i, 1);
@@ -145,7 +146,7 @@ class MonthlyAggregationService {
     int months = 6,
   }) async {
     try {
-      final now = DateTime.now();
+      final now = AppConfig.currentDateTime;
       final status = <Map<String, dynamic>>[];
 
       for (int i = 1; i <= months; i++) {
@@ -176,7 +177,7 @@ class MonthlyAggregationService {
           'hasData': monthlyData.isNotEmpty,
           'userCount': monthlyData.length,
           'totalTokens': statistics['totalTokens'] ?? 0,
-          'lastChecked': DateTime.now().toIso8601String(),
+          'lastChecked': AppConfig.currentDateTime.toIso8601String(),
         });
       }
 

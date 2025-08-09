@@ -103,12 +103,12 @@ class MainScreenState extends State<MainScreen> {
             await SubscriptionService.getSubscriptionStatus(_currentUserId!);
         _logger.info('Current subscription status: $_subscriptionStatus');
 
-        // Show main screens if user has an active subscription OR cancelled subscription (still has access until expiration)
-        // For all other states (null, trial, expired, trialExpired), show subscription screen
-        if (_subscriptionStatus != SubscriptionStatus.active && _subscriptionStatus != SubscriptionStatus.cancelled) {
-          // Always show subscription screen unless user has an active subscription
+        // Show subscription screen ONLY for expired or trialExpired users
+        // Allow trial, active, and cancelled users to access the main app
+        if (_subscriptionStatus == SubscriptionStatus.expired || _subscriptionStatus == SubscriptionStatus.trialExpired) {
+          // Only force subscription screen for truly expired users
           _logger.info(
-              'User needs subscription. Current status: $_subscriptionStatus');
+              'User subscription expired. Current status: $_subscriptionStatus. Showing subscription screen.');
           if (mounted) {
             setState(() {
               _screens = [const SubscriptionScreen()];
@@ -121,9 +121,7 @@ class MainScreenState extends State<MainScreen> {
           return;
         }
 
-        _logger.info('User has active subscription, showing main app screens.');
-
-        _logger.info('User has active subscription, showing main app screens.');
+        _logger.info('User has access to main app. Status: $_subscriptionStatus');
 
         final result = await compute(_fetchUserProfileIsolate, _currentUserId!)
             .timeout(const Duration(seconds: 10));

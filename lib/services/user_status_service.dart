@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logging/logging.dart';
 import 'subscription_service.dart';
+import '../core/config.dart';
 
 enum UserStatus {
   unverified,
@@ -238,7 +239,7 @@ class UserStatusService {
       return [
         {
           'status': _statusToString(currentStatus),
-          'timestamp': DateTime.now(),
+          'timestamp': AppConfig.currentDateTime,
           'userId': userId,
         }
       ];

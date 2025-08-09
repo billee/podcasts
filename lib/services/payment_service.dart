@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'payment_config_service.dart';
+import '../core/config.dart';
 
 /// Custom exception for payment-related errors
 class PaymentException implements Exception {
@@ -762,7 +763,7 @@ class PaymentService {
   }
 
   static String _generateTransactionId() {
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final timestamp = AppConfig.currentDateTime.millisecondsSinceEpoch;
     final random = (timestamp * 1000 + (timestamp % 1000)).toString();
     return 'TXN_${random.substring(random.length - 12)}';
   }

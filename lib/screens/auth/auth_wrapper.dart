@@ -164,10 +164,16 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
           _logger.info(
               'Auth state: User logged in. UID: ${user.uid}. Email: ${user.email}. EmailVerified: ${user.emailVerified}');
           
+          // Double-check that user is actually authenticated
+          if (user.uid.isEmpty) {
+            _logger.warning('User has empty UID, treating as not authenticated');
+            return const LoginScreen();
+          }
+          
           // Check if email is verified
           if (!user.emailVerified) {
-            _logger.info('Email not verified. Navigating to LoginScreen.');
-            return const LoginScreen();
+            _logger.info('Email not verified. Navigating to EmailVerificationScreen.');
+            return const EmailVerificationScreen();
           }
           
           // Email is verified, update Firestore and proceed to main screen

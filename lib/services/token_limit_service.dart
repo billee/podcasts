@@ -78,7 +78,7 @@ class TokenLimitService {
         // Update historical data for current month
         final updatedUsage = currentUsage.copyWith(
           tokensUsed: newTokensUsed,
-          lastUpdated: DateTime.now(),
+          lastUpdated: AppConfig.currentDateTime,
         );
         await HistoricalUsageService.updateCurrentMonthHistory(
           userId: userId,
@@ -96,7 +96,7 @@ class TokenLimitService {
           tokensUsed: tokenCount,
           tokenLimit: tokenLimit,
           userType: userType,
-          lastUpdated: DateTime.now(),
+          lastUpdated: AppConfig.currentDateTime,
           resetAt: resetTime,
         );
         
@@ -212,7 +212,7 @@ class TokenLimitService {
       // But recommend using the new DailyResetService for production
       final today = _getTodayString();
       final yesterday = _getYesterdayString();
-      final resetTimestamp = DateTime.now().toUtc();
+      final resetTimestamp = AppConfig.currentDateTimeUtc;
       
       // Query all usage records from yesterday
       final yesterdayUsage = await _firestore
@@ -295,19 +295,19 @@ class TokenLimitService {
 
   /// Get today's date string in YYYY-MM-DD format (timezone-aware)
   static String _getTodayString() {
-    final now = DateTime.now().toUtc();
+    final now = AppConfig.currentDateTimeUtc;
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
   /// Get yesterday's date string in YYYY-MM-DD format (timezone-aware)
   static String _getYesterdayString() {
-    final yesterday = DateTime.now().toUtc().subtract(const Duration(days: 1));
+    final yesterday = AppConfig.currentDateTimeUtc.subtract(const Duration(days: 1));
     return '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
   }
 
   /// Get next reset time based on timezone configuration
   static DateTime _getNextResetTime() {
-    final now = DateTime.now().toUtc();
+    final now = AppConfig.currentDateTimeUtc;
     
     // Calculate next reset time in UTC
     var nextReset = DateTime.utc(

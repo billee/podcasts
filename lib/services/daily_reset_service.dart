@@ -52,7 +52,7 @@ class DailyResetService {
   static void _scheduleNextReset() {
     try {
       final nextResetTime = _getNextResetTime();
-      final now = DateTime.now().toUtc();
+      final now = AppConfig.currentDateTimeUtc;
       final duration = nextResetTime.difference(now);
 
       _logger.info('Next reset scheduled for: ${nextResetTime.toIso8601String()} (in ${duration.inHours}h ${duration.inMinutes % 60}m)');
@@ -78,7 +78,7 @@ class DailyResetService {
 
   /// Get the next reset time based on timezone configuration
   static DateTime _getNextResetTime() {
-    final now = DateTime.now().toUtc();
+    final now = AppConfig.currentDateTimeUtc;
     
     // Calculate next reset time in UTC
     var nextReset = DateTime.utc(
@@ -102,7 +102,7 @@ class DailyResetService {
     try {
       _logger.info('Starting automated daily token limit reset');
       
-      final resetTimestamp = DateTime.now().toUtc();
+      final resetTimestamp = AppConfig.currentDateTimeUtc;
       final today = _getTodayString();
       final yesterday = _getYesterdayString();
       
@@ -260,13 +260,13 @@ class DailyResetService {
 
   /// Get today's date string in YYYY-MM-DD format
   static String _getTodayString() {
-    final now = DateTime.now().toUtc();
+    final now = AppConfig.currentDateTimeUtc;
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
   /// Get yesterday's date string in YYYY-MM-DD format
   static String _getYesterdayString() {
-    final yesterday = DateTime.now().toUtc().subtract(const Duration(days: 1));
+    final yesterday = AppConfig.currentDateTimeUtc.subtract(const Duration(days: 1));
     return '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
   }
 }

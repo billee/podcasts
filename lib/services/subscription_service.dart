@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logging/logging.dart';
+import '../core/config.dart';
 
 enum SubscriptionStatus { trial, active, expired, cancelled, trialExpired }
 
@@ -31,7 +32,7 @@ class SubscriptionService {
     required double amount,
   }) async {
     try {
-      final now = DateTime.now();
+      final now = AppConfig.currentDateTime;
       final expiryDate =
           now.add(const Duration(days: 30)); // 30-day subscription
 
@@ -89,7 +90,7 @@ class SubscriptionService {
 
         // Check if the subscription is active or cancelled
         if (status == SubscriptionStatus.active.name || status == 'cancelled') {
-          final now = DateTime.now();
+          final now = AppConfig.currentDateTime;
           final subscriptionEndDate = subscription['subscriptionEndDate'];
 
           if (subscriptionEndDate == null) {
@@ -122,7 +123,7 @@ class SubscriptionService {
         final trialEndDate = trialData['trialEndDate'] as Timestamp?;
 
         if (trialEndDate != null) {
-          final now = DateTime.now();
+          final now = AppConfig.currentDateTime;
           if (now.isBefore(trialEndDate.toDate())) {
             return SubscriptionStatus.trial;
           } else {
@@ -168,7 +169,7 @@ class SubscriptionService {
   static Future<Map<String, dynamic>?> getSubscriptionDetails(
       String userId) async {
     try {
-      final now = DateTime.now();
+      final now = AppConfig.currentDateTime;
       Map<String, dynamic> details = {};
 
       // Get user email
@@ -238,7 +239,7 @@ class SubscriptionService {
     String? transactionId,
   }) async {
     try {
-      final now = DateTime.now();
+      final now = AppConfig.currentDateTime;
       final subscriptionEndDate = DateTime(now.year, now.month + 1, now.day);
 
       // Get user email
@@ -375,7 +376,7 @@ class SubscriptionService {
     String? transactionId,
   }) async {
     try {
-      final now = DateTime.now();
+      final now = AppConfig.currentDateTime;
       final nextBillingDate = DateTime(now.year, now.month + 1, now.day);
 
       await _firestore.collection('subscriptions').doc(userId).update({

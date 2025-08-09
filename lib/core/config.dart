@@ -15,6 +15,28 @@ class AppConfig {
   static const String resetTimezone = 'UTC'; // Timezone for daily resets
   static const int resetHour = 0; // Hour of day for reset (0-23)
   static const int resetMinute = 0; // Minute of hour for reset (0-59)
+  
+  // Date configuration for testing
+  static DateTime? _overrideDate; // For testing purposes - when null, uses real DateTime.now()
+  
+  /// Get the current date/time - uses override date if set, otherwise real DateTime.now()
+  static DateTime get currentDateTime {
+    return _overrideDate ?? DateTime.now();
+  }
+  
+  /// Get the current date/time in UTC - uses override date if set, otherwise real DateTime.now().toUtc()
+  static DateTime get currentDateTimeUtc {
+    return _overrideDate?.toUtc() ?? DateTime.now().toUtc();
+  }
+  
+  /// Set override date for testing (null to use real time)
+  static void setOverrideDate(DateTime? date) {
+    _overrideDate = date;
+    Logger('AppConfig').info('Override date set to: ${date?.toString() ?? 'null (using real time)'}');
+  }
+  
+  /// Get current override date (null if using real time)
+  static DateTime? get overrideDate => _overrideDate;
 
   // Existing openAiKey getter
   static String get openAiKey {
@@ -51,6 +73,20 @@ class AppConfig {
     }
 
     Logger('AppConfig').info('Backend Base URL set to: $_backendBaseUrl');
+    
+    // Initialize with real time by default (today)
+    _overrideDate = null;
+    
+    ////////// tomorrow
+    //_overrideDate = DateTime.now().add(Duration(days: 1));
+
+    ///////// Initialize with 2 months from now for testing
+    //_overrideDate = DateTime.now().add(Duration(days: 60));
+
+    ///////// Specific date
+    //_overrideDate = DateTime(2025, 10, 15);
+
+    Logger('AppConfig').info('Date configuration initialized - using real time by default');
     
     // Validate token limit configuration
     validateTokenLimits();

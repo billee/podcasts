@@ -42,7 +42,7 @@ void main() {
 
         // Act & Assert - Test core UI elements
         expect(find.text('Kapwa Companion'), findsOneWidget);
-        expect(find.text('Welcome back! Please sign in to continue.'), findsOneWidget);
+        expect(find.text('Please sign in to continue.'), findsOneWidget);
         
         // Check for form fields
         expect(find.byType(TextFormField), findsNWidgets(2));

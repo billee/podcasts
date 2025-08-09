@@ -7,6 +7,7 @@ import 'package:kapwa_companion_basic/screens/subscription/subscription_manageme
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/widgets/profile_subscription_section.dart';
+import 'package:kapwa_companion_basic/core/config.dart';
 
 class ProfileView extends StatelessWidget {
   final bool isLoading;
@@ -532,7 +533,7 @@ class ProfileView extends StatelessWidget {
         return value.toString();
       }
       
-      final now = DateTime.now();
+      final now = AppConfig.currentDateTime;
       final difference = now.difference(date);
       
       if (difference.inDays == 0) {

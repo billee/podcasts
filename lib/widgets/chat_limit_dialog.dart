@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/token_usage_info.dart';
+import '../core/config.dart';
 
 /// Dialog shown when users reach their daily token limit
 /// Displays limit information and exact reset time
@@ -140,7 +141,7 @@ class ChatLimitDialog extends StatelessWidget {
 
   Widget _buildResetTimeInfo() {
     final resetTime = usageInfo.resetTime;
-    final now = DateTime.now();
+    final now = AppConfig.currentDateTime;
     final timeUntilReset = resetTime.difference(now);
     
     String resetMessage;

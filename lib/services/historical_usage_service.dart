@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logging/logging.dart';
 import '../models/daily_token_usage.dart';
 import '../models/token_usage_history.dart';
+import '../core/config.dart';
 
 /// Service for managing historical token usage tracking and aggregation
 /// Handles monthly usage aggregation, data migration, and historical reporting
@@ -376,14 +377,14 @@ class HistoricalUsageService {
         'peakMonthTokens': peakRecord.totalMonthlyTokens,
         'userType': filteredHistory.first.userType,
         'monthlyBreakdown': monthlyBreakdown,
-        'reportGeneratedAt': DateTime.now().toIso8601String(),
+        'reportGeneratedAt': AppConfig.currentDateTime.toIso8601String(),
       };
     } catch (e) {
       _logger.severe('Error generating user usage report for $userId: $e');
       return {
         'userId': userId,
         'error': e.toString(),
-        'reportGeneratedAt': DateTime.now().toIso8601String(),
+        'reportGeneratedAt': AppConfig.currentDateTime.toIso8601String(),
       };
     }
   }
@@ -434,7 +435,7 @@ class HistoricalUsageService {
     int retentionMonths = 12,
   }) async {
     try {
-      final cutoffDate = DateTime.now().subtract(Duration(days: retentionMonths * 30));
+      final cutoffDate = AppConfig.currentDateTime.subtract(Duration(days: retentionMonths * 30));
       final cutoffYear = cutoffDate.year;
       final cutoffMonth = cutoffDate.month;
 
@@ -493,7 +494,7 @@ class HistoricalUsageService {
       final month = date.month;
 
       // Check if we're updating the current month or a past month
-      final now = DateTime.now();
+      final now = AppConfig.currentDateTime;
       final isCurrentMonth = year == now.year && month == now.month;
 
       if (!isCurrentMonth) {
@@ -642,8 +643,8 @@ class HistoricalUsageService {
       peakUsageDate: dayKey,
       peakUsageTokens: dailyUsage.tokensUsed,
       userType: dailyUsage.userType,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      createdAt: AppConfig.currentDateTime,
+      updatedAt: AppConfig.currentDateTime,
     );
 
     await historyRef.set(history.toFirestore());

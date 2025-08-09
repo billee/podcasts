@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/config.dart';
 
 /// Model for monthly token usage history for reporting
 /// Collection: token_usage_history
@@ -120,7 +121,7 @@ class TokenUsageHistory {
     }
 
     final averageDaily = dailyRecords.isNotEmpty ? totalTokens / dailyRecords.length : 0.0;
-    final now = DateTime.now();
+    final now = AppConfig.currentDateTime;
 
     return TokenUsageHistory(
       userId: userId,

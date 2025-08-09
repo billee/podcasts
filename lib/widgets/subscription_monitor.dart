@@ -84,10 +84,11 @@ class _SubscriptionMonitorState extends State<SubscriptionMonitor> {
   }
 
   bool _shouldShowSubscriptionBanner() {
-    if (_subscriptionStatus == SubscriptionStatus.trial && _subscriptionDetails != null) {
-      final daysLeft = _subscriptionDetails!['trialDaysLeft'] as int? ?? 0;
-      return daysLeft <= 3; // Show banner when 3 days or less remaining
-    }
+    // No subscription banner for trial users
+    // if (_subscriptionStatus == SubscriptionStatus.trial && _subscriptionDetails != null) {
+    //   final daysLeft = _subscriptionDetails!['trialDaysLeft'] as int? ?? 0;
+    //   return daysLeft <= 3; // Show banner when 3 days or less remaining
+    // }
     return false;
   }
 

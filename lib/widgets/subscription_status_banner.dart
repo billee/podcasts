@@ -96,10 +96,10 @@ class _SubscriptionStatusBannerState extends State<SubscriptionStatusBanner> {
   }
 
   Widget _buildStatusBanner() {
-    // Only show banner for trial status, not for premium subscribers
-    if (_subscriptionStatus == SubscriptionStatus.trial) {
-      return _buildTrialBanner();
-    }
+    // No subscription banners for trial users
+    // if (_subscriptionStatus == SubscriptionStatus.trial) {
+    //   return _buildTrialBanner();
+    // }
     
     return const SizedBox.shrink();
   }

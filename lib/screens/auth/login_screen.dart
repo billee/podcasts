@@ -109,8 +109,18 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
 
-      // Navigation is handled by AuthWrapper
-      _logger.info('User signed in successfully');
+      // Check if sign-in was actually successful
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        // Sign-in failed, don't navigate
+        setState(() {
+          _errorMessage = 'Sign in failed. Please check your credentials.';
+          _isLoading = false;
+        });
+        return;
+      }
+      
+      _logger.info('User signed in successfully: ${currentUser.uid}');
       
       // Reset loading state and force a small delay to ensure auth state propagates
       if (mounted) {
@@ -121,27 +131,20 @@ class _LoginScreenState extends State<LoginScreen> {
         // Add a small delay to ensure Firebase Auth state has time to propagate
         await Future.delayed(const Duration(milliseconds: 500));
         
-        // Force check current user to ensure auth state is updated
-        final currentUser = FirebaseAuth.instance.currentUser;
-        _logger.info('Current user after sign-in: ${currentUser?.uid}');
+        // Refresh user data to get latest email verification status
+        await currentUser.reload();
+        final updatedUser = FirebaseAuth.instance.currentUser;
         
-        // Check email verification status
-        if (currentUser != null) {
-          await currentUser.reload(); // Refresh user data
-          final updatedUser = FirebaseAuth.instance.currentUser;
-          
-          if (updatedUser != null && !updatedUser.emailVerified) {
-            _logger.info('User email not verified, starting monitoring and navigating to verification screen');
-            // Email verification is now handled directly when user clicks "I've Verified"
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const EmailVerificationScreen()),
-            );
-          } else {
-            _logger.info('Email verified, navigating to MainScreen...');
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const MainScreen()),
-            );
-          }
+        if (updatedUser != null && !updatedUser.emailVerified) {
+          _logger.info('User email not verified, navigating to verification screen');
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const EmailVerificationScreen()),
+          );
+        } else {
+          _logger.info('Email verified, navigating to MainScreen...');
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const MainScreen()),
+          );
         }
       }
     } catch (e) {
@@ -451,7 +454,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 8),
               const Text(
-                'Welcome back! Please sign in to continue.',
+                'Please sign in to continue.',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.white70,
@@ -525,7 +528,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         labelStyle: const TextStyle(color: Colors.white70),
                         hintStyle: const TextStyle(color: Colors.white54),
-                        helperText: _emailValidationError ?? 'You can also use your username',
+                        helperText: _emailValidationError ?? '',
                         helperStyle: TextStyle(
                           color: _emailValidationError != null ? Colors.red : Colors.white54, 
                           fontSize: 12
