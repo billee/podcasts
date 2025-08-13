@@ -10,6 +10,7 @@ class TokenUsageInfo {
   final double usagePercentage;
   final bool isLimitReached;
   final bool isWarningThreshold; // < 10% remaining
+  final int lastExchangeTokens; // Tokens used in the current/most recent exchange
 
   TokenUsageInfo({
     required this.userId,
@@ -21,6 +22,7 @@ class TokenUsageInfo {
     required this.usagePercentage,
     required this.isLimitReached,
     required this.isWarningThreshold,
+    this.lastExchangeTokens = 0,
   });
 
   /// Create from DailyTokenUsage model
@@ -30,6 +32,7 @@ class TokenUsageInfo {
     required int tokenLimit,
     required String userType,
     required DateTime resetTime,
+    int lastExchangeTokens = 0,
   }) {
     final remaining = (tokenLimit - tokensUsed).clamp(0, tokenLimit);
     final percentage = tokenLimit > 0 ? tokensUsed / tokenLimit : 0.0;
@@ -44,6 +47,7 @@ class TokenUsageInfo {
       usagePercentage: percentage,
       isLimitReached: tokensUsed >= tokenLimit,
       isWarningThreshold: percentage > 0.9,
+      lastExchangeTokens: lastExchangeTokens,
     );
   }
 
@@ -64,6 +68,7 @@ class TokenUsageInfo {
       usagePercentage: 0.0,
       isLimitReached: false,
       isWarningThreshold: false,
+      lastExchangeTokens: 0,
     );
   }
 
@@ -74,6 +79,7 @@ class TokenUsageInfo {
     int? tokenLimit,
     DateTime? resetTime,
     String? userType,
+    int? lastExchangeTokens,
   }) {
     final newTokensUsed = tokensUsed ?? this.tokensUsed;
     final newTokenLimit = tokenLimit ?? this.tokenLimit;
@@ -84,6 +90,7 @@ class TokenUsageInfo {
       tokenLimit: newTokenLimit,
       userType: userType ?? this.userType,
       resetTime: resetTime ?? this.resetTime,
+      lastExchangeTokens: lastExchangeTokens ?? this.lastExchangeTokens,
     );
   }
 

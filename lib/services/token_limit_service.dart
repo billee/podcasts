@@ -57,33 +57,66 @@ class TokenLimitService {
       }
 
       final today = _getTodayString();
-      final documentId = '${userId}_$today';
+      final documentId = userId; // Use userId as document ID, not userId_date
       final docRef = _firestore.collection('daily_token_usage').doc(documentId);
 
       // Get current usage or create new record
       final doc = await docRef.get();
       
       if (doc.exists) {
-        // Update existing record
         final currentUsage = DailyTokenUsage.fromFirestore(doc);
-        final newTokensUsed = currentUsage.tokensUsed + tokenCount;
         
-        await docRef.update({
-          'tokensUsed': newTokensUsed,
-          'lastUpdated': FieldValue.serverTimestamp(),
-        });
-        
-        _logger.info('Updated token usage for user $userId: $tokenCount tokens added (total: $newTokensUsed)');
-        
-        // Update historical data for current month
-        final updatedUsage = currentUsage.copyWith(
-          tokensUsed: newTokensUsed,
-          lastUpdated: AppConfig.currentDateTime,
-        );
-        await HistoricalUsageService.updateCurrentMonthHistory(
-          userId: userId,
-          dailyUsage: updatedUsage,
-        );
+        // Check if this is from a previous day - if so, reset it first
+        if (currentUsage.date != today) {
+          _logger.info('Document exists but is from previous day (${currentUsage.date}). Resetting for today ($today).');
+          
+          // Reset the document for the new day
+          final userType = await _getUserType(userId);
+          final tokenLimit = _getTokenLimitForUserType(userType);
+          final resetTime = _getNextResetTime();
+          
+          final resetUsage = DailyTokenUsage(
+            userId: userId,
+            date: today,
+            tokensUsed: tokenCount, // Start with current token count for new day
+            tokenLimit: tokenLimit,
+            userType: userType,
+            lastUpdated: AppConfig.currentDateTime,
+            resetAt: resetTime,
+            lastExchangeTokens: tokenCount, // Store tokens from this exchange
+          );
+          
+          await docRef.set(resetUsage.toFirestore());
+          _logger.info('Reset and updated token usage for user $userId: $tokenCount tokens (new day)');
+          
+          // Update historical data for current month
+          await HistoricalUsageService.updateCurrentMonthHistory(
+            userId: userId,
+            dailyUsage: resetUsage,
+          );
+        } else {
+          // Same day - just update the token count
+          final newTokensUsed = currentUsage.tokensUsed + tokenCount;
+          
+          await docRef.update({
+            'tokensUsed': newTokensUsed,
+            'lastUpdated': FieldValue.serverTimestamp(),
+            'lastExchangeTokens': tokenCount, // Store tokens from this exchange
+          });
+          
+          _logger.info('Updated token usage for user $userId: $tokenCount tokens added (total: $newTokensUsed), lastExchangeTokens: $tokenCount');
+          
+          // Update historical data for current month
+          final updatedUsage = currentUsage.copyWith(
+            tokensUsed: newTokensUsed,
+            lastUpdated: AppConfig.currentDateTime,
+            lastExchangeTokens: tokenCount, // Update lastExchangeTokens in the copyWith too
+          );
+          await HistoricalUsageService.updateCurrentMonthHistory(
+            userId: userId,
+            dailyUsage: updatedUsage,
+          );
+        }
       } else {
         // Create new record for today
         final userType = await _getUserType(userId);
@@ -98,6 +131,7 @@ class TokenLimitService {
           userType: userType,
           lastUpdated: AppConfig.currentDateTime,
           resetAt: resetTime,
+          lastExchangeTokens: tokenCount, // Store tokens from this exchange
         );
         
         await docRef.set(newUsage.toFirestore());
@@ -121,7 +155,7 @@ class TokenLimitService {
   static Future<TokenUsageInfo> getUserUsageInfo(String userId) async {
     try {
       final today = _getTodayString();
-      final documentId = '${userId}_$today';
+      final documentId = userId; // Use userId as document ID
       final doc = await _firestore.collection('daily_token_usage').doc(documentId).get();
       
       final userType = await _getUserType(userId);
@@ -129,15 +163,32 @@ class TokenLimitService {
       final resetTime = _getNextResetTime();
       
       if (doc.exists) {
-        // Return existing usage info
         final usage = DailyTokenUsage.fromFirestore(doc);
-        return TokenUsageInfo.fromDailyUsage(
-          userId: userId,
-          tokensUsed: usage.tokensUsed,
-          tokenLimit: tokenLimit,
-          userType: userType,
-          resetTime: resetTime,
-        );
+        
+        // Check if this is from a previous day
+        if (usage.date != today) {
+          _logger.info('Usage document is from previous day (${usage.date}). Returning reset values for today ($today).');
+          // Return reset values for the new day
+          return TokenUsageInfo.fromDailyUsage(
+            userId: userId,
+            tokensUsed: 0, // Reset to 0 for new day
+            tokenLimit: tokenLimit,
+            userType: userType,
+            resetTime: resetTime,
+            lastExchangeTokens: 0, // Reset last exchange tokens too
+          );
+        } else {
+          // Same day - return current usage
+          _logger.info('Returning current usage for user $userId: tokensUsed=${usage.tokensUsed}, lastExchangeTokens=${usage.lastExchangeTokens}');
+          return TokenUsageInfo.fromDailyUsage(
+            userId: userId,
+            tokensUsed: usage.tokensUsed,
+            tokenLimit: tokenLimit,
+            userType: userType,
+            resetTime: resetTime,
+            lastExchangeTokens: usage.lastExchangeTokens,
+          );
+        }
       } else {
         // Return empty usage info for new day
         return TokenUsageInfo.empty(
@@ -164,7 +215,7 @@ class TokenLimitService {
   static Stream<TokenUsageInfo> watchUserUsage(String userId) {
     try {
       final today = _getTodayString();
-      final documentId = '${userId}_$today';
+      final documentId = userId; // Use userId as document ID
       
       return _firestore
           .collection('daily_token_usage')
@@ -177,13 +228,27 @@ class TokenLimitService {
             
             if (snapshot.exists) {
               final usage = DailyTokenUsage.fromFirestore(snapshot);
-              return TokenUsageInfo.fromDailyUsage(
-                userId: userId,
-                tokensUsed: usage.tokensUsed,
-                tokenLimit: tokenLimit,
-                userType: userType,
-                resetTime: resetTime,
-              );
+              
+              // Check if this is from a previous day
+              if (usage.date != today) {
+                // Return reset values for the new day
+                return TokenUsageInfo.fromDailyUsage(
+                  userId: userId,
+                  tokensUsed: 0, // Reset to 0 for new day
+                  tokenLimit: tokenLimit,
+                  userType: userType,
+                  resetTime: resetTime,
+                );
+              } else {
+                // Same day - return current usage
+                return TokenUsageInfo.fromDailyUsage(
+                  userId: userId,
+                  tokensUsed: usage.tokensUsed,
+                  tokenLimit: tokenLimit,
+                  userType: userType,
+                  resetTime: resetTime,
+                );
+              }
             } else {
               return TokenUsageInfo.empty(
                 userId: userId,
@@ -242,7 +307,7 @@ class TokenLimitService {
             resetAt: resetTime,
           );
           
-          final todayDocId = '${usage.userId}_$today';
+          final todayDocId = usage.userId; // Use userId as document ID
           await _firestore
               .collection('daily_token_usage')
               .doc(todayDocId)
@@ -295,34 +360,59 @@ class TokenLimitService {
 
   /// Get today's date string in YYYY-MM-DD format (timezone-aware)
   static String _getTodayString() {
-    final now = AppConfig.currentDateTimeUtc;
+    final now = AppConfig.currentDateTime; // Use local time instead of UTC
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
   /// Get yesterday's date string in YYYY-MM-DD format (timezone-aware)
   static String _getYesterdayString() {
-    final yesterday = AppConfig.currentDateTimeUtc.subtract(const Duration(days: 1));
+    final yesterday = AppConfig.currentDateTime.subtract(const Duration(days: 1)); // Use local time instead of UTC
     return '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
   }
 
+  /// Update the lastExchangeTokens field to show complete exchange total
+  /// Used when summarization adds additional tokens to an exchange
+  static Future<void> updateLastExchangeTokens(String userId, int totalExchangeTokens) async {
+    try {
+      if (!AppConfig.tokenLimitsEnabled) {
+        return;
+      }
+
+      final documentId = userId;
+      final docRef = _firestore.collection('daily_token_usage').doc(documentId);
+
+      await docRef.update({
+        'lastExchangeTokens': totalExchangeTokens,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+
+      _logger.info('Updated lastExchangeTokens for user $userId to $totalExchangeTokens');
+    } catch (e) {
+      _logger.severe('Error updating lastExchangeTokens: $e');
+    }
+  }
+
   /// Get next reset time based on timezone configuration
+  /// Reset happens at 24:00 (midnight) in the user's local timezone
   static DateTime _getNextResetTime() {
-    final now = AppConfig.currentDateTimeUtc;
+    final now = AppConfig.currentDateTime; // Use local time instead of UTC
     
-    // Calculate next reset time in UTC
-    var nextReset = DateTime.utc(
+    // Calculate next reset time in local timezone (24:00 = midnight)
+    DateTime nextReset = DateTime(
       now.year,
       now.month,
       now.day,
-      AppConfig.resetHour,
-      AppConfig.resetMinute,
+      24, // 24:00 military time (midnight of next day)
+      0,  // 0 minutes
     );
-
-    // If the reset time for today has already passed, schedule for tomorrow
+    
+    // If we're already past midnight today, the next reset is tomorrow at 24:00
+    // Note: DateTime(year, month, day, 24, 0) automatically becomes next day at 00:00
     if (nextReset.isBefore(now) || nextReset.isAtSameMomentAs(now)) {
       nextReset = nextReset.add(const Duration(days: 1));
     }
-
-    return nextReset;
+    
+    // Convert to UTC for storage in Firestore
+    return nextReset.toUtc();
   }
 }

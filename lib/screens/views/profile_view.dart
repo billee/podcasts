@@ -443,7 +443,7 @@ class ProfileView extends StatelessWidget {
     
     // Get all available fields and remove unwanted ones
     final availableFields = userProfile!.entries
-        .where((entry) => !['metadata', 'preferences', 'profileCompleted', 'deviceInfo', 'hasRealEmail', 'subscription', 'lastUpdated', 'lastActiveAt', 'lastLoginAt', 'createdAt'].contains(entry.key))
+        .where((entry) => !['metadata', 'preferences', 'profileCompleted', 'deviceInfo', 'hasRealEmail', 'subscription', 'lastUpdated', 'lastActiveAt', 'lastLoginAt', 'createdAt', 'isOnline', 'isActive', 'loginCount', 'emailVerifiedAt'].contains(entry.key))
         .toList();
     
     // Create a map for quick lookup

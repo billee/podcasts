@@ -140,7 +140,7 @@ class _AppBarStatusIndicatorState extends State<AppBarStatusIndicator> {
         onPressed: () {
           _showStatusDialog(
             title: 'Premium Subscriber',
-            content: 'You are a Premium Subscriber! 💎\n\nEnjoy unlimited access to all features.',
+            content: 'You are a Premium Subscriber! 💎\n\nEnjoy access to all features.',
             color: Colors.red,
           );
         },

@@ -168,7 +168,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           const Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('• Unlimited access to all features',
+                              Text('• Access to all features',
                                   style: TextStyle(color: Colors.white70)),
                               Text('• Premium content and suggestions',
                                   style: TextStyle(color: Colors.white70)),

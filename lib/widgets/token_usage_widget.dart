@@ -7,11 +7,13 @@ import '../services/token_limit_service.dart';
 class TokenUsageWidget extends StatelessWidget {
   final String? userId;
   final bool showWarnings;
+  final int? lastExchangeTokens; // Tokens used in the most recent exchange
 
   const TokenUsageWidget({
     super.key,
     required this.userId,
     this.showWarnings = true,
+    this.lastExchangeTokens,
   });
 
   @override
@@ -79,13 +81,28 @@ class TokenUsageWidget extends StatelessWidget {
         const SizedBox(width: 8),
         
         // Token count text
-        Text(
-          '${usageInfo.remainingTokens} tokens left',
-          style: const TextStyle(
-            fontSize: 10,
-            color: Colors.white70,
-            fontWeight: FontWeight.w400,
-          ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${usageInfo.remainingTokens} tokens left',
+              style: const TextStyle(
+                fontSize: 10,
+                color: Colors.white70,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            // Show tokens used from the most recent exchange
+            if ((lastExchangeTokens ?? 0) > 0)
+              Text(
+                '${lastExchangeTokens} tokens used',
+                style: const TextStyle(
+                  fontSize: 9,
+                  color: Colors.white54,
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+          ],
         ),
       ],
     );

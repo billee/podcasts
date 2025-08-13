@@ -77,24 +77,27 @@ class DailyResetService {
   }
 
   /// Get the next reset time based on timezone configuration
+  /// Reset happens at 24:00 (midnight) in the user's local timezone
   static DateTime _getNextResetTime() {
-    final now = AppConfig.currentDateTimeUtc;
+    final now = AppConfig.currentDateTime; // Use local time instead of UTC
     
-    // Calculate next reset time in UTC
-    var nextReset = DateTime.utc(
+    // Calculate next reset time in local timezone (24:00 = midnight)
+    DateTime nextReset = DateTime(
       now.year,
       now.month,
       now.day,
-      AppConfig.resetHour,
-      AppConfig.resetMinute,
+      24, // 24:00 military time (midnight of next day)
+      0,  // 0 minutes
     );
-
-    // If the reset time for today has already passed, schedule for tomorrow
+    
+    // If we're already past midnight today, the next reset is tomorrow at 24:00
+    // Note: DateTime(year, month, day, 24, 0) automatically becomes next day at 00:00
     if (nextReset.isBefore(now) || nextReset.isAtSameMomentAs(now)) {
       nextReset = nextReset.add(const Duration(days: 1));
     }
-
-    return nextReset;
+    
+    // Convert to UTC for storage in Firestore
+    return nextReset.toUtc();
   }
 
   /// Perform the actual daily reset operation
@@ -104,48 +107,32 @@ class DailyResetService {
       
       final resetTimestamp = AppConfig.currentDateTimeUtc;
       final today = _getTodayString();
-      final yesterday = _getYesterdayString();
       
-      // Get all users who had usage yesterday
-      final yesterdayQuery = await _firestore
+      // Get all token usage documents (now one per user)
+      final allUsageQuery = await _firestore
           .collection('daily_token_usage')
-          .where('date', isEqualTo: yesterday)
           .get();
 
       int processedUsers = 0;
       int newRecords = 0;
       int errors = 0;
 
-      // Process each user from yesterday
-      for (final doc in yesterdayQuery.docs) {
+      // Process each user's document
+      for (final doc in allUsageQuery.docs) {
         try {
           final usage = DailyTokenUsage.fromFirestore(doc);
-          await _resetUserTokens(usage.userId, today, resetTimestamp);
-          processedUsers++;
-          newRecords++;
-        } catch (e) {
-          _logger.warning('Failed to reset tokens for user in document ${doc.id}: $e');
-          errors++;
-        }
-      }
-
-      // Also check for any users who might have usage records from today already
-      // (in case of timezone issues or manual testing)
-      final todayQuery = await _firestore
-          .collection('daily_token_usage')
-          .where('date', isEqualTo: today)
-          .get();
-
-      for (final doc in todayQuery.docs) {
-        try {
-          final usage = DailyTokenUsage.fromFirestore(doc);
-          // Only reset if the record is old (created before the reset time)
-          if (usage.lastUpdated.isBefore(resetTimestamp.subtract(const Duration(minutes: 1)))) {
+          
+          // Only reset if the document is from a previous day
+          if (usage.date != today) {
             await _resetUserTokens(usage.userId, today, resetTimestamp);
             processedUsers++;
+            newRecords++;
+            _logger.fine('Reset user ${usage.userId} from ${usage.date} to $today');
+          } else {
+            _logger.fine('User ${usage.userId} already has today\'s record, skipping');
           }
         } catch (e) {
-          _logger.warning('Failed to reset existing today record for document ${doc.id}: $e');
+          _logger.warning('Failed to reset tokens for user in document ${doc.id}: $e');
           errors++;
         }
       }
@@ -181,7 +168,7 @@ class DailyResetService {
         resetAt: nextResetTime,
       );
       
-      final documentId = '${userId}_$today';
+      final documentId = userId; // Use userId as document ID
       await _firestore
           .collection('daily_token_usage')
           .doc(documentId)
@@ -203,9 +190,7 @@ class DailyResetService {
         'processedUsers': processedUsers,
         'newRecords': newRecords,
         'errors': errors,
-        'timezone': AppConfig.resetTimezone,
-        'resetHour': AppConfig.resetHour,
-        'resetMinute': AppConfig.resetMinute,
+        'resetTimezone': 'Local timezone (24:00 military time)',
         'nextScheduledReset': Timestamp.fromDate(_getNextResetTime()),
       };
       
@@ -260,13 +245,13 @@ class DailyResetService {
 
   /// Get today's date string in YYYY-MM-DD format
   static String _getTodayString() {
-    final now = AppConfig.currentDateTimeUtc;
+    final now = AppConfig.currentDateTime; // Use local time instead of UTC
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
   /// Get yesterday's date string in YYYY-MM-DD format
   static String _getYesterdayString() {
-    final yesterday = AppConfig.currentDateTimeUtc.subtract(const Duration(days: 1));
+    final yesterday = AppConfig.currentDateTime.subtract(const Duration(days: 1)); // Use local time instead of UTC
     return '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
   }
 }

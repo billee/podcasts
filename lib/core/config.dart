@@ -7,14 +7,14 @@ class AppConfig {
   static late String _backendBaseUrl;
 
   // Token limit configurations
-  static const int trialUserDailyTokenLimit = 10000;
-  static const int subscribedUserDailyTokenLimit = 50000;
+  // Token limit configurations - Updated for REAL token usage (input + output)
+  // Real usage includes system prompts, conversation history, user input, and LLM responses
+  static const int trialUserDailyTokenLimit = 10000;    // ~10-20 conversation exchanges
+  static const int subscribedUserDailyTokenLimit = 100000;  // ~100-200 conversation exchanges
   static const bool tokenLimitsEnabled = true;
   
   // Daily reset configuration
-  static const String resetTimezone = 'UTC'; // Timezone for daily resets
-  static const int resetHour = 0; // Hour of day for reset (0-23)
-  static const int resetMinute = 0; // Minute of hour for reset (0-59)
+  // Reset happens at 24:00 (midnight) in user's local timezone
   
   // Date configuration for testing
   static DateTime? _overrideDate; // For testing purposes - when null, uses real DateTime.now()

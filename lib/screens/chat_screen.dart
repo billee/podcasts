@@ -14,6 +14,7 @@ import 'package:kapwa_companion_basic/core/token_counter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kapwa_companion_basic/screens/views/chat_screen_view.dart';
 import 'package:kapwa_companion_basic/widgets/chat_limit_dialog.dart';
+import 'package:kapwa_companion_basic/services/conversation_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? userId;
@@ -42,6 +43,20 @@ class _ChatScreenState extends State<ChatScreen>
 
   // Chat state variables
   List<Map<String, dynamic>> _messages = [];
+  int _lastExchangeTokens = 0; // Track tokens used in the most recent exchange
+
+  /// Scroll to the bottom of the chat
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
   String? _currentSummary;
   String _assistantName = "Maria";
   bool _suggestionsLoading = true;
@@ -143,7 +158,7 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
-  Future<void> _generateSummary() async {
+  Future<void> _generateSummaryAndUpdateTokens(int mainExchangeTokens) async {
     if (widget.userId == null || _messages.isEmpty) {
       _logger.info(
           'Skipping summarization: userId is null or no messages to summarize.');
@@ -159,17 +174,35 @@ class _ChatScreenState extends State<ChatScreen>
       _logger.info(
           'ChatScreen: Sending messages for summarization: ${messagesForSummary.length} messages');
 
-      final response = await http
-          .post(
-            Uri.parse('${AppConfig.backendBaseUrl}/summarize_chat'),
-            headers: {'Content-Type': 'application/json'},
-            body: json.encode({'messages': messagesForSummary}),
-          )
-          .timeout(const Duration(seconds: 30));
+      // Use ConversationService method with token tracking
+      final newCumulativeSummary = await ConversationService.generateSummaryWithTokenTracking(
+        messagesForSummary, 
+        null // Don't record tokens here, we'll handle it manually
+      );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final newCumulativeSummary = data['summary'];
+      if (newCumulativeSummary != null) {
+        // Calculate summarization tokens
+        final summaryInputTokens = TokenCounter.countRealInputTokens(messagesForSummary);
+        final summaryOutputTokens = TokenCounter.countOutputTokens(newCumulativeSummary);
+        final totalSummaryTokens = summaryInputTokens + summaryOutputTokens;
+        
+        // Calculate total tokens for this complete exchange (main + summarization)
+        final totalExchangeTokens = mainExchangeTokens + totalSummaryTokens;
+        
+        _logger.info('Complete exchange tokens - Main: $mainExchangeTokens, Summary: $totalSummaryTokens, Total: $totalExchangeTokens');
+
+        // Record the additional summarization tokens
+        if (widget.userId != null) {
+          await TokenLimitService.recordTokenUsage(widget.userId!, totalSummaryTokens);
+          
+          // Update the UI state to show complete exchange total
+          setState(() {
+            _lastExchangeTokens = totalExchangeTokens;
+          });
+          
+          _logger.info('Updated display to show complete exchange tokens: $totalExchangeTokens');
+        }
+
         _logger.info('New cumulative summary generated: $newCumulativeSummary');
 
         setState(() {
@@ -203,8 +236,72 @@ class _ChatScreenState extends State<ChatScreen>
 
         await _saveSummary(newCumulativeSummary);
       } else {
-        _logger.severe(
-            'Failed to generate summary: ${response.statusCode} ${response.body}');
+        _logger.severe('Failed to generate summary');
+      }
+    } on TimeoutException {
+      _logger.severe('Summarization request timed out.');
+    } catch (e) {
+      _logger.severe('Error during summarization: $e');
+    }
+  }
+
+  Future<void> _generateSummary() async {
+    if (widget.userId == null || _messages.isEmpty) {
+      _logger.info(
+          'Skipping summarization: userId is null or no messages to summarize.');
+      return;
+    }
+
+    _logger.info(
+        'Initiating summarization process for ${_messages.length} messages (${_conversationPairs} conversation pairs).');
+
+    try {
+      List<Map<String, dynamic>> messagesForSummary = List.from(_messages);
+
+      _logger.info(
+          'ChatScreen: Sending messages for summarization: ${messagesForSummary.length} messages');
+
+      // Use ConversationService method with token tracking
+      final newCumulativeSummary = await ConversationService.generateSummaryWithTokenTracking(
+        messagesForSummary, 
+        widget.userId
+      );
+
+      if (newCumulativeSummary != null) {
+        _logger.info('New cumulative summary generated: $newCumulativeSummary');
+
+        setState(() {
+          _currentSummary = newCumulativeSummary;
+
+          int existingSummaryIndex = _messages.indexWhere((msg) =>
+              msg['role'] == 'system' &&
+              (msg['content'] as String)
+                  .startsWith('Continuing from our last conversation:'));
+
+          if (existingSummaryIndex != -1) {
+            _messages[existingSummaryIndex] = {
+              "role": "system",
+              "content":
+                  "Continuing from our last conversation: $_currentSummary",
+              "senderName": _assistantName
+            };
+          } else if (_currentSummary!.isNotEmpty) {
+            _messages.insert(0, {
+              "role": "system",
+              "content":
+                  "Continuing from our last conversation: $_currentSummary",
+              "senderName": _assistantName
+            });
+          }
+
+          _trimMessagesAfterSummarization();
+
+          _conversationPairs = 0;
+        });
+
+        await _saveSummary(newCumulativeSummary);
+      } else {
+        _logger.severe('Failed to generate summary');
       }
     } on TimeoutException {
       _logger.severe('Summarization request timed out.');
@@ -236,6 +333,9 @@ class _ChatScreenState extends State<ChatScreen>
             'Trimmed messages to ${_messages.length} after summarization');
       }
     }
+    
+    // Scroll to bottom after trimming messages
+    _scrollToBottom();
   }
 
   Future<void> _loadSuggestions() async {
@@ -287,9 +387,9 @@ class _ChatScreenState extends State<ChatScreen>
       }
     }
 
-    // Count tokens in the user's input message
-    final inputTokens = TokenCounter.countTokens(message);
-    _logger.info('User message token count: $inputTokens');
+    // Count tokens in the user's input message (for display purposes)
+    final userInputTokens = TokenCounter.countTokens(message);
+    _logger.info('User message token count: $userInputTokens');
 
     setState(() {
       _messages.add(
@@ -303,17 +403,19 @@ class _ChatScreenState extends State<ChatScreen>
       _isTyping = true;
     });
 
-    _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    // Scroll to bottom after adding user message and typing indicator
+    _scrollToBottom();
 
     _logger.info(
         'User message added to UI and local buffer. Current local messages count: ${_messages.length}');
 
     try {
-      final llmResponse = await _callLLM(message);
+      final llmCallResult = await _callLLMWithTokenTracking(message);
+      final llmResponse = llmCallResult['response'] as String;
+      final realInputTokens = llmCallResult['inputTokens'] as int;
+      final outputTokens = llmCallResult['outputTokens'] as int;
+      final totalTokens = realInputTokens + outputTokens;
+      
       setState(() {
         _messages.last = {
           "role": "assistant",
@@ -324,25 +426,27 @@ class _ChatScreenState extends State<ChatScreen>
         _conversationPairs++;
       });
 
-      // Record token usage for the input message only
+      // Record REAL total token usage (input + output tokens)
       if (widget.userId != null) {
-        await TokenLimitService.recordTokenUsage(widget.userId!, inputTokens);
-        _logger.info('Recorded $inputTokens tokens for user ${widget.userId}');
+        await TokenLimitService.recordTokenUsage(widget.userId!, totalTokens);
+        _logger.info('Recorded REAL tokens for user ${widget.userId}: Input: $realInputTokens, Output: $outputTokens, Total: $totalTokens');
+        
+        // Update the UI state to show tokens used in this exchange
+        setState(() {
+          _lastExchangeTokens = totalTokens;
+        });
       }
 
       _logger.info(
           'Assistant message added to UI and local buffer. Current local messages count: ${_messages.length}, Conversation pairs: $_conversationPairs');
 
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      // Scroll to bottom after LLM response is received
+      _scrollToBottom();
 
       if (_conversationPairs >= 10) { // TEMPORARILY SET TO 6 FOR MANUAL TESTING
         _logger.info(
             'Conversation pair threshold reached ($_conversationPairs >= 6). Triggering summarization in background.');
-        _generateSummary().catchError((error) {
+        _generateSummaryAndUpdateTokens(totalTokens).catchError((error) {
           _logger.severe('Background summarization failed: $error');
         });
       }
@@ -359,11 +463,93 @@ class _ChatScreenState extends State<ChatScreen>
       
       // Still record token usage even if LLM call fails, since user input was processed
       if (widget.userId != null) {
-        await TokenLimitService.recordTokenUsage(widget.userId!, inputTokens);
-        _logger.info('Recorded $inputTokens tokens for user ${widget.userId} (despite LLM error)');
+        // For errors, we can only count the user input tokens since we don't have the full context
+        await TokenLimitService.recordTokenUsage(widget.userId!, userInputTokens);
+        _logger.info('Recorded $userInputTokens tokens for user ${widget.userId} (despite LLM error)');
       }
     }
     _refreshSuggestions();
+  }
+
+  Future<Map<String, dynamic>> _callLLMWithTokenTracking(String message) async {
+    _logger.info('Calling LLM with message: $message');
+    try {
+      List<Map<String, dynamic>> messagesForLLM = [];
+
+      String? systemPrompt = await SystemPromptService.getSystemPrompt(
+        userName: widget.username ?? 'User',
+        assistantName: _assistantName,
+        userAge: _userAge ?? 0,
+        userOccupation: _userOccupation ?? 'unspecified',
+        workLocation: _workLocation ?? 'unspecified',
+        userEducation: _userEducation ?? 'unspecified',
+        maritalStatus: _maritalStatus ? 'Married' : 'Single',
+      );
+      if (systemPrompt != null) {
+        messagesForLLM.add({"role": "system", "content": systemPrompt});
+      }
+
+      messagesForLLM.add({
+        "role": "system",
+        "content":
+            "User Profile: Name: ${widget.username ?? 'N/A'}, Age: ${_userAge ?? 'N/A'}, Occupation: ${_userOccupation ?? 'N/A'}, Work Location: ${_workLocation ?? 'N/A'}, Education: ${_userEducation ?? 'N/A'}, Marital Status: ${_maritalStatus ? 'Married' : 'Single'}, Has Children: ${_hasChildren ? 'Yes' : 'No'}"
+      });
+
+      if (_currentSummary != null && _currentSummary!.isNotEmpty) {
+        messagesForLLM.add({
+          "role": "system",
+          "content": "Previous conversation summary: $_currentSummary"
+        });
+      }
+
+      for (var msg in _messages) {
+        if (msg['role'] == 'user' || msg['role'] == 'assistant') {
+          messagesForLLM.add(msg);
+        }
+      }
+
+      // Count REAL input tokens (everything sent to OpenAI)
+      final realInputTokens = TokenCounter.countRealInputTokens(messagesForLLM);
+      _logger.info('REAL input tokens sent to OpenAI: $realInputTokens');
+
+      final response = await http
+          .post(
+            Uri.parse('${AppConfig.backendBaseUrl}/chat'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({'messages': messagesForLLM}),
+          )
+          .timeout(const Duration(seconds: 60));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final llmResponse = data['response'] as String;
+        
+        // Count output tokens (LLM response)
+        final outputTokens = TokenCounter.countOutputTokens(llmResponse);
+        _logger.info('Output tokens from OpenAI: $outputTokens');
+        
+        return {
+          'response': llmResponse,
+          'inputTokens': realInputTokens,
+          'outputTokens': outputTokens,
+        };
+      } else {
+        _logger.severe(
+            'LLM call failed with status: ${response.statusCode} and body: ${response.body}');
+        return {
+          'response': "Error: Could not get a response from the AI.",
+          'inputTokens': realInputTokens,
+          'outputTokens': 0,
+        };
+      }
+    } catch (e) {
+      _logger.severe('Error in LLM call: $e');
+      return {
+        'response': "Error: Could not get a response from the AI.",
+        'inputTokens': 0,
+        'outputTokens': 0,
+      };
+    }
   }
 
   Future<String> _callLLM(String message) async {
@@ -475,7 +661,7 @@ class _ChatScreenState extends State<ChatScreen>
           context: context,
           builder: (BuildContext context) {
             return AlertDialog(
-              title: const Text('Daily Token Limit Reached'),
+              title: const Text('Daily Token Limits'),
               content: const Text('You have reached your daily chat limit. Please try again tomorrow.'),
               actions: [
                 TextButton(
@@ -506,6 +692,7 @@ class _ChatScreenState extends State<ChatScreen>
       assistantName: _assistantName,
       username: widget.username,
       userId: widget.userId,
+      lastExchangeTokens: _lastExchangeTokens, // Pass the real-time token count
       onSuggestionSelected: (suggestion) {
         _messageController.text = suggestion;
         _sendMessage(suggestion);

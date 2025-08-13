@@ -245,7 +245,7 @@ class _ProfileSubscriptionSectionState extends State<ProfileSubscriptionSection>
         ),
         const SizedBox(height: 8),
         Text(
-          'Enjoy unlimited access to all features during your trial period.',
+          'Enjoy access to all features during your trial period.',
           style: TextStyle(
             color: Colors.white70,
             fontSize: 14,

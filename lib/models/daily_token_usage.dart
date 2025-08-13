@@ -11,6 +11,7 @@ class DailyTokenUsage {
   final String userType; // 'trial' or 'subscribed'
   final DateTime lastUpdated;
   final DateTime resetAt;
+  final int lastExchangeTokens; // Tokens used in the current/most recent exchange
 
   DailyTokenUsage({
     required this.userId,
@@ -20,6 +21,7 @@ class DailyTokenUsage {
     required this.userType,
     required this.lastUpdated,
     required this.resetAt,
+    this.lastExchangeTokens = 0,
   });
 
   /// Create from Firestore document
@@ -33,6 +35,7 @@ class DailyTokenUsage {
       userType: data['userType'] as String,
       lastUpdated: (data['lastUpdated'] as Timestamp).toDate(),
       resetAt: (data['resetAt'] as Timestamp).toDate(),
+      lastExchangeTokens: data['lastExchangeTokens'] as int? ?? 0,
     );
   }
 
@@ -46,11 +49,13 @@ class DailyTokenUsage {
       'userType': userType,
       'lastUpdated': Timestamp.fromDate(lastUpdated),
       'resetAt': Timestamp.fromDate(resetAt),
+      'lastExchangeTokens': lastExchangeTokens,
     };
   }
 
   /// Create document ID for this usage record
-  String get documentId => '${userId}_$date';
+  /// Now uses just userId since we maintain one document per user
+  String get documentId => userId;
 
   /// Check if usage has reached the limit
   bool get isLimitReached => tokensUsed >= tokenLimit;
@@ -73,6 +78,7 @@ class DailyTokenUsage {
     String? userType,
     DateTime? lastUpdated,
     DateTime? resetAt,
+    int? lastExchangeTokens,
   }) {
     return DailyTokenUsage(
       userId: userId ?? this.userId,
@@ -82,6 +88,7 @@ class DailyTokenUsage {
       userType: userType ?? this.userType,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       resetAt: resetAt ?? this.resetAt,
+      lastExchangeTokens: lastExchangeTokens ?? this.lastExchangeTokens,
     );
   }
 

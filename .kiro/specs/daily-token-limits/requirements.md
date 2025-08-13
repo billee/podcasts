@@ -67,7 +67,7 @@ This feature implements daily token limits for trial and subscribed users to man
 1. WHEN tracking token usage THEN the system SHALL store usage data in Firestore
 2. WHEN a user logs out and back in THEN the system SHALL maintain their current daily usage count
 3. WHEN the app is restarted THEN the system SHALL load the current daily usage from the database
-4. WHEN calculating token usage THEN the system SHALL count only input tokens from user messages
+4. WHEN calculating token usage THEN the system SHALL count total tokens sent to and received from OpenAI API (input tokens including system prompts, conversation history, user message + output tokens from LLM response)
 5. WHEN the daily reset occurs THEN the system SHALL update the database with the new reset timestamp
 
 ### Requirement 6

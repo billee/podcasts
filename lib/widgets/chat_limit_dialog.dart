@@ -22,7 +22,7 @@ class ChatLimitDialog extends StatelessWidget {
   }) {
     return showDialog<void>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (BuildContext context) {
         return ChatLimitDialog(
           usageInfo: usageInfo,
@@ -48,7 +48,7 @@ class ChatLimitDialog extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           const Text(
-            'Daily Token Limit Reached',
+            'Daily Token Limits',
             style: TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -69,42 +69,23 @@ class ChatLimitDialog extends StatelessWidget {
           _buildResetTimeInfo(),
           const SizedBox(height: 16),
           
-          // Encouragement message
-          _buildEncouragementMessage(),
-          
-          // Upgrade prompt for trial users
-          if (usageInfo.userType == 'trial') ...[
-            const SizedBox(height: 16),
-            _buildUpgradePrompt(),
-          ],
+
         ],
       ),
       actions: [
-        // Upgrade button for trial users
-        if (usageInfo.userType == 'trial' && onUpgradePressed != null)
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              onUpgradePressed!();
-            },
-            style: TextButton.styleFrom(
-              backgroundColor: Colors.blue[700],
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('Upgrade Now'),
-          ),
-        
-        // OK button
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           style: TextButton.styleFrom(
-            foregroundColor: Colors.white70,
+            foregroundColor: Colors.blue[400],
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           ),
-          child: const Text('OK'),
+          child: const Text(
+            'OK',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ),
       ],
     );
@@ -140,20 +121,8 @@ class ChatLimitDialog extends StatelessWidget {
   }
 
   Widget _buildResetTimeInfo() {
-    final resetTime = usageInfo.resetTime;
-    final now = AppConfig.currentDateTime;
-    final timeUntilReset = resetTime.difference(now);
-    
-    String resetMessage;
-    if (timeUntilReset.inHours > 0) {
-      final hours = timeUntilReset.inHours;
-      final minutes = timeUntilReset.inMinutes % 60;
-      resetMessage = 'Your tokens will reset in ${hours}h ${minutes}m';
-    } else if (timeUntilReset.inMinutes > 0) {
-      resetMessage = 'Your tokens will reset in ${timeUntilReset.inMinutes} minutes';
-    } else {
-      resetMessage = 'Your tokens will reset very soon!';
-    }
+    // Always show fixed reset time at 24:00 (midnight)
+    const resetMessage = 'Your tokens will reset at 24:00';
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -182,14 +151,6 @@ class ChatLimitDialog extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Reset time: ${_formatResetTime(resetTime)}',
-                  style: TextStyle(
-                    color: Colors.green[400],
-                    fontSize: 12,
-                  ),
-                ),
               ],
             ),
           ),
@@ -198,47 +159,7 @@ class ChatLimitDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildEncouragementMessage() {
-    return Text(
-      'Come back tomorrow to continue chatting! Your token count will be fully restored.',
-      style: TextStyle(
-        color: Colors.white70,
-        fontSize: 14,
-        height: 1.4,
-      ),
-    );
-  }
 
-  Widget _buildUpgradePrompt() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue[900]?.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue[700]!.withOpacity(0.5)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.star_rounded,
-            color: Colors.blue[400],
-            size: 20,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Upgrade to get more tokens daily and continue longer conversations!',
-              style: TextStyle(
-                color: Colors.blue[300],
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   String _formatResetTime(DateTime resetTime) {
     final localTime = resetTime.toLocal();

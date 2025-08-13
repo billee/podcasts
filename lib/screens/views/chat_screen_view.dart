@@ -18,6 +18,7 @@ class ChatScreenView extends StatelessWidget {
   final int conversationPairs;
   final String assistantName;
   final String? username; // Pass username to ChatBubble if needed
+  final int lastExchangeTokens; // Tokens used in the most recent exchange
   final Function(String) onSuggestionSelected; // <--- ADD THIS LINE
   final String? userId; // Add userId for token usage widget
 
@@ -36,6 +37,7 @@ class ChatScreenView extends StatelessWidget {
     this.username,
     required this.onSuggestionSelected, // <--- ADD THIS LINE to the constructor
     this.userId, // Add userId parameter
+    required this.lastExchangeTokens, // Add lastExchangeTokens parameter
   });
 
   Widget _buildSuggestionChips() {
@@ -143,7 +145,10 @@ class ChatScreenView extends StatelessWidget {
                   ],
                 ),
                 // Token usage widget underneath the chatbox
-                TokenUsageWidget(userId: userId),
+                TokenUsageWidget(
+                  userId: userId,
+                  lastExchangeTokens: lastExchangeTokens,
+                ),
               ],
             ),
           ),

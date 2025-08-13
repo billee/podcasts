@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/config.dart';
+import '../core/token_counter.dart';
+import 'token_limit_service.dart';
 
 /// Service for managing conversation summarization and state preservation
 class ConversationService {
@@ -79,13 +81,23 @@ class ConversationService {
   
   /// Generate conversation summary using LLM
   static Future<String?> generateSummary(List<Map<String, dynamic>> messages) async {
+    return generateSummaryWithTokenTracking(messages, null);
+  }
+  
+  /// Generate conversation summary using LLM with token tracking
+  static Future<String?> generateSummaryWithTokenTracking(
+    List<Map<String, dynamic>> messages, 
+    String? userId
+  ) async {
     if (messages.isEmpty) {
       _logger.info('No messages to summarize');
       return null;
     }
     
     try {
-      _logger.info('Generating summary for ${messages.length} messages');
+      // Count input tokens for summarization
+      final inputTokens = TokenCounter.countRealInputTokens(messages);
+      _logger.info('Generating summary for ${messages.length} messages, Input tokens: $inputTokens');
       
       final response = await http
           .post(
@@ -98,7 +110,19 @@ class ConversationService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final summary = data['summary'] as String;
-        _logger.info('Summary generated successfully');
+        
+        // Count output tokens and track total usage
+        final outputTokens = TokenCounter.countOutputTokens(summary);
+        final totalTokens = inputTokens + outputTokens;
+        
+        _logger.info('Summary generated successfully - Input: $inputTokens, Output: $outputTokens, Total: $totalTokens');
+        
+        // Record token usage if userId is provided
+        if (userId != null) {
+          await TokenLimitService.recordTokenUsage(userId, totalTokens);
+          _logger.info('Recorded $totalTokens summarization tokens for user $userId');
+        }
+        
         return summary;
       } else {
         _logger.severe('Failed to generate summary: ${response.statusCode} ${response.body}');

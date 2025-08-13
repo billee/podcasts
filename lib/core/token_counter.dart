@@ -73,4 +73,25 @@ class TokenCounter {
       return 0;
     }
   }
+  
+  /// Count REAL total tokens sent to OpenAI API (input tokens)
+  /// This includes system prompts, conversation history, and user message
+  static int countRealInputTokens(List<Map<String, dynamic>> messagesForLLM) {
+    try {
+      return countMultipleMessageTokens(messagesForLLM);
+    } catch (e) {
+      _logger.warning('Error counting real input tokens: $e');
+      return 0;
+    }
+  }
+  
+  /// Count tokens for LLM response (output tokens)
+  static int countOutputTokens(String response) {
+    try {
+      return countTokens(response);
+    } catch (e) {
+      _logger.warning('Error counting output tokens: $e');
+      return 0;
+    }
+  }
 }
