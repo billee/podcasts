@@ -140,8 +140,7 @@ class DailyResetService {
       // Log reset completion
       _logger.info('Daily reset completed: $processedUsers users processed, $newRecords new records created, $errors errors');
       
-      // Store reset metadata for monitoring
-      await _storeResetMetadata(resetTimestamp, processedUsers, newRecords, errors);
+      // Reset metadata logging removed - no longer needed
       
     } catch (e) {
       _logger.severe('Critical error during daily reset: $e');
@@ -181,30 +180,7 @@ class DailyResetService {
     }
   }
 
-  /// Store metadata about the reset operation for monitoring
-  static Future<void> _storeResetMetadata(DateTime resetTimestamp, int processedUsers, int newRecords, int errors) async {
-    try {
-      final metadata = {
-        'resetTimestamp': Timestamp.fromDate(resetTimestamp),
-        'resetDate': _getTodayString(),
-        'processedUsers': processedUsers,
-        'newRecords': newRecords,
-        'errors': errors,
-        'resetTimezone': 'Local timezone (24:00 military time)',
-        'nextScheduledReset': Timestamp.fromDate(_getNextResetTime()),
-      };
-      
-      await _firestore
-          .collection('daily_reset_logs')
-          .doc(_getTodayString())
-          .set(metadata);
-      
-      _logger.info('Reset metadata stored successfully');
-    } catch (e) {
-      _logger.warning('Failed to store reset metadata: $e');
-      // Don't throw - this is not critical for the reset operation
-    }
-  }
+
 
   /// Manual reset trigger for testing or emergency use
   static Future<void> performManualReset() async {

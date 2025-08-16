@@ -15,6 +15,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kapwa_companion_basic/screens/views/chat_screen_view.dart';
 import 'package:kapwa_companion_basic/widgets/chat_limit_dialog.dart';
 import 'package:kapwa_companion_basic/services/conversation_service.dart';
+import 'package:kapwa_companion_basic/services/violation_logging_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? userId;
@@ -56,6 +57,57 @@ class _ChatScreenState extends State<ChatScreen>
         );
       }
     });
+  }
+
+  /// Check for violation flags in LLM response and log them
+  Future<void> _checkAndLogViolations(String userMessage, String llmResponse) async {
+    if (widget.userId == null) {
+      _logger.warning('Cannot check violations: userId is null');
+      return;
+    }
+
+    _logger.info('🔍 SCANNING for violation flags in response...');
+    _logger.info('Response length: ${llmResponse.length} characters');
+    
+    // Check for any bracket patterns first
+    final anyBrackets = RegExp(r'\[[^\]]*\]');
+    final allBrackets = anyBrackets.allMatches(llmResponse);
+    _logger.info('Found ${allBrackets.length} bracket patterns: ${allBrackets.map((m) => m.group(0)).toList()}');
+
+    final flagPattern = RegExp(r'\[FLAG:([A-Z_]+)\]');
+    final match = flagPattern.firstMatch(llmResponse);
+    
+    if (match != null) {
+      final violationType = match.group(1)!;
+      final fullFlag = match.group(0)!;
+      
+      _logger.warning('🚨 VIOLATION FLAG DETECTED: $fullFlag');
+      _logger.warning('🚨 Violation type: $violationType');
+      _logger.warning('🚨 Flag position: ${match.start}-${match.end}');
+      
+      try {
+        await ViolationLoggingService.logViolation(
+          userId: widget.userId!,
+          violationType: violationType,
+          userMessage: userMessage,
+          llmResponse: llmResponse,
+        );
+        _logger.warning('✅ Violation successfully logged to Firestore');
+      } catch (e) {
+        _logger.severe('❌ Failed to log violation to Firestore: $e');
+      }
+    } else {
+      _logger.info('❌ NO VIOLATION FLAGS FOUND - LLM did not flag this message');
+      _logger.info('This might indicate:');
+      _logger.info('1. Message was not actually inappropriate');
+      _logger.info('2. LLM is not following flag instructions');
+      _logger.info('3. Flag format is incorrect');
+    }
+  }
+
+  /// Remove violation flags from LLM response before showing to user
+  String _cleanViolationFlags(String response) {
+    return response.replaceAll(RegExp(r'\[FLAG:[A-Z_]+\]'), '').trim();
   }
   String? _currentSummary;
   String _assistantName = "Maria";
@@ -411,10 +463,25 @@ class _ChatScreenState extends State<ChatScreen>
 
     try {
       final llmCallResult = await _callLLMWithTokenTracking(message);
-      final llmResponse = llmCallResult['response'] as String;
+      var llmResponse = llmCallResult['response'] as String;
       final realInputTokens = llmCallResult['inputTokens'] as int;
       final outputTokens = llmCallResult['outputTokens'] as int;
       final totalTokens = realInputTokens + outputTokens;
+
+      // COMPREHENSIVE VIOLATION LOGGING
+      _logger.info('=== VIOLATION CHECK START ===');
+      _logger.info('User message: "$message"');
+      _logger.info('Raw LLM response: "$llmResponse"');
+      
+      // Check for violation flags and log them
+      await _checkAndLogViolations(message, llmResponse);
+      
+      // Remove violation flags from response before showing to user
+      final cleanResponse = _cleanViolationFlags(llmResponse);
+      _logger.info('Clean response (shown to user): "$cleanResponse"');
+      _logger.info('=== VIOLATION CHECK END ===');
+      
+      llmResponse = cleanResponse;
       
       setState(() {
         _messages.last = {
@@ -511,6 +578,7 @@ class _ChatScreenState extends State<ChatScreen>
       // Count REAL input tokens (everything sent to OpenAI)
       final realInputTokens = TokenCounter.countRealInputTokens(messagesForLLM);
       _logger.info('REAL input tokens sent to OpenAI: $realInputTokens');
+      _logger.info('System prompt being sent: ${messagesForLLM.first['content']}');
 
       final response = await http
           .post(
