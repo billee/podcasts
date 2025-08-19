@@ -229,7 +229,7 @@ class _ProfileSubscriptionSectionState extends State<ProfileSubscriptionSection>
     } else if (trialHoursLeft > 0) {
       timeRemaining = '$trialHoursLeft hour${trialHoursLeft == 1 ? '' : 's'} remaining';
     } else {
-      timeRemaining = 'Trial expired';
+      timeRemaining ='0 time remaining';
     }
 
     return Column(
