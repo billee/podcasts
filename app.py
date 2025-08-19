@@ -167,6 +167,34 @@ def get_users():
             else:
                 app.logger.info(f"❌ No subscription found for user {user_id}")
             
+            # Get total monthly tokens from total_usage_history
+            # Inside your user loop
+            user_id = user.id
+
+            # Get current month/year
+            current_month = datetime.utcnow().month
+            current_year = datetime.utcnow().year
+
+            usage_query = db.collection('token_usage_history') \
+                .where('userId', '==', user_id) \
+                .where('month', '==', current_month) \
+                .where('year', '==', current_year) \
+                .limit(1)
+
+            usage_docs = list(usage_query.stream())
+            total_tokens = 0
+
+            # # Add more debugging:
+            # print(f"Checking token usage for user {user_id} in collection {usage_ref.parent.id}")
+            # usage_doc = usage_ref.get()
+            # print(f"Document exists: {usage_doc.exists}")
+            if usage_docs:
+                usage_data = usage_docs[0].to_dict()
+                total_tokens = usage_data.get('totalMonthlyTokens', 0)
+                app.logger.info(f"Found token usage for user {user_id}: {total_tokens} tokens")
+            else:
+                app.logger.info(f"No token usage found for user {user_id} for {current_month}/{current_year}")
+            
             # Calculate days remaining for trial
             days_remaining = get_trial_days_remaining(trial_history)
             
@@ -188,7 +216,8 @@ def get_users():
                 'cancellation_date': format_timestamp(subscription.get('willExpireAt') if subscription and subscription.get('cancelled') else None),
                 'is_premium': subscription.get('status') == 'active' if subscription else False,
                 'last_login': format_timestamp(user_data.get('lastLoginAt')),
-                'current_status': get_current_user_status(user_data, trial_history, subscription)
+                'current_status': get_current_user_status(user_data, trial_history, subscription),
+                'total_monthly_tokens': total_tokens  # Added this field
             }
             
             users_data.append(journey_data)
@@ -198,9 +227,8 @@ def get_users():
                 app.logger.info(f"First user data fields: {list(journey_data.keys())}")
                 app.logger.info(f"UID field value: {journey_data.get('uid')}")
                 app.logger.info(f"Username field (should not exist): {journey_data.get('username', 'NOT_FOUND')}")
-            
+                app.logger.info(f"Total monthly tokens: {journey_data.get('total_monthly_tokens')}")
 
-        
         # Sort by registration date (newest first)
         users_data.sort(key=lambda x: x['registration_date'] or '', reverse=True)
         

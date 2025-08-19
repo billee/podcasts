@@ -797,6 +797,7 @@
                             <th>Subscription End</th>
                             <th>Cancellation</th>
                             <th>Current Status</th>
+                            <th>Tokens Used</th>
                             <th>Last Login</th>
                         </tr>
                     </thead>
@@ -1285,6 +1286,7 @@
                     <td class="date-cell">${formatDate(user.subscription_end_date)}</td>
                     <td class="date-cell">${formatDate(user.cancellation_date)}</td>
                     <td><span class="status-badge ${getStatusClass(user.current_status)}">${user.current_status}</span></td>
+                    <td class="cell">${user.total_monthly_tokens}</td>
                     <td class="date-cell">${formatDate(user.last_login)}</td>
                 `;
                 tbody.appendChild(row);
