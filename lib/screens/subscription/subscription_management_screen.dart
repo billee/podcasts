@@ -5,6 +5,7 @@ import 'package:kapwa_companion_basic/widgets/loading_state_widget.dart';
 import 'package:kapwa_companion_basic/widgets/feedback_widget.dart';
 import 'package:kapwa_companion_basic/widgets/subscription_confirmation_dialog.dart';
 import 'package:kapwa_companion_basic/screens/subscription/subscription_screen.dart';
+import 'package:kapwa_companion_basic/screens/payment/mock_payment_screen.dart';
 import 'package:logging/logging.dart';
 
 class SubscriptionManagementScreen extends StatefulWidget {
@@ -248,6 +249,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
               ),
             ),
           ),
+          const SizedBox(width: 8), 
           Expanded(
             child: Text(
               value,
@@ -255,6 +257,8 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
               ),
+              maxLines: 2, 
+              overflow: TextOverflow.ellipsis, 
             ),
           ),
         ],
@@ -304,18 +308,13 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
         children: [
           Row(
             children: [
-              Icon(
-                Icons.diamond,
-                color: Colors.blue[800],
-                size: 24,
-              ),
               const SizedBox(width: 8),
               Text(
                 'Premium Monthly',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.blue[800],
+                  color: Colors.white,
                 ),
               ),
               const Spacer(),
@@ -347,14 +346,14 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: Colors.blue[800],
+                  color: Colors.white,
                 ),
               ),
               Text(
                 '/month',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.blue[600],
+                  color: Colors.white,
                 ),
               ),
             ],
@@ -369,12 +368,9 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
           ),
           const SizedBox(height: 8),
           ..._buildFeatureList([
-            'Unlimited AI Chat',
-            'Access to All Stories',
-            'Premium Podcast Content',
-            'Priority Support',
-            'No Ads',
-            'Offline Content Access',
+            'More AI Chat tokens',
+            'More Stories',
+            'More Podcast Content',
           ]),
         ],
       ),
@@ -662,13 +658,17 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
 
   // Action handlers
   Future<void> _handleUpgrade() async {
+    // Go directly to payment screen instead of subscription screen
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const SubscriptionScreen(),
+        builder: (context) => const MockPaymentScreen(
+          amount: 3.00,
+          planType: 'monthly',
+        ),
       ),
     ).then((_) {
-      // Refresh subscription info when returning from subscription screen
+      // Refresh subscription info when returning from payment screen
       _loadSubscriptionInfo();
     });
   }
@@ -733,11 +733,14 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
   }
 
   Future<void> _handleReactivate() async {
-    // Navigate to subscription screen for reactivation
+    // Go directly to payment screen for reactivation
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const SubscriptionScreen(),
+        builder: (context) => const MockPaymentScreen(
+          amount: 3.00,
+          planType: 'monthly',
+        ),
       ),
     ).then((_) {
       _loadSubscriptionInfo();
