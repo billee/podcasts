@@ -564,12 +564,11 @@ def summarize_chat():
             conversation_text += f"Assistant: {msg['content']}\n"
 
     summary_prompt_messages = [
-        {"role": "system", "content": "You are a highly skilled summarization AI. Your primary goal is to create a single, comprehensive, and concise summary of a conversation. **The final summary MUST be a single, continuous paragraph without line breaks or bullet points.**"},
-        {"role": "user", "content": f"""Please create a comprehensive summary of this conversation:
-{f"Previous summary: {previous_summary_content}" if previous_summary_content and previous_summary_content != "No sufficient conversation to summarize." else ""}
-Current conversation:
-{conversation_text}
-Create a single paragraph summary that captures all the key points, topics discussed, and important details from {'both the previous summary and ' if previous_summary_content else ''}the current conversation."""}
+        {"role": "system", "content": "Summarize conversations in 1-2 sentences focusing on emotional state and key topics only."},
+        {"role": "user", "content": f"""Summarize this conversation in 1-2 sentences:
+{f"Previous: {previous_summary_content}" if previous_summary_content and previous_summary_content != "No sufficient conversation to summarize." else ""}
+Current: {conversation_text}
+Focus only on emotional state and main topics discussed."""}
     ]
 
     if not previous_summary_content and not conversation_messages_for_llm:

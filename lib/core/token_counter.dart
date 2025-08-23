@@ -1,16 +1,17 @@
 import 'package:logging/logging.dart';
 
 /// Utility class for counting tokens in text messages
-/// Provides approximate token counting for OpenAI-style tokenization
+/// Provides simple approximation for OpenAI-style tokenization
 class TokenCounter {
   static final Logger _logger = Logger('TokenCounter');
   
-  /// Approximate tokens per word ratio for English text
-  /// Based on OpenAI's tokenization where 1 token ≈ 0.75 words
-  static const double _tokensPerWord = 1.33;
+  /// Improved tokens per word ratio for better approximation
+  /// Based on analysis: OpenAI shows 1039 vs our original 785 = 1.32x higher
+  /// So we increase from 1.33 to 1.75 to better match OpenAI
+  static const double _tokensPerWord = 1.75;
   
   /// Count tokens in a text message
-  /// Uses word-based approximation for token counting
+  /// Uses simple word-based approximation for token counting
   /// Returns the estimated number of tokens
   static int countTokens(String text) {
     try {
@@ -22,7 +23,7 @@ class TokenCounter {
       final cleanText = text.trim().replaceAll(RegExp(r'\s+'), ' ');
       final words = cleanText.split(' ');
       
-      // Calculate approximate token count
+      // Calculate approximate token count with improved ratio
       final approximateTokens = (words.length * _tokensPerWord).ceil();
       
       _logger.fine('Token count for text (${words.length} words): $approximateTokens tokens');

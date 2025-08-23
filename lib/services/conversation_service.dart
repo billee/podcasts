@@ -21,7 +21,7 @@ class ConversationService {
   // Configuration constants - TEMPORARILY SET TO 6 FOR MANUAL TESTING
   static const int _summaryThreshold10 = 10;  // Changed from 10 to 6 for testing
   static const int _summaryThreshold20 = 20;  // Changed from 20 to 6 for testing
-  static const int _maxMessagesAfterSummary = 20;
+  static const int _maxMessagesAfterSummary = 10;
   static const String _summariesCollection = 'chatSummaries';
   static const String _latestSummaryDoc = 'latest';
   

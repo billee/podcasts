@@ -363,7 +363,7 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   void _trimMessagesAfterSummarization() {
-    if (_messages.length <= 21) return;
+    if (_messages.length <= 11) return;
 
     int systemMessageIndex = _messages.indexWhere((msg) =>
         msg['role'] == 'system' &&
@@ -375,9 +375,9 @@ class _ChatScreenState extends State<ChatScreen>
           .where((msg) => msg['role'] == 'user' || msg['role'] == 'assistant')
           .toList();
 
-      if (conversationMessages.length > 20) {
+      if (conversationMessages.length > 10) {
         List<Map<String, dynamic>> recentConversation =
-            conversationMessages.sublist(conversationMessages.length - 20);
+            conversationMessages.sublist(conversationMessages.length - 10);
 
         _messages = [_messages[systemMessageIndex], ...recentConversation];
 
@@ -510,7 +510,7 @@ class _ChatScreenState extends State<ChatScreen>
       // Scroll to bottom after LLM response is received
       _scrollToBottom();
 
-      if (_conversationPairs >= 10) { // TEMPORARILY SET TO 6 FOR MANUAL TESTING
+      if (_conversationPairs >= 6) { // OPTIMIZED: 6 pairs for aggressive summarization
         _logger.info(
             'Conversation pair threshold reached ($_conversationPairs >= 6). Triggering summarization in background.');
         _generateSummaryAndUpdateTokens(totalTokens).catchError((error) {
