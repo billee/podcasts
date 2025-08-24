@@ -45,8 +45,54 @@ class ViolationWarningScreen extends StatelessWidget {
       } else {
         _logger.info('No violations to mark as shown for user: $userId');
       }
+
+      // Check if user has 3 or more violations and ban from renewals
+      await _checkAndBanFromRenewals();
     } catch (e) {
       _logger.severe('Error marking warning as shown: $e');
+    }
+  }
+
+  Future<void> _checkAndBanFromRenewals() async {
+    try {
+      // Get total violation count for this user
+      final allViolationsQuery = await FirebaseFirestore.instance
+          .collection('user_violations')
+          .where('userId', isEqualTo: userId)
+          .where('resolved', isEqualTo: false)
+          .get();
+
+      final violationCount = allViolationsQuery.docs.length;
+      _logger.info('User $userId has $violationCount total violations');
+
+      if (violationCount >= 3) {
+        // Ban user from renewals by adding banned_at field to their subscription
+        final subscriptionQuery = await FirebaseFirestore.instance
+            .collection('subscriptions')
+            .where('userId', isEqualTo: userId)
+            .get();
+
+        if (subscriptionQuery.docs.isNotEmpty) {
+          final batch = FirebaseFirestore.instance.batch();
+          
+          for (final subscriptionDoc in subscriptionQuery.docs) {
+            final data = subscriptionDoc.data();
+            // Only add banned_at if it doesn't already exist
+            if (!data.containsKey('banned_at')) {
+              batch.update(subscriptionDoc.reference, {
+                'banned_at': FieldValue.serverTimestamp(),
+              });
+            }
+          }
+          
+          await batch.commit();
+          _logger.warning('User $userId banned from renewals due to $violationCount violations');
+        } else {
+          _logger.info('No subscription found for user $userId to ban');
+        }
+      }
+    } catch (e) {
+      _logger.severe('Error checking and banning user from renewals: $e');
     }
   }
 

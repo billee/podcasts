@@ -8,6 +8,6 @@ firestore pervious rules has to be brought back
 
 payment system
 
-when the user has 3 violations, during end of the subscription, the user can not renew anymore,  the email will be blacklisted.
-
 for the trial user, they will be terminated right away.  
+
+for the admin, everyday the admin checks which user has to renew their subscriptions.  if they are banned then no more subscriptions is allowed. the email will be blacklisted.
