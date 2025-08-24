@@ -82,9 +82,9 @@ class AudioService {
     }
   }
 
-  // NEW METHOD: Set current audio files to a specific list
-  void setCurrentAudioFiles(List<String> audioFiles) {
-    _logger.info('Setting current audio files to: $audioFiles');
+  // NEW METHOD: Set current audio files to a specific list with trial user limits
+  void setCurrentAudioFiles(List<String> audioFiles, {bool isTrialUser = false, int? trialLimit}) {
+    _logger.info('Setting current audio files. Total available: ${audioFiles.length}, Trial user: $isTrialUser, Limit: $trialLimit');
 
     // Stop current audio if playing when switching audio sources
     if (_isPlaying || _currentAudioPath != null) {
@@ -93,14 +93,26 @@ class AudioService {
       stopAudio();
     }
 
-    _allAudioFiles = List.from(audioFiles);
-    _audioLoading = false;
-    _refreshAudioFiles();
+    // Apply trial user limits if applicable
+    if (isTrialUser && trialLimit != null && trialLimit > 0) {
+      // Always get the first N audios for trial users (no shuffling)
+      _allAudioFiles = audioFiles.take(trialLimit).toList();
+      _logger.info('Trial user limit applied: ${_allAudioFiles.length} audios available');
+      _audioLoading = false;
+      _refreshAudioFiles(shouldShuffle: false); // Don't shuffle for trial users
+    } else {
+      _allAudioFiles = List.from(audioFiles);
+      _logger.info('Full access: ${_allAudioFiles.length} audios available');
+      _audioLoading = false;
+      _refreshAudioFiles(shouldShuffle: true); // Shuffle for premium users
+    }
   }
 
-  void _refreshAudioFiles() {
+  void _refreshAudioFiles({bool shouldShuffle = true}) {
     if (_allAudioFiles.isNotEmpty) {
-      _allAudioFiles.shuffle();
+      if (shouldShuffle) {
+        _allAudioFiles.shuffle();
+      }
       _currentAudioFiles = _allAudioFiles.isNotEmpty
           ? _allAudioFiles.sublist(0, 1) // Show one audio file at a time
           : _allAudioFiles;

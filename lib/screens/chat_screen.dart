@@ -16,6 +16,8 @@ import 'package:kapwa_companion_basic/screens/views/chat_screen_view.dart';
 import 'package:kapwa_companion_basic/widgets/chat_limit_dialog.dart';
 import 'package:kapwa_companion_basic/services/conversation_service.dart';
 import 'package:kapwa_companion_basic/services/violation_logging_service.dart';
+import 'package:kapwa_companion_basic/services/violation_check_service.dart';
+import 'package:kapwa_companion_basic/screens/violation_warning_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? userId;
@@ -162,13 +164,43 @@ class _ChatScreenState extends State<ChatScreen>
   bool _maritalStatus = false;
   bool _hasChildren = false;
 
+  // Violation check state
+  bool _violationCheckComplete = false;
+  bool _showViolationWarning = false;
+
   @override
   void initState() {
     super.initState();
     _logger.info('ChatScreen initState called.');
+    _checkViolationStatus();
     _loadLatestSummary();
     _loadSuggestions();
     // IMPORTANT: Removed _initializeAudioService() call, as it's handled globally in main.dart
+  }
+
+  Future<void> _checkViolationStatus() async {
+    if (widget.userId == null) {
+      setState(() {
+        _violationCheckComplete = true;
+        _showViolationWarning = false;
+      });
+      return;
+    }
+
+    try {
+      final shouldShowWarning = await ViolationCheckService.shouldShowViolationWarning(widget.userId!);
+      setState(() {
+        _violationCheckComplete = true;
+        _showViolationWarning = shouldShowWarning;
+      });
+      _logger.info('Violation check complete. Show warning: $shouldShowWarning');
+    } catch (e) {
+      _logger.severe('Error checking violation status: $e');
+      setState(() {
+        _violationCheckComplete = true;
+        _showViolationWarning = false;
+      });
+    }
   }
 
   // IMPORTANT: Removed _initializeAudioService method entirely from ChatScreen,
@@ -791,6 +823,40 @@ class _ChatScreenState extends State<ChatScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    
+    // Show loading while checking violation status
+    if (!_violationCheckComplete) {
+      return Scaffold(
+        backgroundColor: Colors.grey[850],
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Colors.blue[800]),
+              const SizedBox(height: 16),
+              Text(
+                'Loading chat...',
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // Show violation warning if needed
+    if (_showViolationWarning && widget.userId != null) {
+      return ViolationWarningScreen(
+        userId: widget.userId!,
+        onContinue: () {
+          setState(() {
+            _showViolationWarning = false;
+          });
+        },
+      );
+    }
+    
+    // Show normal chat screen
     return ChatScreenView(
       messageController: _messageController,
       scrollController: _scrollController,

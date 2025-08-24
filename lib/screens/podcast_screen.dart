@@ -3,8 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:kapwa_companion_basic/widgets/audio_player_widget.dart';
 import 'package:kapwa_companion_basic/services/audio_service.dart';
+import 'package:kapwa_companion_basic/services/subscription_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/data/app_assets.dart';
+import 'package:kapwa_companion_basic/core/config.dart';
 
 class PodcastScreen extends StatefulWidget {
   const PodcastScreen({super.key});
@@ -23,7 +26,50 @@ class _PodcastScreenState extends State<PodcastScreen> {
     super.initState();
     _logger.info('PodcastScreen initState called.');
     _audioService.stopAudio();
-    _audioService.setCurrentAudioFiles(AppAssets.podcastAssets);
+    _initializeAudioWithSubscriptionCheck();
+  }
+
+  Future<void> _initializeAudioWithSubscriptionCheck() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        // No user logged in, treat as trial
+        _audioService.setCurrentAudioFiles(
+          AppAssets.podcastAssets,
+          isTrialUser: true,
+          trialLimit: AppConfig.trialUserPodcastLimit,
+        );
+        return;
+      }
+
+      final subscriptionStatus = await SubscriptionService.getSubscriptionStatus(user.uid);
+      final isTrialUser = subscriptionStatus == SubscriptionStatus.trial || 
+                         subscriptionStatus == SubscriptionStatus.trialExpired ||
+                         subscriptionStatus == SubscriptionStatus.expired;
+
+      if (isTrialUser) {
+        _logger.info('Trial user detected - limiting podcast access to ${AppConfig.trialUserPodcastLimit} audios');
+        _audioService.setCurrentAudioFiles(
+          AppAssets.podcastAssets,
+          isTrialUser: true,
+          trialLimit: AppConfig.trialUserPodcastLimit,
+        );
+      } else {
+        _logger.info('Premium user detected - full podcast access');
+        _audioService.setCurrentAudioFiles(
+          AppAssets.podcastAssets,
+          isTrialUser: false,
+        );
+      }
+    } catch (e) {
+      _logger.severe('Error checking subscription status: $e');
+      // Fallback to trial limits on error
+      _audioService.setCurrentAudioFiles(
+        AppAssets.podcastAssets,
+        isTrialUser: true,
+        trialLimit: AppConfig.trialUserPodcastLimit,
+      );
+    }
   }
 
   @override

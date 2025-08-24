@@ -26,6 +26,10 @@ class AppConfig {
       ? '\$${monthlySubscriptionPrice.toInt()}' 
       : '\$${monthlySubscriptionPrice.toStringAsFixed(2)}';
   
+  // Audio content limits for trial users
+  static const int trialUserPodcastLimit = 2;  // First 2 podcast audios only
+  static const int trialUserStoryLimit = 2;    // First 2 story audios only
+  
   // Daily reset configuration
   // Reset happens at 24:00 (midnight) in user's local timezone
   

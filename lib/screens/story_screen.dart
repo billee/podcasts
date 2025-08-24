@@ -2,8 +2,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:kapwa_companion_basic/services/audio_service.dart';
+import 'package:kapwa_companion_basic/services/subscription_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/widgets/audio_player_widget.dart';
 import 'package:kapwa_companion_basic/data/app_assets.dart';
+import 'package:kapwa_companion_basic/core/config.dart';
+import 'package:logging/logging.dart';
 
 class StoryScreen extends StatefulWidget {
   const StoryScreen({super.key});
@@ -14,12 +18,56 @@ class StoryScreen extends StatefulWidget {
 
 class _StoryScreenState extends State<StoryScreen> {
   final AudioService _audioService = AudioService();
+  final Logger _logger = Logger('StoryScreen');
 
   @override
   void initState() {
     super.initState();
     _audioService.stopAudio();
-    _audioService.setCurrentAudioFiles(AppAssets.storyAssets);
+    _initializeAudioWithSubscriptionCheck();
+  }
+
+  Future<void> _initializeAudioWithSubscriptionCheck() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        // No user logged in, treat as trial
+        _audioService.setCurrentAudioFiles(
+          AppAssets.storyAssets,
+          isTrialUser: true,
+          trialLimit: AppConfig.trialUserStoryLimit,
+        );
+        return;
+      }
+
+      final subscriptionStatus = await SubscriptionService.getSubscriptionStatus(user.uid);
+      final isTrialUser = subscriptionStatus == SubscriptionStatus.trial || 
+                         subscriptionStatus == SubscriptionStatus.trialExpired ||
+                         subscriptionStatus == SubscriptionStatus.expired;
+
+      if (isTrialUser) {
+        _logger.info('Trial user detected - limiting story access to ${AppConfig.trialUserStoryLimit} audios');
+        _audioService.setCurrentAudioFiles(
+          AppAssets.storyAssets,
+          isTrialUser: true,
+          trialLimit: AppConfig.trialUserStoryLimit,
+        );
+      } else {
+        _logger.info('Premium user detected - full story access');
+        _audioService.setCurrentAudioFiles(
+          AppAssets.storyAssets,
+          isTrialUser: false,
+        );
+      }
+    } catch (e) {
+      _logger.severe('Error checking subscription status: $e');
+      // Fallback to trial limits on error
+      _audioService.setCurrentAudioFiles(
+        AppAssets.storyAssets,
+        isTrialUser: true,
+        trialLimit: AppConfig.trialUserStoryLimit,
+      );
+    }
   }
 
   @override
