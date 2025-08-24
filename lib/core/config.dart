@@ -75,10 +75,10 @@ class AppConfig {
     Logger('AppConfig').info('Backend Base URL set to: $_backendBaseUrl');
     
     // Initialize with real time by default (today)
-    _overrideDate = null;
+    //_overrideDate = null;
     
     ////////// tomorrow
-    //_overrideDate = DateTime.now().add(Duration(days: 1));
+    _overrideDate = DateTime.now().add(Duration(days: 5));
 
     ///////// Initialize with 2 months from now for testing
     //_overrideDate = DateTime.now().add(Duration(days: 60));
