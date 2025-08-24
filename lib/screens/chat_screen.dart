@@ -60,10 +60,11 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   /// Check for violation flags in LLM response and log them
-  Future<void> _checkAndLogViolations(String userMessage, String llmResponse) async {
+  /// Returns true if violation was detected and conversation should be reset
+  Future<bool> _checkAndLogViolations(String userMessage, String llmResponse) async {
     if (widget.userId == null) {
       _logger.warning('Cannot check violations: userId is null');
-      return;
+      return false;
     }
 
     _logger.info('🔍 SCANNING for violation flags in response...');
@@ -93,8 +94,15 @@ class _ChatScreenState extends State<ChatScreen>
           llmResponse: llmResponse,
         );
         _logger.warning('✅ Violation successfully logged to Firestore');
+        
+        // Handle violation by removing inappropriate messages and showing warning
+        await _handleViolationMessage();
+        _logger.warning('🚨 Violation handled: inappropriate messages removed');
+        
+        return true; // Violation detected
       } catch (e) {
         _logger.severe('❌ Failed to log violation to Firestore: $e');
+        return false;
       }
     } else {
       _logger.info('❌ NO VIOLATION FLAGS FOUND - LLM did not flag this message');
@@ -102,12 +110,39 @@ class _ChatScreenState extends State<ChatScreen>
       _logger.info('1. Message was not actually inappropriate');
       _logger.info('2. LLM is not following flag instructions');
       _logger.info('3. Flag format is incorrect');
+      return false; // No violation detected
     }
   }
 
   /// Remove violation flags from LLM response before showing to user
   String _cleanViolationFlags(String response) {
     return response.replaceAll(RegExp(r'\[FLAG:[A-Z_]+\]'), '').trim();
+  }
+
+  /// Handle violation by removing the inappropriate message and showing warning
+  /// This removes the user's inappropriate message and LLM's flagged response from conversation
+  Future<void> _handleViolationMessage() async {
+    try {
+      setState(() {
+        // Remove the last two messages (user's inappropriate message + LLM's flagged response)
+        if (_messages.length >= 2) {
+          _messages.removeLast(); // Remove LLM's flagged response
+          _messages.removeLast(); // Remove user's inappropriate message
+        }
+        
+        // Add a warning message from the assistant
+        _messages.add({
+          "role": "assistant",
+          "content": "You violated our terms and conditions po. Please keep our conversation respectful and appropriate. Let's continue with a different topic.",
+          "senderName": _assistantName,
+          "isWarning": true, // Mark this as a warning message for potential styling
+        });
+      });
+      
+      _logger.info('🚨 Violation handled: Inappropriate messages removed and warning shown');
+    } catch (e) {
+      _logger.severe('❌ Error handling violation message: $e');
+    }
   }
   String? _currentSummary;
   String _assistantName = "Maria";
@@ -474,11 +509,12 @@ class _ChatScreenState extends State<ChatScreen>
       _logger.info('Raw LLM response: "$llmResponse"');
       
       // Check for violation flags and log them
-      await _checkAndLogViolations(message, llmResponse);
+      final violationDetected = await _checkAndLogViolations(message, llmResponse);
       
       // Remove violation flags from response before showing to user
       final cleanResponse = _cleanViolationFlags(llmResponse);
       _logger.info('Clean response (shown to user): "$cleanResponse"');
+      _logger.info('Violation detected: $violationDetected');
       _logger.info('=== VIOLATION CHECK END ===');
       
       llmResponse = cleanResponse;
@@ -490,7 +526,12 @@ class _ChatScreenState extends State<ChatScreen>
           "senderName": _assistantName
         };
         _isTyping = false;
-        _conversationPairs++;
+        
+        // Only increment conversation pairs if no violation was detected
+        // If violation was detected, conversation was already reset
+        if (!violationDetected) {
+          _conversationPairs++;
+        }
       });
 
       // Record REAL total token usage (input + output tokens)
@@ -510,12 +551,15 @@ class _ChatScreenState extends State<ChatScreen>
       // Scroll to bottom after LLM response is received
       _scrollToBottom();
 
-      if (_conversationPairs >= 6) { // OPTIMIZED: 6 pairs for aggressive summarization
+      // Only trigger summarization if no violation was detected
+      if (!violationDetected && _conversationPairs >= 6) { // OPTIMIZED: 6 pairs for aggressive summarization
         _logger.info(
             'Conversation pair threshold reached ($_conversationPairs >= 6). Triggering summarization in background.');
         _generateSummaryAndUpdateTokens(totalTokens).catchError((error) {
           _logger.severe('Background summarization failed: $error');
         });
+      } else if (violationDetected) {
+        _logger.info('Skipping summarization due to violation - conversation was reset');
       }
     } catch (e) {
       _logger.severe('Error sending message or getting LLM response: $e');
