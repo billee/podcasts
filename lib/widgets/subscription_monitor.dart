@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
 import 'package:kapwa_companion_basic/screens/subscription/subscription_screen.dart';
+import 'package:kapwa_companion_basic/core/config.dart';
 import 'package:logging/logging.dart';
 
 class SubscriptionMonitor extends StatefulWidget {
@@ -138,7 +139,7 @@ class _SubscriptionMonitorState extends State<SubscriptionMonitor> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Subscribe now for just \$3/month to continue using all features',
+                  'Subscribe now for just \$${AppConfig.monthlySubscriptionPrice.toStringAsFixed(0)}/month to continue using all features',
                   style: TextStyle(
                     color: bannerColor.withOpacity(0.8),
                     fontSize: 14,

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
+import 'package:kapwa_companion_basic/core/config.dart';
 import 'package:kapwa_companion_basic/screens/main_screen.dart';
 import 'package:kapwa_companion_basic/screens/payment/mock_payment_screen.dart';
+import 'package:kapwa_companion_basic/screens/terms_conditions_screen.dart';
 import 'package:logging/logging.dart';
 
 class SubscriptionScreen extends StatefulWidget {
@@ -104,7 +106,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue[800],
+                                color: Colors.white,
                               ),
                             ),
                           ],
@@ -114,18 +116,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           textBaseline: TextBaseline.alphabetic,
                           children: [
                             Text(
-                              '\$3',
+                              AppConfig.displayPrice,
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue[800],
+                                color: Colors.white,
                               ),
                             ),
                             Text(
                               '/mo',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.blue[600],
+                                color: Colors.white,
                               ),
                             ),
                           ],
@@ -136,11 +138,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     // Features
                     Column(
                       children: [
-                        _buildFeatureItem('Unlimited AI Chat'),
-                        _buildFeatureItem('Access to All Stories'),
-                        _buildFeatureItem('Premium Podcast Content'),
-                        _buildFeatureItem('Priority Support'),
-                        _buildFeatureItem('No Ads'),
+                        _buildFeatureItem('More AI Chat Tokens'),
+                        _buildFeatureItem('More Stories'),
+                        _buildFeatureItem('More Podcast Content'),
                       ],
                     ),
                   ],
@@ -160,9 +160,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const MockPaymentScreen(
-                                amount: 3.00,
-                                planType: 'monthly',
+                              builder: (context) => TermsConditionsScreen(
+                                amount: AppConfig.monthlySubscriptionPrice,
+                                planType: AppConfig.subscriptionPlanType,
                               ),
                             ),
                           );

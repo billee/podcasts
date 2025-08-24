@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:kapwa_companion_basic/screens/payment/payment_screen.dart';
+import 'package:kapwa_companion_basic/screens/payment/mock_payment_screen.dart';
+import 'package:kapwa_companion_basic/core/config.dart';
 
 class TermsConditionsScreen extends StatelessWidget {
-  const TermsConditionsScreen({super.key});
+  final double amount;
+  final String planType;
+  
+  const TermsConditionsScreen({
+    super.key,
+    required this.amount,
+    required this.planType,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[850],
       appBar: AppBar(
-        title: const Text('Terms and Conditions'),
+        title: const Text('Terms of Service & Privacy Policy'),
         backgroundColor: Colors.grey[900],
+        foregroundColor: Colors.white,
       ),
       body: SafeArea(
         child: Column(
@@ -22,7 +31,7 @@ class TermsConditionsScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Terms and Conditions',
+                      'Terms of Service & Privacy Policy',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -40,7 +49,7 @@ class TermsConditionsScreen extends StatelessWidget {
                     const SizedBox(height: 24),
                     _buildSection(
                       'Subscription Terms',
-                      'By subscribing to Kapwa Companion, you agree to pay the subscription fee of \$3.00 per month. '
+                      'By subscribing to Kapwa Companion, you agree to pay the subscription fee of ${AppConfig.formattedMonthlyPrice} per month. '
                           'The subscription will automatically renew each month unless cancelled. '
                           'You can cancel your subscription at any time through your account settings.',
                     ),
@@ -70,6 +79,52 @@ class TermsConditionsScreen extends StatelessWidget {
                       'Privacy and Data',
                       'Your privacy is important to us. We collect and process your data as described in our '
                           'Privacy Policy. We use this data to provide and improve our services.',
+                    ),
+                    const SizedBox(height: 32),
+                    const Text(
+                      'Privacy Policy',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSection(
+                      'Information We Collect',
+                      'We collect information you provide directly to us, such as when you create an account, '
+                          'use our services, or contact us for support. This includes your email address, '
+                          'usage data, and conversation history to improve our AI responses.',
+                    ),
+                    _buildSection(
+                      'How We Use Your Information',
+                      'We use the information we collect to:\n'
+                          '• Provide and maintain our services\n'
+                          '• Process your subscription and payments\n'
+                          '• Improve our AI responses and features\n'
+                          '• Send you important service updates\n'
+                          '• Provide customer support',
+                    ),
+                    _buildSection(
+                      'Data Security',
+                      'We implement appropriate security measures to protect your personal information. '
+                          'Your data is encrypted in transit and at rest. We use Firebase and other secure '
+                          'cloud services to store and process your information.',
+                    ),
+                    _buildSection(
+                      'Data Retention',
+                      'We retain your personal information for as long as necessary to provide our services '
+                          'and fulfill the purposes outlined in this policy. You can request deletion of '
+                          'your account and data at any time.',
+                    ),
+                    _buildSection(
+                      'Your Rights',
+                      'You have the right to:\n'
+                          '• Access your personal information\n'
+                          '• Correct inaccurate information\n'
+                          '• Request deletion of your data\n'
+                          '• Opt out of certain communications\n'
+                          '• Export your data',
                     ),
                   ],
                 ),
@@ -102,7 +157,10 @@ class TermsConditionsScreen extends StatelessWidget {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const PaymentScreen(),
+                            builder: (context) => MockPaymentScreen(
+                              amount: amount,
+                              planType: planType,
+                            ),
                           ),
                         );
                       },

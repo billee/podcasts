@@ -13,6 +13,19 @@ class AppConfig {
   static const int subscribedUserDailyTokenLimit = 100000;  // ~100-200 conversation exchanges
   static const bool tokenLimitsEnabled = true;
   
+  // Subscription pricing configuration
+  static const double monthlySubscriptionPrice = 3.00;
+  static const String subscriptionCurrency = 'USD';
+  static const String subscriptionPlanType = 'monthly';
+  
+  /// Get formatted price string for display (e.g., "$3.00")
+  static String get formattedMonthlyPrice => '\$${monthlySubscriptionPrice.toStringAsFixed(2)}';
+  
+  /// Get price without decimals if it's a whole number (e.g., "$3")
+  static String get displayPrice => monthlySubscriptionPrice == monthlySubscriptionPrice.toInt() 
+      ? '\$${monthlySubscriptionPrice.toInt()}' 
+      : '\$${monthlySubscriptionPrice.toStringAsFixed(2)}';
+  
   // Daily reset configuration
   // Reset happens at 24:00 (midnight) in user's local timezone
   
@@ -78,7 +91,7 @@ class AppConfig {
     //_overrideDate = null;
     
     ////////// tomorrow
-    _overrideDate = DateTime.now().add(Duration(days: 5));
+    _overrideDate = DateTime.now().add(Duration(days: 6));
 
     ///////// Initialize with 2 months from now for testing
     //_overrideDate = DateTime.now().add(Duration(days: 60));

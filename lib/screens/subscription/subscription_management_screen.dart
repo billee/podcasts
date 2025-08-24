@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
+import 'package:kapwa_companion_basic/core/config.dart';
 import 'package:kapwa_companion_basic/widgets/loading_state_widget.dart';
 import 'package:kapwa_companion_basic/widgets/feedback_widget.dart';
 import 'package:kapwa_companion_basic/widgets/subscription_confirmation_dialog.dart';
 import 'package:kapwa_companion_basic/screens/subscription/subscription_screen.dart';
 import 'package:kapwa_companion_basic/screens/payment/mock_payment_screen.dart';
+import 'package:kapwa_companion_basic/screens/terms_conditions_screen.dart';
 import 'package:logging/logging.dart';
 
 class SubscriptionManagementScreen extends StatefulWidget {
@@ -342,7 +344,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                '\$3.00',
+                AppConfig.formattedMonthlyPrice,
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -658,17 +660,17 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
 
   // Action handlers
   Future<void> _handleUpgrade() async {
-    // Go directly to payment screen instead of subscription screen
+    // Go to terms and conditions screen before payment
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const MockPaymentScreen(
-          amount: 3.00,
-          planType: 'monthly',
+        builder: (context) => TermsConditionsScreen(
+          amount: AppConfig.monthlySubscriptionPrice,
+          planType: AppConfig.subscriptionPlanType,
         ),
       ),
     ).then((_) {
-      // Refresh subscription info when returning from payment screen
+      // Refresh subscription info when returning from terms/payment flow
       _loadSubscriptionInfo();
     });
   }
@@ -733,13 +735,13 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
   }
 
   Future<void> _handleReactivate() async {
-    // Go directly to payment screen for reactivation
+    // Go to terms and conditions screen before payment for reactivation
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const MockPaymentScreen(
-          amount: 3.00,
-          planType: 'monthly',
+        builder: (context) => TermsConditionsScreen(
+          amount: AppConfig.monthlySubscriptionPrice,
+          planType: AppConfig.subscriptionPlanType,
         ),
       ),
     ).then((_) {

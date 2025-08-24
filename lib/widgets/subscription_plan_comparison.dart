@@ -162,7 +162,7 @@ class SubscriptionPlanComparison extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                '\$3',
+                '\$${AppConfig.monthlySubscriptionPrice.toStringAsFixed(0)}',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -180,14 +180,9 @@ class SubscriptionPlanComparison extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           ..._buildFeatureList([
-            'Unlimited AI Chat',
-            'Access to All Stories',
-            'Premium Podcast Content',
-            'Priority Support',
-            'No Ads',
-            'Offline Content Access',
-            'Advanced Features',
-            'Early Access to New Features',
+            'More AI Chat Tokens',
+            'More Stories',
+            'More Podcast Content',
           ], isIncluded: true),
           const SizedBox(height: 16),
           if (isCurrentPlan)
