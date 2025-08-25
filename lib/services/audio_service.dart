@@ -35,9 +35,7 @@ class AudioService {
   String? get currentAudioPath => _currentAudioPath;
   AudioPlayer get audioPlayer => _audioPlayer;
 
-  // Use the list from AppAssets, now named podcastAssets
-  static const List<String> _podcastAssets =
-      AppAssets.podcastAssets; // Renamed variable
+  // Audio files are now set by individual screens (podcast/story) via setCurrentAudioFiles
 
   Future<void> initialize() async {
     _logger.info('Initializing AudioService...');
@@ -66,16 +64,16 @@ class AudioService {
   Future<void> _loadAudioFiles() async {
     try {
       _audioLoading = true;
-      _logger.info('Loading audio files from assets (for both web and mobile)');
+      _logger.info('AudioService initialized - audio files will be set by individual screens');
 
-      // Use the predefined list for all platforms for bundled assets
-      _allAudioFiles = List.from(_podcastAssets);
+      // Don't load any specific audio files here - let the screens set them
+      _allAudioFiles = [];
       _audioLoading = false;
       _refreshAudioFiles();
-      _logger.info('Loaded ${_allAudioFiles.length} podcast files from assets');
+      _logger.info('AudioService ready - waiting for screen to set audio files');
     } catch (e) {
       print('ERROR in _loadAudioFiles: $e');
-      _logger.severe('Error loading podcast files: $e'); // Updated log
+      _logger.severe('Error initializing audio service: $e');
       _audioLoading = false;
       // Fallback - empty list
       _allAudioFiles = [];
