@@ -36,6 +36,8 @@ class MainScreenState extends State<MainScreen> {
   String? _currentUserId;
   String? _currentUsername;
   SubscriptionStatus? _subscriptionStatus;
+  bool? _isBanned;
+  bool _banCheckComplete = false;
 
   List<Widget> _screens = [];
 
@@ -54,15 +56,47 @@ class MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _logger.info('MainScreen initState called.');
+    _checkBanStatus();
     _initializeServices();
     _authStateSubscription =
         FirebaseAuth.instance.authStateChanges().listen((user) {
       _logger.info('Auth state changed in MainScreen. User: ${user?.uid}');
+      _checkBanStatus(); // Check ban status when auth changes
       initializeUserAndScreens();
 
       // Email verification is now handled directly in AuthService.checkEmailVerification()
       // No need for complex monitoring service
     });
+  }
+
+  Future<void> _checkBanStatus() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      try {
+        final isBanned = await BanService.isUserBanned(currentUser.uid);
+        if (mounted) {
+          setState(() {
+            _isBanned = isBanned;
+            _banCheckComplete = true;
+          });
+        }
+      } catch (e) {
+        _logger.severe('Error checking ban status: $e');
+        if (mounted) {
+          setState(() {
+            _isBanned = false; // Default to not banned on error
+            _banCheckComplete = true;
+          });
+        }
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isBanned = false;
+          _banCheckComplete = true;
+        });
+      }
+    }
   }
 
   // Isolate-compatible function for fetching user profile
@@ -195,37 +229,23 @@ class MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Check if user is banned before showing main screen
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser != null) {
-      return FutureBuilder<bool>(
-        future: BanService.isUserBanned(currentUser.uid),
-        builder: (context, banSnapshot) {
-          if (banSnapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
-          
-          if (banSnapshot.hasError) {
-            _logger.severe('Error checking ban status in MainScreen: ${banSnapshot.error}');
-            // Continue to main screen on error to avoid blocking legitimate users
-          }
-          
-          final isBanned = banSnapshot.data ?? false;
-          if (isBanned) {
-            _logger.warning('User is banned, showing BannedUserScreen from MainScreen');
-            return BannedUserScreen(userId: currentUser.uid);
-          }
-          
-          // User is not banned, continue with normal main screen
-          return _buildMainScreen(context);
-        },
+    // Show loading while checking ban status
+    if (!_banCheckComplete) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
       );
     }
     
+    // Show banned screen if user is banned
+    if (_isBanned == true) {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      _logger.warning('User is banned, showing BannedUserScreen from MainScreen');
+      return BannedUserScreen(userId: currentUser?.uid);
+    }
+    
+    // User is not banned, show normal main screen
     return _buildMainScreen(context);
   }
 
