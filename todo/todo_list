@@ -21,3 +21,9 @@ check all the scenario on flag violations
 check if there is duplication of emails in register
 
 only after clicking the terms and conditions when registering and then will go to the login page and that's the time the trial begins.
+
+second terms and conditions when subscribing should save to users as 'accept_trial_terms_conditions'
+
+when terminated in the trial period,  no way to go to subscription mode
+
+saving to firestore has to be encrypted in transit

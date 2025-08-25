@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/screens/main_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/email_verification_screen.dart';
-import 'package:kapwa_companion_basic/screens/terms_conditions_screen.dart';
+import 'package:kapwa_companion_basic/screens/trial_terms_conditions_screen.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:kapwa_companion_basic/services/terms_acceptance_service.dart';
 import 'package:logging/logging.dart';
@@ -194,7 +194,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
               if (termsSnapshot.hasError) {
                 _logger.severe('Error checking terms acceptance: ${termsSnapshot.error}');
                 // On error, assume terms not accepted to be safe
-                return TermsConditionsScreen(
+                return TrialTermsConditionsScreen(
                   userId: user.uid,
                   onAccepted: () {
                     _logger.info('Terms accepted, refreshing auth state');
@@ -206,8 +206,8 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
               final hasAcceptedTerms = termsSnapshot.data ?? false;
               
               if (!hasAcceptedTerms) {
-                _logger.info('Terms not accepted. Showing TermsConditionsScreen.');
-                return TermsConditionsScreen(
+                _logger.info('Terms not accepted. Showing TrialTermsConditionsScreen.');
+                return TrialTermsConditionsScreen(
                   userId: user.uid,
                   onAccepted: () {
                     _logger.info('Terms accepted, refreshing auth state');

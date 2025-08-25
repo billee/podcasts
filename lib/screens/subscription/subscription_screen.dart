@@ -4,7 +4,7 @@ import 'package:kapwa_companion_basic/services/subscription_service.dart';
 import 'package:kapwa_companion_basic/core/config.dart';
 import 'package:kapwa_companion_basic/screens/main_screen.dart';
 import 'package:kapwa_companion_basic/screens/payment/mock_payment_screen.dart';
-import 'package:kapwa_companion_basic/screens/terms_conditions_screen.dart';
+import 'package:kapwa_companion_basic/screens/subscription_terms_conditions_screen.dart';
 import 'package:logging/logging.dart';
 
 class SubscriptionScreen extends StatefulWidget {
@@ -160,7 +160,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => TermsConditionsScreen(
+                              builder: (context) => SubscriptionTermsConditionsScreen(
                                 amount: AppConfig.monthlySubscriptionPrice,
                                 planType: AppConfig.subscriptionPlanType,
                               ),

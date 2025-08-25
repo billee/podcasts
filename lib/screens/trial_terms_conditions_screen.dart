@@ -7,13 +7,13 @@ import 'package:kapwa_companion_basic/services/terms_acceptance_service.dart';
 import 'package:kapwa_companion_basic/core/config.dart';
 import 'package:logging/logging.dart';
 
-class TermsConditionsScreen extends StatefulWidget {
+class TrialTermsConditionsScreen extends StatefulWidget {
   final double? amount;
   final String? planType;
   final String? userId; // For initial terms acceptance
   final VoidCallback? onAccepted; // For initial terms acceptance
   
-  const TermsConditionsScreen({
+  const TrialTermsConditionsScreen({
     super.key,
     this.amount,
     this.planType,
@@ -22,11 +22,11 @@ class TermsConditionsScreen extends StatefulWidget {
   });
 
   @override
-  State<TermsConditionsScreen> createState() => _TermsConditionsScreenState();
+  State<TrialTermsConditionsScreen> createState() => _TrialTermsConditionsScreenState();
 }
 
-class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
-  static final Logger _logger = Logger('TermsConditionsScreen');
+class _TrialTermsConditionsScreenState extends State<TrialTermsConditionsScreen> {
+  static final Logger _logger = Logger('TrialTermsConditionsScreen');
   bool _isAccepting = false;
 
   bool get _isInitialAcceptance => widget.userId != null && widget.onAccepted != null;
@@ -78,12 +78,12 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    _logger.info('TermsConditionsScreen build - userId: ${widget.userId}, amount: ${widget.amount}, planType: ${widget.planType}');
+    _logger.info('TrialTermsConditionsScreen build - userId: ${widget.userId}, amount: ${widget.amount}, planType: ${widget.planType}');
     _logger.info('_isInitialAcceptance: $_isInitialAcceptance, _isPaymentFlow: $_isPaymentFlow');
     
     // If neither flow is detected, this is an error - go back to login
     if (!_isInitialAcceptance && !_isPaymentFlow) {
-      _logger.severe('TermsConditionsScreen called without proper parameters - redirecting to login');
+      _logger.severe('TrialTermsConditionsScreen called without proper parameters - redirecting to login');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const AuthWrapper()),
@@ -134,32 +134,38 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
                       'This application is specifically designed for Overseas Filipino Workers (OFWs) to assist with their unique needs. If you are not an OFW, you may find the features and services to be of limited use.',
                     ),
                     _buildSection(
-                      'Subscription Terms',
-                      'By subscribing to Kapwa Companion, you agree to pay the subscription fee of ${AppConfig.formattedMonthlyPrice} per month. '
-                          'The subscription will automatically renew each month unless cancelled. '
-                          'You can cancel your subscription at any time through your Profile page.',
+                      'Trial Period',
+                      'New users receive a 7-day free trial period to explore the app features. '
+                          'During your trial, you have access to:\n'
+                          '• 10,000 AI chat tokens per day\n'
+                          '• First ${AppConfig.trialUserPodcastLimit} podcast episodes\n'
+                          '• First ${AppConfig.trialUserStoryLimit} story audios\n\n'
+                          'Your trial will expire automatically after 7 days, and you can choose to subscribe to continue using premium features.',
                     ),
                     _buildSection(
-                      'Payment Processing',
-                      'Your payment information will be securely processed through our payment provider(Stripe). '
-                          'We do not store your payment details on our servers.',
+                      'AI Companion Disclaimer',
+                      '**IMPORTANT: This is an AI companion, not a human advisor.**\n\n'
+                          'Please understand that:\n'
+                          '• The AI companion can make mistakes and provide incorrect information\n'
+                          '• Do NOT fully trust AI advice for important decisions\n'
+                          '• This app is for companionship and casual conversation only\n'
+                          '• Do NOT seek advice on financial, political, health, or marital topics\n'
+                          '• Do NOT get emotionally attached to the AI - it is not a real person\n'
+                          '• Always consult qualified professionals for serious matters\n\n'
+                          'Use this app responsibly and remember it\'s just a tool for friendly conversation.',
                     ),
                     _buildSection(
-                      'Cancellation Policy',
-                      'You can cancel your subscription at any time. Upon cancellation, you will retain access '
-                          'to premium features until the end of your current billing period.',
-                    ),
-                    _buildSection(
-                      'Refund Policy',
-                      'Due to the nature of digital services, we generally do not offer refunds once a payment '
-                          'has been processed. You have to cancel and wait for the end of the subscription to expire.',
+                      'Service Features',
+                      'Kapwa Companion provides AI-powered companionship, stories, and podcast content specifically designed for OFWs. '
+                          'Features may be updated or modified to improve user experience. '
+                          'All content is generated by AI and should be treated as entertainment, not professional advice.',
                     ),
                     _buildSection(
                       'Usage Agreement',
                       'By using our service, you agree not to:\n'
                           '• Share your account credentials\n'
                           '• Use the service for any illegal purposes\n'
-                          '• Violation of these terms will result in non-renewal of your subscription.',
+                          '• Violation of these terms will result in termination of your trial period.',
                     ),
                     _buildSection(
                       'Privacy and Data',
@@ -168,11 +174,11 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
                     _buildSection(
                       'User Behavior',
                       'To ensure a helpful and safe community for everyone, we have a zero-tolerance policy for certain behaviors. '
-                          'We take these violations very seriously, and if you trigger any of the following flags three times, your account will be permanently banned and you will not be able to renew your subscription:\n\n'
-                          '• **Abuse/Hate:** Engaging in hateful or abusive language. Violations are flagged with [FLAG:ABUSE].'
-                          '• **Sexual Content:** Discussing inappropriate sexual content. Violations are flagged with [FLAG:SEXUAL].'
-                          '• **Self-Harm:** Conversing about self-harm. Violations are flagged with [FLAG:MENTAL_HEALTH].'
-                          '• **Scams:** Discussing fraudulent activities. Violations are flagged with [FLAG:SCAM].',
+                          'We take these violations very seriously, and if you trigger any of the following flags three times, your account will be permanently banned:\n\n'
+                          '• **Abuse/Hate:** Engaging in hateful or abusive language. Violations are flagged with [FLAG:ABUSE]\n'
+                          '• **Sexual Content:** Discussing inappropriate sexual content. Violations are flagged with [FLAG:SEXUAL]\n'
+                          '• **Self-Harm:** Conversing about self-harm. Violations are flagged with [FLAG:MENTAL_HEALTH]\n'
+                          '• **Scams:** Discussing fraudulent activities. Violations are flagged with [FLAG:SCAM]',
                     ),
                     const SizedBox(height: 32),
                     const Text(
@@ -189,13 +195,6 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
                       'We do not collect and process your personal data. We only collect your email address when you create an account and violation data if any flag is triggered.',
                     ),
                     _buildSection(
-                      'How We Use Your Information',
-                      'We use the limited information we collect to:\n'
-                          '• Provide and maintain our services\n'
-                          '• Process your subscription and payments\n'
-                          '• Protect our community from harmful behavior.',
-                    ),
-                    _buildSection(
                       'Data Security',
                       'We implement appropriate security measures to protect your personal information. '
                           'Your data is encrypted in transit and at rest. We use Firebase and other secure '
@@ -203,7 +202,8 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
                     ),
                     _buildSection(
                       'Data Retention',
-                      'We retain your email address even after you cancel your subscription or are banned from the app to prevent future violations. All other data, including credit card information, is completely erased.',
+                      'We retain your email address even after your trial expires or if you are banned from the app to prevent future violations. '
+                          'Conversation summaries are kept for context purposes but contain no personal information.',
                     ),
                     _buildSection(
                       'Community Support and Protection',
