@@ -11,3 +11,13 @@ payment system
 for the trial user, they will be terminated right away.  
 
 for the admin, everyday the admin checks which user has to renew their subscriptions.  if they are banned then no more subscriptions is allowed. the email will be blacklisted.
+
+cancel trial
+
+check cancel subscription in PRO
+
+check all the scenario on flag violations
+
+check if there is duplication of emails in register
+
+only after clicking the terms and conditions when registering and then will go to the login page and that's the time the trial begins.

@@ -5,7 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kapwa_companion_basic/screens/main_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/email_verification_screen.dart';
+import 'package:kapwa_companion_basic/screens/terms_conditions_screen.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
+import 'package:kapwa_companion_basic/services/terms_acceptance_service.dart';
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, compute;
@@ -24,6 +26,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   bool _isCheckingAuth = true;
   bool _isInitiallyLoggedIn = false;
   User? _currentUser;
+  int _refreshCounter = 0; // Add counter to force rebuild
 
   @override
   void initState() {
@@ -176,19 +179,59 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
             return const EmailVerificationScreen();
           }
           
-          // Email is verified, update Firestore and proceed to main screen
-          _logger.info('Email verified. Updating Firestore and navigating to MainScreen.');
+          // Email is verified, check if user has accepted terms
+          _logger.info('Email verified. Checking terms acceptance status.');
           
-          // Update email verification status in Firestore in background
-          AuthService.checkEmailVerification().catchError((e) {
-            _logger.warning('Failed to update email verification status: $e');
-          });
-          
-          // Update user activity in background, don't block navigation
-          AuthService.updateUserActivity().catchError((e) {
-            _logger.warning('User activity update failed: $e');
-          });
-          return const MainScreen();
+          return FutureBuilder<bool>(
+            key: ValueKey('terms_check_${user.uid}_$_refreshCounter'), // Use counter to force rebuild
+            future: TermsAcceptanceService.hasAcceptedTerms(user.uid),
+            builder: (context, termsSnapshot) {
+              if (termsSnapshot.connectionState == ConnectionState.waiting) {
+                _logger.info('Checking terms acceptance status...');
+                return const SplashScreen();
+              }
+              
+              if (termsSnapshot.hasError) {
+                _logger.severe('Error checking terms acceptance: ${termsSnapshot.error}');
+                // On error, assume terms not accepted to be safe
+                return TermsConditionsScreen(
+                  userId: user.uid,
+                  onAccepted: () {
+                    _logger.info('Terms accepted, refreshing auth state');
+                    _refreshAuthState();
+                  },
+                );
+              }
+              
+              final hasAcceptedTerms = termsSnapshot.data ?? false;
+              
+              if (!hasAcceptedTerms) {
+                _logger.info('Terms not accepted. Showing TermsConditionsScreen.');
+                return TermsConditionsScreen(
+                  userId: user.uid,
+                  onAccepted: () {
+                    _logger.info('Terms accepted, refreshing auth state');
+                    _refreshAuthState();
+                  },
+                );
+              }
+              
+              // Terms accepted, proceed to main screen
+              _logger.info('Terms accepted. Updating Firestore and navigating to MainScreen.');
+              
+              // Update email verification status in Firestore in background
+              AuthService.checkEmailVerification().catchError((e) {
+                _logger.warning('Failed to update email verification status: $e');
+              });
+              
+              // Update user activity in background, don't block navigation
+              AuthService.updateUserActivity().catchError((e) {
+                _logger.warning('User activity update failed: $e');
+              });
+              
+              return const MainScreen();
+            },
+          );
         }
 
         // No user logged in
@@ -204,13 +247,13 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
     final currentUser = FirebaseAuth.instance.currentUser;
     _logger.info('Current user from manual check: ${currentUser?.uid}');
     
-    if (currentUser != null && _currentUser?.uid != currentUser.uid) {
-      _logger.info('User state changed, forcing rebuild...');
-      if (mounted) {
-        setState(() {
-          _currentUser = currentUser;
-        });
-      }
+    // Force rebuild by incrementing counter
+    if (mounted) {
+      setState(() {
+        _currentUser = currentUser;
+        _refreshCounter++; // This will force the FutureBuilder to rebuild
+      });
+      _logger.info('Forced auth state rebuild with counter: $_refreshCounter');
     }
   }
 }
