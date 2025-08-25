@@ -2,8 +2,6 @@
 
 check the trial if the podcast and story are limited to 2 audios each.
 
-redo the terms and conditions
-
 firestore pervious rules has to be brought back
 
 payment system
@@ -27,3 +25,5 @@ second terms and conditions when subscribing should save to users as 'accept_tri
 when terminated in the trial period,  no way to go to subscription mode
 
 saving to firestore has to be encrypted in transit
+
+what to do to suggestions

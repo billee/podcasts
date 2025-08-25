@@ -99,7 +99,7 @@ class _TrialTermsConditionsScreenState extends State<TrialTermsConditionsScreen>
     return Scaffold(
       backgroundColor: Colors.grey[850],
       appBar: AppBar(
-        title: const Text('Terms of Service & Privacy Policy'),
+        title: const Text('Mga Tuntunin ng Serbisyo at Patakaran sa Privacy'),
         backgroundColor: Colors.grey[900],
         foregroundColor: Colors.white,
       ),
@@ -113,7 +113,7 @@ class _TrialTermsConditionsScreenState extends State<TrialTermsConditionsScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Terms of Service & Privacy Policy',
+                      'Mga Tuntunin ng Serbisyo at Patakaran sa Privacy',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -122,7 +122,7 @@ class _TrialTermsConditionsScreenState extends State<TrialTermsConditionsScreen>
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Last updated: August 2, 2025',
+                      'Huling na-update: Agosto 2, 2025',
                       style: TextStyle(
                         color: Colors.grey[400],
                         fontSize: 14,
@@ -130,59 +130,60 @@ class _TrialTermsConditionsScreenState extends State<TrialTermsConditionsScreen>
                     ),
                     const SizedBox(height: 24),
                     _buildSection(
-                      'Target Audience',
-                      'This application is specifically designed for Overseas Filipino Workers (OFWs) to assist with their unique needs. If you are not an OFW, you may find the features and services to be of limited use.',
+                      'Target na Audience',
+                      'Ang application na ito ay partikular na ginawa para sa mga Overseas Filipino Workers (OFWs) upang makatulong sa kanilang mga pangangailangan. Kung hindi ka OFW, maaaring limitado lang ang makakamit mo sa mga features at serbisyo.',
                     ),
                     _buildSection(
-                      'Trial Period',
-                      'New users receive a 7-day free trial period to explore the app features. '
-                          'During your trial, you have access to:\n'
-                          '• 10,000 AI chat tokens per day\n'
-                          '• First ${AppConfig.trialUserPodcastLimit} podcast episodes\n'
-                          '• First ${AppConfig.trialUserStoryLimit} story audios\n\n'
-                          'Your trial will expire automatically after 7 days, and you can choose to subscribe to continue using premium features.',
+                      'Panahon ng Trial',
+                      'Ang mga bagong user ay makakakuha ng 7-araw na libreng trial period upang ma-explore ang mga features ng app. '
+                          'Sa panahon ng inyong trial, may access kayo sa:\n'
+                          '• 10,000 AI chat tokens bawat araw\n'
+                          '• ${AppConfig.trialUserPodcastLimit} random na napiling podcast episodes bawat araw\n'
+                          '• ${AppConfig.trialUserStoryLimit} random na napiling story audios bawat araw\n\n'
+                          'Bawat araw, pipiliin ng app nang random ang ${AppConfig.trialUserPodcastLimit} bagong podcast episodes at ${AppConfig.trialUserStoryLimit} bagong story audios para sa inyong kasiyahan. '
+                          'Ang inyong trial ay mag-expire automatically pagkatapos ng 7 araw, at maaari kayong mag-subscribe upang magpatuloy sa paggamit ng premium features.',
                     ),
                     _buildSection(
                       'AI Companion Disclaimer',
-                      '**IMPORTANT: This is an AI companion, not a human advisor.**\n\n'
-                          'Please understand that:\n'
-                          '• The AI companion can make mistakes and provide incorrect information\n'
-                          '• Do NOT fully trust AI advice for important decisions\n'
-                          '• This app is for companionship and casual conversation only\n'
-                          '• Do NOT seek advice on financial, political, health, or marital topics\n'
-                          '• Do NOT get emotionally attached to the AI - it is not a real person\n'
-                          '• Always consult qualified professionals for serious matters\n\n'
-                          'Use this app responsibly and remember it\'s just a tool for friendly conversation.',
+                      '**IMPORTANTE: Ito ay AI companion, hindi tunay na tao na tagapayo.**\n\n'
+                          'Pakiintindi na:\n'
+                          '• Ang AI companion ay maaaring magkamali at magbigay ng maling impormasyon\n'
+                          '• HUWAG lubos na magtiwala sa AI advice para sa mahahalagang desisyon\n'
+                          '• Ang app na ito ay para sa companionship at casual na usapan lamang\n'
+                          '• HUWAG humingi ng payo tungkol sa financial, political, health, o marital na mga paksa\n'
+                          '• HUWAG mag-attach emotionally sa AI - hindi ito tunay na tao\n'
+                          '• Laging kumunsulta sa mga qualified professionals para sa seryosong mga bagay\n\n'
+                          'Gamitin ang app na ito nang responsable at tandaan na ito ay tool lamang para sa friendly na conversation.',
                     ),
                     _buildSection(
-                      'Service Features',
-                      'Kapwa Companion provides AI-powered companionship, stories, and podcast content specifically designed for OFWs. '
-                          'Features may be updated or modified to improve user experience. '
-                          'All content is generated by AI and should be treated as entertainment, not professional advice.',
+                      'Mga Features ng Serbisyo',
+                      'Ang Kapwa Companion ay nagbibigay ng AI-powered companionship, mga kuwento, at podcast content na partikular na ginawa para sa mga OFW. '
+                          'Ang mga features ay maaaring ma-update o ma-modify upang mapabuti ang user experience. '
+                          'Lahat ng content ay ginawa ng AI at dapat tratuhin bilang entertainment lamang, hindi professional advice.',
                     ),
                     _buildSection(
-                      'Usage Agreement',
-                      'By using our service, you agree not to:\n'
-                          '• Share your account credentials\n'
-                          '• Use the service for any illegal purposes\n'
-                          '• Violation of these terms will result in termination of your trial period.',
+                      'Kasunduan sa Paggamit',
+                      'Sa paggamit ng aming serbisyo, sumasang-ayon kayo na hindi:\n'
+                          '• Ibahagi ang inyong account credentials\n'
+                          '• Gamitin ang serbisyo para sa anumang illegal na layunin\n'
+                          '• Ang paglabag sa mga tuntuning ito ay magreresulta sa pagtatapos ng inyong trial period.',
                     ),
                     _buildSection(
-                      'Privacy and Data',
-                      'Your privacy is important to us. We do not collect or save your personal data in our database. We only store a summary of conversations for context, and only collect violation data for security purposes.',
+                      'Privacy at Data',
+                      'Ang inyong privacy ay mahalaga sa amin. Hindi namin kinokolekta o sine-save ang inyong personal data sa aming database. Nag-store lang kami ng summary ng mga conversation para sa context, at kinokolekta lang namin ang violation data para sa security purposes.',
                     ),
                     _buildSection(
-                      'User Behavior',
-                      'To ensure a helpful and safe community for everyone, we have a zero-tolerance policy for certain behaviors. '
-                          'We take these violations very seriously, and if you trigger any of the following flags three times, your account will be permanently banned:\n\n'
-                          '• **Abuse/Hate:** Engaging in hateful or abusive language. Violations are flagged with [FLAG:ABUSE]\n'
-                          '• **Sexual Content:** Discussing inappropriate sexual content. Violations are flagged with [FLAG:SEXUAL]\n'
-                          '• **Self-Harm:** Conversing about self-harm. Violations are flagged with [FLAG:MENTAL_HEALTH]\n'
-                          '• **Scams:** Discussing fraudulent activities. Violations are flagged with [FLAG:SCAM]',
+                      'Ugali ng User',
+                      'Upang masiguro ang helpful at safe na community para sa lahat, may zero-tolerance policy kami para sa ilang mga ugali. '
+                          'Sineseryoso namin ang mga violation na ito, at kung ma-trigger ninyo ang alinman sa mga sumusunod na flags ng tatlong beses, ang inyong account ay permanently banned:\n\n'
+                          '• **Abuse/Hate:** Pakikipag-engage sa hateful o abusive na wika. Ang mga violation ay naka-flag bilang [FLAG:ABUSE]\n'
+                          '• **Sexual Content:** Pag-uusap tungkol sa inappropriate sexual content. Ang mga violation ay naka-flag bilang [FLAG:SEXUAL]\n'
+                          '• **Self-Harm:** Pag-uusap tungkol sa self-harm. Ang mga violation ay naka-flag bilang [FLAG:MENTAL_HEALTH]\n'
+                          '• **Scams:** Pag-uusap tungkol sa fraudulent activities. Ang mga violation ay naka-flag bilang [FLAG:SCAM]',
                     ),
                     const SizedBox(height: 32),
                     const Text(
-                      'Privacy Policy',
+                      'Patakaran sa Privacy',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -191,23 +192,23 @@ class _TrialTermsConditionsScreenState extends State<TrialTermsConditionsScreen>
                     ),
                     const SizedBox(height: 16),
                     _buildSection(
-                      'Information We Collect',
-                      'We do not collect and process your personal data. We only collect your email address when you create an account and violation data if any flag is triggered.',
+                      'Impormasyon na Kinokolekta Namin',
+                      'Hindi namin kinokolekta at pinoproseso ang inyong personal data. Kinokolekta lang namin ang inyong email address kapag gumawa kayo ng account at violation data kung may na-trigger na flag.',
                     ),
                     _buildSection(
                       'Data Security',
-                      'We implement appropriate security measures to protect your personal information. '
-                          'Your data is encrypted in transit and at rest. We use Firebase and other secure '
-                          'cloud services to store and process your information.',
+                      'Nagpapatupad kami ng appropriate security measures upang protektahan ang inyong personal information. '
+                          'Ang inyong data ay encrypted in transit at at rest. Ginagamit namin ang Firebase at iba pang secure '
+                          'cloud services upang mag-store at mag-process ng inyong impormasyon.',
                     ),
                     _buildSection(
                       'Data Retention',
-                      'We retain your email address even after your trial expires or if you are banned from the app to prevent future violations. '
-                          'Conversation summaries are kept for context purposes but contain no personal information.',
+                      'Pinapanatili namin ang inyong email address kahit mag-expire na ang inyong trial o ma-ban kayo sa app upang maiwasan ang future violations. '
+                          'Ang mga conversation summaries ay pinapanatili para sa context purposes pero walang personal information.',
                     ),
                     _buildSection(
-                      'Community Support and Protection',
-                      'This app is designed to be a safe space for OFWs. We are committed to protecting our community from harmful content and behavior. By using our service, you agree to help us maintain a positive and supportive environment for all users.',
+                      'Community Support at Protection',
+                      'Ang app na ito ay ginawa upang maging safe space para sa mga OFW. Committed kami sa pagprotekta sa aming community mula sa harmful content at behavior. Sa paggamit ng aming serbisyo, sumasang-ayon kayo na tumulong sa amin na mapanatili ang positive at supportive na environment para sa lahat ng users.',
                     ),
                   ],
                 ),
@@ -248,8 +249,8 @@ class _TrialTermsConditionsScreenState extends State<TrialTermsConditionsScreen>
                             )
                           : Text(
                               _isInitialAcceptance 
-                                  ? 'I Accept the Terms and Conditions'
-                                  : 'I Agree and Continue to Payment',
+                                  ? 'Tinatanggap Ko ang mga Tuntunin at Kondisyon'
+                                  : 'Sumasang-ayon Ako at Magpatuloy sa Payment',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,

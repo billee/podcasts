@@ -41,7 +41,7 @@ class _SubscriptionTermsConditionsScreenState extends State<SubscriptionTermsCon
     return Scaffold(
       backgroundColor: Colors.grey[850],
       appBar: AppBar(
-        title: const Text('Subscription Terms'),
+        title: const Text('Mga Tuntunin ng Subscription'),
         backgroundColor: Colors.grey[900],
         foregroundColor: Colors.white,
       ),
@@ -55,7 +55,7 @@ class _SubscriptionTermsConditionsScreenState extends State<SubscriptionTermsCon
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Subscription Terms & Conditions',
+                      'Mga Tuntunin at Kondisyon ng Subscription',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -64,7 +64,7 @@ class _SubscriptionTermsConditionsScreenState extends State<SubscriptionTermsCon
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Last updated: August 2, 2025',
+                      'Huling na-update: Agosto 2, 2025',
                       style: TextStyle(
                         color: Colors.grey[400],
                         fontSize: 14,
@@ -84,7 +84,7 @@ class _SubscriptionTermsConditionsScreenState extends State<SubscriptionTermsCon
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Subscription Summary',
+                            'Buod ng Subscription',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -113,7 +113,7 @@ class _SubscriptionTermsConditionsScreenState extends State<SubscriptionTermsCon
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text(
-                                'Monthly Price:',
+                                'Buwanang Presyo:',
                                 style: TextStyle(color: Colors.white70),
                               ),
                               Text(
@@ -133,45 +133,44 @@ class _SubscriptionTermsConditionsScreenState extends State<SubscriptionTermsCon
                     const SizedBox(height: 24),
                     
                     _buildSection(
-                      'Billing Terms',
-                      'By subscribing, you authorize us to charge your payment method \$${widget.amount.toStringAsFixed(2)} monthly. '
-                          'Your subscription will automatically renew each month on the same date unless cancelled. '
-                          'You will be charged immediately upon confirmation.',
+                      'Mga Tuntunin sa Pagbabayad',
+                      'Sa pag-subscribe, pinapahintulutan mo kaming singilan ang inyong paraan ng pagbabayad ng \$${widget.amount.toStringAsFixed(2)} buwanang. '
+                          'Ang inyong subscription ay awtomatikong mag-renew bawat buwan sa parehong petsa maliban kung ikansela. '
+                          'Kayo ay sisingilin kaagad pagkatapos ng kumpirmasyon.',
                     ),
                     _buildSection(
-                      'Payment Processing',
-                      'Your payment will be securely processed through our payment provider. '
-                          'We do not store your payment details on our servers. '
-                          'All transactions are encrypted and secure.',
+                      'Pagproseso ng Bayad',
+                      'Ang inyong bayad ay ligtas na ipoproseso sa pamamagitan ng aming payment provider (Stripe). '
+                          'Hindi namin iniimbak ang inyong mga detalye ng pagbabayad sa aming mga server. '
+                          'Lahat ng transaksyon ay naka-encrypt at ligtas.',
                     ),
                     _buildSection(
-                      'Cancellation Policy',
-                      'You can cancel your subscription at any time through your Profile page. '
-                          'Upon cancellation, you will retain access to premium features until the end of your current billing period. '
-                          'No partial refunds will be provided for unused portions of your subscription.',
+                      'Patakaran sa Pagkansela',
+                      'Maaari ninyong kanselahin ang inyong subscription anumang oras sa pamamagitan ng inyong Profile page. '
+                          'Pagkatapos ng pagkansela, mapapanatili ninyo ang access sa premium features hanggang sa katapusan ng inyong kasalukuyang billing period. '
+                          'Walang partial refunds na ibibigay para sa hindi nagamit na bahagi ng inyong subscription.',
                     ),
                     _buildSection(
-                      'Refund Policy',
-                      'Due to the nature of digital services, we generally do not offer refunds once a payment '
-                          'has been processed. You must cancel your subscription to prevent future charges. '
-                          'In exceptional circumstances, refunds may be considered on a case-by-case basis.',
+                      'Patakaran sa Refund',
+                      'Dahil sa kalikasan ng mga digital services, karaniwang hindi kami nag-aalok ng refunds kapag naproseso na ang bayad. '
+                          'Dapat ninyong kanselahin ang inyong subscription upang maiwasan ang mga susunod na singil.',
                     ),
                     _buildSection(
-                      'Service Availability',
-                      'We strive to provide continuous service availability. However, we do not guarantee '
-                          'uninterrupted access and may perform maintenance that temporarily affects service availability. '
-                          'No refunds will be provided for temporary service interruptions.',
+                      'Pagkakaroon ng Serbisyo',
+                      'Nagsusumikap kaming magbigay ng tuloy-tuloy na pagkakaroon ng serbisyo. Gayunpaman, hindi namin ginagarantiya '
+                          'ang walang tigil na access at maaaring magsagawa ng maintenance na pansamantalang makakaapekto sa pagkakaroon ng serbisyo. '
+                          'Walang refunds na ibibigay para sa pansamantalang pagkakatigil ng serbisyo.',
                     ),
                     _buildSection(
-                      'Changes to Pricing',
-                      'We reserve the right to change subscription pricing with 30 days advance notice. '
-                          'Existing subscribers will be notified of any price changes and can choose to cancel '
-                          'before the new pricing takes effect.',
+                      'Mga Pagbabago sa Presyo',
+                      'Nakalaan namin ang karapatan na baguhin ang presyo ng subscription na may 30 araw na advance notice. '
+                          'Ang mga kasalukuyang subscribers ay aabisuhan sa anumang pagbabago sa presyo at maaaring pumili na magkansela '
+                          'bago magkabisa ang bagong presyo.',
                     ),
                     _buildSection(
-                      'Account Termination',
-                      'We reserve the right to terminate accounts that violate our terms of service. '
-                          'In case of account termination for policy violations, no refunds will be provided.',
+                      'Pagwawakas ng Account',
+                      'Nakalaan namin ang karapatan na wakasan ang mga account na lumalabag sa aming terms of service. '
+                          'Sa kaso ng pagwawakas ng account dahil sa paglabag sa patakaran, walang refunds na ibibigay.',
                     ),
                   ],
                 ),
@@ -202,7 +201,7 @@ class _SubscriptionTermsConditionsScreenState extends State<SubscriptionTermsCon
                       ),
                       onPressed: _continueToPayment,
                       child: Text(
-                        'I Agree and Continue to Payment (\$${widget.amount.toStringAsFixed(2)})',
+                        'Sumasang-ayon ako at Magpatuloy sa Pagbabayad (\$${widget.amount.toStringAsFixed(2)})',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

@@ -6,6 +6,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:logging/logging.dart';
 // You might need to import your AppAssets if you move the list there
 import 'package:kapwa_companion_basic/data/app_assets.dart'; // Uncomment if using AppAssets
+import 'package:kapwa_companion_basic/services/daily_audio_selection_service.dart';
 
 class AudioService {
   static final AudioService _instance = AudioService._internal();
@@ -83,7 +84,7 @@ class AudioService {
   }
 
   // NEW METHOD: Set current audio files to a specific list with trial user limits
-  void setCurrentAudioFiles(List<String> audioFiles, {bool isTrialUser = false, int? trialLimit}) {
+  Future<void> setCurrentAudioFiles(List<String> audioFiles, {bool isTrialUser = false, int? trialLimit, String? audioType}) async {
     _logger.info('Setting current audio files. Total available: ${audioFiles.length}, Trial user: $isTrialUser, Limit: $trialLimit');
 
     // Stop current audio if playing when switching audio sources
@@ -94,12 +95,27 @@ class AudioService {
     }
 
     // Apply trial user limits if applicable
-    if (isTrialUser && trialLimit != null && trialLimit > 0) {
-      // Always get the first N audios for trial users (no shuffling)
-      _allAudioFiles = audioFiles.take(trialLimit).toList();
-      _logger.info('Trial user limit applied: ${_allAudioFiles.length} audios available');
-      _audioLoading = false;
-      _refreshAudioFiles(shouldShuffle: false); // Don't shuffle for trial users
+    if (isTrialUser && trialLimit != null && trialLimit > 0 && audioType != null) {
+      try {
+        // Get daily random selection for trial users
+        final dailySelection = await DailyAudioSelectionService.getDailyRandomSelection(
+          allAudioFiles: audioFiles,
+          audioType: audioType,
+          selectionLimit: trialLimit,
+        );
+        
+        _allAudioFiles = dailySelection;
+        _logger.info('Trial user daily random selection applied: ${_allAudioFiles.length} audios available for $audioType');
+        _audioLoading = false;
+        _refreshAudioFiles(shouldShuffle: false); // Don't shuffle the daily selection
+      } catch (e) {
+        _logger.severe('Error getting daily selection, falling back to first N audios: $e');
+        // Fallback to original behavior if daily selection fails
+        _allAudioFiles = audioFiles.take(trialLimit).toList();
+        _logger.info('Fallback: Trial user limit applied: ${_allAudioFiles.length} audios available');
+        _audioLoading = false;
+        _refreshAudioFiles(shouldShuffle: false);
+      }
     } else {
       _allAudioFiles = List.from(audioFiles);
       _logger.info('Full access: ${_allAudioFiles.length} audios available');

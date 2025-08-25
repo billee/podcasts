@@ -32,10 +32,11 @@ class _StoryScreenState extends State<StoryScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         // No user logged in, treat as trial
-        _audioService.setCurrentAudioFiles(
+        await _audioService.setCurrentAudioFiles(
           AppAssets.storyAssets,
           isTrialUser: true,
           trialLimit: AppConfig.trialUserStoryLimit,
+          audioType: 'story',
         );
         return;
       }
@@ -47,14 +48,15 @@ class _StoryScreenState extends State<StoryScreen> {
 
       if (isTrialUser) {
         _logger.info('Trial user detected - limiting story access to ${AppConfig.trialUserStoryLimit} audios');
-        _audioService.setCurrentAudioFiles(
+        await _audioService.setCurrentAudioFiles(
           AppAssets.storyAssets,
           isTrialUser: true,
           trialLimit: AppConfig.trialUserStoryLimit,
+          audioType: 'story',
         );
       } else {
         _logger.info('Premium user detected - full story access');
-        _audioService.setCurrentAudioFiles(
+        await _audioService.setCurrentAudioFiles(
           AppAssets.storyAssets,
           isTrialUser: false,
         );
@@ -62,10 +64,11 @@ class _StoryScreenState extends State<StoryScreen> {
     } catch (e) {
       _logger.severe('Error checking subscription status: $e');
       // Fallback to trial limits on error
-      _audioService.setCurrentAudioFiles(
+      await _audioService.setCurrentAudioFiles(
         AppAssets.storyAssets,
         isTrialUser: true,
         trialLimit: AppConfig.trialUserStoryLimit,
+        audioType: 'story',
       );
     }
   }
