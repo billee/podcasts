@@ -6,8 +6,10 @@ import 'package:kapwa_companion_basic/screens/main_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/login_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/email_verification_screen.dart';
 import 'package:kapwa_companion_basic/screens/trial_terms_conditions_screen.dart';
+import 'package:kapwa_companion_basic/screens/banned_user_screen.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:kapwa_companion_basic/services/terms_acceptance_service.dart';
+import 'package:kapwa_companion_basic/services/ban_service.dart';
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, compute;
@@ -179,59 +181,86 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
             return const EmailVerificationScreen();
           }
           
-          // Email is verified, check if user has accepted terms
-          _logger.info('Email verified. Checking terms acceptance status.');
+          // Email is verified, check if user is banned
+          _logger.info('Email verified. Checking ban status.');
           
           return FutureBuilder<bool>(
-            key: ValueKey('terms_check_${user.uid}_$_refreshCounter'), // Use counter to force rebuild
-            future: TermsAcceptanceService.hasAcceptedTerms(user.uid),
-            builder: (context, termsSnapshot) {
-              if (termsSnapshot.connectionState == ConnectionState.waiting) {
-                _logger.info('Checking terms acceptance status...');
+            key: ValueKey('ban_check_${user.uid}_$_refreshCounter'),
+            future: BanService.isUserBanned(user.uid),
+            builder: (context, banSnapshot) {
+              if (banSnapshot.connectionState == ConnectionState.waiting) {
+                _logger.info('Checking ban status...');
                 return const SplashScreen();
               }
               
-              if (termsSnapshot.hasError) {
-                _logger.severe('Error checking terms acceptance: ${termsSnapshot.error}');
-                // On error, assume terms not accepted to be safe
-                return TrialTermsConditionsScreen(
-                  userId: user.uid,
-                  onAccepted: () {
-                    _logger.info('Terms accepted, refreshing auth state');
-                    _refreshAuthState();
-                  },
-                );
+              if (banSnapshot.hasError) {
+                _logger.severe('Error checking ban status: ${banSnapshot.error}');
+                // On error, continue to avoid blocking legitimate users
               }
               
-              final hasAcceptedTerms = termsSnapshot.data ?? false;
+              final isBanned = banSnapshot.data ?? false;
               
-              if (!hasAcceptedTerms) {
-                _logger.info('Terms not accepted. Showing TrialTermsConditionsScreen.');
-                return TrialTermsConditionsScreen(
-                  userId: user.uid,
-                  onAccepted: () {
-                    _logger.info('Terms accepted, refreshing auth state');
-                    _refreshAuthState();
-                  },
-                );
+              if (isBanned) {
+                _logger.warning('User is banned. Showing BannedUserScreen.');
+                return BannedUserScreen(userId: user.uid);
               }
               
-              // Terms accepted, proceed to main screen
-              _logger.info('Terms accepted. Updating Firestore and navigating to MainScreen.');
+              // User is not banned, check if user has accepted terms
+              _logger.info('User not banned. Checking terms acceptance status.');
               
-              // Update email verification status in Firestore in background
-              AuthService.checkEmailVerification().catchError((e) {
-                _logger.warning('Failed to update email verification status: $e');
-              });
-              
-              // Update user activity in background, don't block navigation
-              AuthService.updateUserActivity().catchError((e) {
-                _logger.warning('User activity update failed: $e');
-              });
-              
-              return const MainScreen();
+              return FutureBuilder<bool>(
+                key: ValueKey('terms_check_${user.uid}_$_refreshCounter'),
+                future: TermsAcceptanceService.hasAcceptedTerms(user.uid),
+                builder: (context, termsSnapshot) {
+                  if (termsSnapshot.connectionState == ConnectionState.waiting) {
+                    _logger.info('Checking terms acceptance status...');
+                    return const SplashScreen();
+                  }
+                  
+                  if (termsSnapshot.hasError) {
+                    _logger.severe('Error checking terms acceptance: ${termsSnapshot.error}');
+                    // On error, assume terms not accepted to be safe
+                    return TrialTermsConditionsScreen(
+                      userId: user.uid,
+                      onAccepted: () {
+                        _logger.info('Terms accepted, refreshing auth state');
+                        _refreshAuthState();
+                      },
+                    );
+                  }
+                  
+                  final hasAcceptedTerms = termsSnapshot.data ?? false;
+                  
+                  if (!hasAcceptedTerms) {
+                    _logger.info('Terms not accepted. Showing TrialTermsConditionsScreen.');
+                    return TrialTermsConditionsScreen(
+                      userId: user.uid,
+                      onAccepted: () {
+                        _logger.info('Terms accepted, refreshing auth state');
+                        _refreshAuthState();
+                      },
+                    );
+                  }
+                  
+                  // Terms accepted, proceed to main screen
+                  _logger.info('Terms accepted. Updating Firestore and navigating to MainScreen.');
+                  
+                  // Update email verification status in Firestore in background
+                  AuthService.checkEmailVerification().catchError((e) {
+                    _logger.warning('Failed to update email verification status: $e');
+                  });
+                  
+                  // Update user activity in background, don't block navigation
+                  AuthService.updateUserActivity().catchError((e) {
+                    _logger.warning('User activity update failed: $e');
+                  });
+                  
+                  return const MainScreen();
+                },
+              );
             },
           );
+
         }
 
         // No user logged in

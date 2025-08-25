@@ -1,7 +1,4 @@
 
-
-check the trial if the podcast and story are limited to 2 audios each.
-
 firestore pervious rules has to be brought back
 
 payment system
@@ -27,3 +24,5 @@ when terminated in the trial period,  no way to go to subscription mode
 saving to firestore has to be encrypted in transit
 
 what to do to suggestions
+
+registering and logging in,  check if they are banned.  if they are unsubscribed.

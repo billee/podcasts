@@ -13,6 +13,8 @@ import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
 import 'package:kapwa_companion_basic/services/payment_service.dart';
+import 'package:kapwa_companion_basic/services/ban_service.dart';
+import 'package:kapwa_companion_basic/screens/banned_user_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:kapwa_companion_basic/widgets/email_verification_banner.dart';
@@ -193,6 +195,41 @@ class MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Check if user is banned before showing main screen
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      return FutureBuilder<bool>(
+        future: BanService.isUserBanned(currentUser.uid),
+        builder: (context, banSnapshot) {
+          if (banSnapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+          
+          if (banSnapshot.hasError) {
+            _logger.severe('Error checking ban status in MainScreen: ${banSnapshot.error}');
+            // Continue to main screen on error to avoid blocking legitimate users
+          }
+          
+          final isBanned = banSnapshot.data ?? false;
+          if (isBanned) {
+            _logger.warning('User is banned, showing BannedUserScreen from MainScreen');
+            return BannedUserScreen(userId: currentUser.uid);
+          }
+          
+          // User is not banned, continue with normal main screen
+          return _buildMainScreen(context);
+        },
+      );
+    }
+    
+    return _buildMainScreen(context);
+  }
+
+  Widget _buildMainScreen(BuildContext context) {
     if (_screens.isEmpty) {
       return const Scaffold(
         body: Center(
