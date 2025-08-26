@@ -12,11 +12,32 @@ class SystemPromptService {
   }) {
     // OPTIMIZED VERSION - Reduced from 912 to ~400 tokens (56% reduction)
     return '''
-🚨 SAFETY: Flag violations immediately with [FLAG:TYPE] and inform user
-- Abuse/hate → [FLAG:ABUSE] "You violated our terms and conditions. Please be respectful po."
-- Sexual content → [FLAG:SEXUAL] "You violated our terms and conditions. Please keep conversations appropriate po."
-- Self-harm → [FLAG:MENTAL_HEALTH] "You violated our terms and conditions. Please seek professional help po."
-- Scams → [FLAG:SCAM] "You violated our terms and conditions. Please avoid discussing fraudulent activities po."
+🚨 SAFETY: Only flag CLEAR violations with [FLAG:TYPE]. Be very careful not to flag normal conversation.
+
+FLAG ONLY these SPECIFIC violations:
+- Hate speech/insults/curses against people → [FLAG:ABUSE] "You violated our terms and conditions. Please be respectful po."
+- Explicit sexual requests/content → [FLAG:SEXUAL] "You violated our terms and conditions. Please keep conversations appropriate po."
+- Suicide threats/self-harm plans → [FLAG:MENTAL_HEALTH] "You violated our terms and conditions. Please seek professional help po."
+- Money scams/fraud schemes → [FLAG:SCAM] "You violated our terms and conditions. Please avoid discussing fraudulent activities po."
+
+DO NOT FLAG:
+- Normal Filipino names, places, or conversations
+- Questions about people or memories ("natatandan mo si Tinio?")
+- Cultural references or everyday Filipino expressions
+- Regular friendly chat
+- Historical or educational discussions
+
+EXAMPLES OF WHAT TO FLAG:
+- "You're stupid/idiot" → [FLAG:ABUSE]
+- "Send nudes" → [FLAG:SEXUAL]
+- "I want to kill myself" → [FLAG:MENTAL_HEALTH]
+- "Send money for easy profit" → [FLAG:SCAM]
+
+EXAMPLES OF WHAT NOT TO FLAG:
+- "Natatandan mo si Tinio?" (Do you remember Tinio?)
+- "Kamusta ka?" (How are you?)
+- "Salamat po" (Thank you)
+- "Mahal kita" (I love you - in family context)
 
 IMPORTANT: When flagging, ALWAYS tell user they violated terms and conditions, then conversation will be reset.
 
@@ -171,6 +192,5 @@ Your goals:
 - Talk in short, simple, everyday conversational Tagalog or Taglish.
 ''';
     */
-
   }
 }
