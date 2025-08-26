@@ -121,6 +121,13 @@ class SubscriptionService {
         final trialDoc = trialQuery.docs.first;
         final trialData = trialDoc.data();
         final trialEndDate = trialData['trialEndDate'] as Timestamp?;
+        final bannedAt = trialData['banned_at'] as Timestamp?;
+
+        // If trial is banned, treat as expired regardless of end date
+        if (bannedAt != null) {
+          _logger.info('Trial for user $userId is banned (banned_at: $bannedAt), treating as expired');
+          return SubscriptionStatus.trialExpired;
+        }
 
         if (trialEndDate != null) {
           final now = AppConfig.currentDateTime;
@@ -147,6 +154,43 @@ class SubscriptionService {
     } catch (e) {
       _logger.severe('Error getting subscription status: $e');
       return SubscriptionStatus.expired;
+    }
+  }
+
+  /// Check if a user's trial is banned
+  static Future<bool> isTrialBanned(String userId) async {
+    try {
+      // Get user email
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (!userDoc.exists) {
+        return false;
+      }
+
+      final userData = userDoc.data() as Map<String, dynamic>;
+      final userEmail = userData['email'] as String?;
+      
+      if (userEmail == null) {
+        return false;
+      }
+
+      // Check trial history for banned_at field
+      final trialQuery = await _firestore
+          .collection('trial_history')
+          .where('userId', isEqualTo: userId)
+          .where('email', isEqualTo: userEmail)
+          .limit(1)
+          .get();
+
+      if (trialQuery.docs.isNotEmpty) {
+        final trialData = trialQuery.docs.first.data();
+        final bannedAt = trialData['banned_at'] as Timestamp?;
+        return bannedAt != null;
+      }
+
+      return false;
+    } catch (e) {
+      _logger.severe('Error checking if trial is banned for user $userId: $e');
+      return false;
     }
   }
 

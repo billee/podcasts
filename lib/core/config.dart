@@ -30,6 +30,9 @@ class AppConfig {
   static const int trialUserPodcastLimit = 2;  // First 2 podcast audios only
   static const int trialUserStoryLimit = 2;    // First 2 story audios only
   
+  // Violation threshold configuration
+  static const int violationThresholdForBan = 3;  // Number of violations before user gets banned
+  
   // Daily reset configuration
   // Reset happens at 24:00 (midnight) in user's local timezone
   
@@ -127,5 +130,24 @@ class AppConfig {
     }
     
     Logger('AppConfig').info('Token limits validated successfully - Trial: $trialUserDailyTokenLimit, Subscribed: $subscribedUserDailyTokenLimit, Enabled: $tokenLimitsEnabled');
+    
+    // Validate violation threshold
+    validateViolationThreshold();
+  }
+  
+  /// Validates violation threshold configuration
+  static void validateViolationThreshold() {
+    if (violationThresholdForBan <= 0) {
+      throw ArgumentError('Violation threshold must be positive, got: $violationThresholdForBan');
+    }
+    
+    if (violationThresholdForBan > 10) {
+      Logger('AppConfig').warning(
+        'Violation threshold is quite high ($violationThresholdForBan). '
+        'Consider using a lower threshold for better content moderation.'
+      );
+    }
+    
+    Logger('AppConfig').info('Violation threshold validated successfully: $violationThresholdForBan violations before ban');
   }
 }

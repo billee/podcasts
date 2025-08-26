@@ -18,6 +18,9 @@ import 'package:kapwa_companion_basic/services/conversation_service.dart';
 import 'package:kapwa_companion_basic/services/violation_logging_service.dart';
 import 'package:kapwa_companion_basic/services/violation_check_service.dart';
 import 'package:kapwa_companion_basic/screens/violation_warning_screen.dart';
+import 'package:kapwa_companion_basic/screens/banned_user_screen.dart';
+import 'package:kapwa_companion_basic/services/subscription_service.dart';
+import 'package:kapwa_companion_basic/services/ban_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? userId;
@@ -468,8 +471,112 @@ class _ChatScreenState extends State<ChatScreen>
     _scrollToBottom();
   }
 
+  /// Check if trial user has reached violation threshold and ban them
+  Future<void> _checkTrialViolationsBeforeSending() async {
+    if (widget.userId == null) return;
+
+    try {
+      // Check if user is in trial period
+      final subscriptionStatus = await SubscriptionService.getSubscriptionStatus(widget.userId!);
+      _logger.info('User ${widget.userId} subscription status: $subscriptionStatus');
+      
+      if (subscriptionStatus != SubscriptionStatus.trial) {
+        _logger.info('User ${widget.userId} is not in trial period, skipping violation check');
+        return; // Only check violations for trial users
+      }
+
+      // Get violation count for trial user
+      final violationQuery = await FirebaseFirestore.instance
+          .collection('user_violations')
+          .where('userId', isEqualTo: widget.userId!)
+          .where('resolved', isEqualTo: false)
+          .get();
+
+      final violationCount = violationQuery.docs.length;
+      _logger.info('Trial user ${widget.userId} has $violationCount violations');
+
+      if (violationCount >= AppConfig.violationThresholdForBan) {
+        _logger.warning('Trial user ${widget.userId} has $violationCount violations (threshold: ${AppConfig.violationThresholdForBan}) - banning user and showing banned screen');
+        
+        // Ban the user
+        await BanService.banUser(
+          widget.userId!, 
+          'Automatic ban due to $violationCount violations during trial period',
+          adminId: 'system'
+        );
+        
+        // Mark trial history as banned
+        await _markTrialAsBanned(widget.userId!);
+        
+        // Show banned user screen
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => BannedUserScreen(
+                userId: widget.userId!,
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      _logger.severe('Error checking trial violations for user ${widget.userId}: $e');
+    }
+  }
+
+  /// Mark the user's trial history as banned
+  Future<void> _markTrialAsBanned(String userId) async {
+    try {
+      // Get user's email first
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      
+      if (!userDoc.exists) {
+        _logger.warning('User document not found for $userId, cannot mark trial as banned');
+        return;
+      }
+      
+      final userData = userDoc.data() as Map<String, dynamic>;
+      final userEmail = userData['email'] as String?;
+      
+      if (userEmail == null) {
+        _logger.warning('User email not found for $userId, cannot mark trial as banned');
+        return;
+      }
+      
+      // Find and update the trial history record
+      final trialQuery = await FirebaseFirestore.instance
+          .collection('trial_history')
+          .where('userId', isEqualTo: userId)
+          .where('email', isEqualTo: userEmail)
+          .limit(1)
+          .get();
+      
+      if (trialQuery.docs.isNotEmpty) {
+        final trialDoc = trialQuery.docs.first;
+        await trialDoc.reference.update({
+          'banned_at': FieldValue.serverTimestamp(),
+          'ban_reason': 'Automatic ban due to ${AppConfig.violationThresholdForBan}+ violations during trial period',
+        });
+        
+        _logger.info('Marked trial history as banned for user $userId (email: $userEmail)');
+      } else {
+        _logger.warning('No trial history found for user $userId (email: $userEmail), cannot mark as banned');
+      }
+    } catch (e) {
+      _logger.severe('Error marking trial as banned for user $userId: $e');
+    }
+  }
+
   Future<void> _sendMessage(String message) async {
     if (message.trim().isEmpty) return;
+
+    // Check for violations if user is in trial period
+    if (widget.userId != null) {
+      await _checkTrialViolationsBeforeSending();
+    }
 
     // Pre-chat validation: Check if user can send messages
     if (widget.userId != null) {

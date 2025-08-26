@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logging/logging.dart';
+import 'package:kapwa_companion_basic/core/config.dart';
 
 class ViolationWarningScreen extends StatelessWidget {
   final String userId;
@@ -65,7 +66,7 @@ class ViolationWarningScreen extends StatelessWidget {
       final violationCount = allViolationsQuery.docs.length;
       _logger.info('User $userId has $violationCount total violations');
 
-      if (violationCount >= 3) {
+      if (violationCount >= AppConfig.violationThresholdForBan) {
         // Ban user from renewals by adding banned_at field to their subscription
         final subscriptionQuery = await FirebaseFirestore.instance
             .collection('subscriptions')
@@ -180,7 +181,7 @@ class ViolationWarningScreen extends StatelessWidget {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Important: If you violate our terms 3 times, you will not be able to renew future subscriptions.',
+                              'Important: If you violate our terms ${AppConfig.violationThresholdForBan} times, you will not be able to renew future subscriptions.',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.white,

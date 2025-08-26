@@ -3,6 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logging/logging.dart';
+import 'package:kapwa_companion_basic/core/config.dart';
 
 class BanService {
   static final Logger _logger = Logger('BanService');
@@ -74,11 +75,11 @@ class BanService {
           .get();
 
       final violationCount = violationsQuery.docs.length;
-      if (violationCount >= 3) {
-        _logger.warning('User $userId has $violationCount violations, treating as banned');
+      if (violationCount >= AppConfig.violationThresholdForBan) {
+        _logger.warning('User $userId has $violationCount violations (threshold: ${AppConfig.violationThresholdForBan}), treating as banned');
         
         // Create a ban record for this user
-        await _createBanRecord(userId, 'Automatic ban due to $violationCount violations');
+        await _createBanRecord(userId, 'Automatic ban due to $violationCount violations (threshold: ${AppConfig.violationThresholdForBan})');
         return true;
       }
 

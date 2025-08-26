@@ -3,7 +3,9 @@ firestore pervious rules has to be brought back
 
 payment system
 
-for the trial user, they will be terminated right away.  
+when registering, check if the email is banned.
+ 
+for the PRO user, after 3 violations, they can not renew when the billing date arrives
 
 for the admin, everyday the admin checks which user has to renew their subscriptions.  if they are banned then no more subscriptions is allowed. the email will be blacklisted.
 
@@ -30,3 +32,9 @@ registering and logging in,  check if they are banned.  if they are unsubscribed
 the podcast and story are overlapping when switching from one to another.
 
 check violations flags
+
+cache
+
+malicious security
+
+use deepseek LLM more cheaper?

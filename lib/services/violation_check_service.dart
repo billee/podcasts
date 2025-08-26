@@ -2,6 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logging/logging.dart';
+import 'package:kapwa_companion_basic/core/config.dart';
 
 class ViolationCheckService {
   static final Logger _logger = Logger('ViolationCheckService');
@@ -76,7 +77,7 @@ class ViolationCheckService {
   static Future<bool> isBannedFromRenewals(String userId) async {
     try {
       final violationCount = await getViolationCount(userId);
-      return violationCount >= 3;
+      return violationCount >= AppConfig.violationThresholdForBan;
     } catch (e) {
       _logger.severe('Error checking renewal ban status for user $userId: $e');
       return false;
