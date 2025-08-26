@@ -19,6 +19,7 @@ class StoryScreen extends StatefulWidget {
 class _StoryScreenState extends State<StoryScreen> {
   final AudioService _audioService = AudioService();
   final Logger _logger = Logger('StoryScreen');
+  bool _isInitializing = true;
 
   @override
   void initState() {
@@ -29,6 +30,10 @@ class _StoryScreenState extends State<StoryScreen> {
 
   Future<void> _initializeAudioWithSubscriptionCheck() async {
     try {
+      setState(() {
+        _isInitializing = true;
+      });
+
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         // No user logged in, treat as trial
@@ -38,16 +43,21 @@ class _StoryScreenState extends State<StoryScreen> {
           trialLimit: AppConfig.trialUserStoryLimit,
           audioType: 'story',
         );
+        setState(() {
+          _isInitializing = false;
+        });
         return;
       }
 
-      final subscriptionStatus = await SubscriptionService.getSubscriptionStatus(user.uid);
-      final isTrialUser = subscriptionStatus == SubscriptionStatus.trial || 
-                         subscriptionStatus == SubscriptionStatus.trialExpired ||
-                         subscriptionStatus == SubscriptionStatus.expired;
+      final subscriptionStatus =
+          await SubscriptionService.getSubscriptionStatus(user.uid);
+      final isTrialUser = subscriptionStatus == SubscriptionStatus.trial ||
+          subscriptionStatus == SubscriptionStatus.trialExpired ||
+          subscriptionStatus == SubscriptionStatus.expired;
 
       if (isTrialUser) {
-        _logger.info('Trial user detected - limiting story access to ${AppConfig.trialUserStoryLimit} audios');
+        _logger.info(
+            'Trial user detected - limiting story access to ${AppConfig.trialUserStoryLimit} audios');
         await _audioService.setCurrentAudioFiles(
           AppAssets.storyAssets,
           isTrialUser: true,
@@ -61,6 +71,10 @@ class _StoryScreenState extends State<StoryScreen> {
           isTrialUser: false,
         );
       }
+
+      setState(() {
+        _isInitializing = false;
+      });
     } catch (e) {
       _logger.severe('Error checking subscription status: $e');
       // Fallback to trial limits on error
@@ -70,6 +84,9 @@ class _StoryScreenState extends State<StoryScreen> {
         trialLimit: AppConfig.trialUserStoryLimit,
         audioType: 'story',
       );
+      setState(() {
+        _isInitializing = false;
+      });
     }
   }
 
@@ -93,9 +110,9 @@ class _StoryScreenState extends State<StoryScreen> {
         child: SingleChildScrollView(
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height - 
-                         MediaQuery.of(context).padding.top - 
-                         kToolbarHeight,
+              minHeight: MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.top -
+                  kToolbarHeight,
             ),
             child: IntrinsicHeight(
               child: Column(
@@ -116,10 +133,25 @@ class _StoryScreenState extends State<StoryScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  // AudioPlayerWidget with flexible sizing
+                  // Show loading indicator while initializing, then AudioPlayerWidget
                   Expanded(
                     child: Center(
-                      child: AudioPlayerWidget(),
+                      child: _isInitializing
+                          ? const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white70),
+                                ),
+                                SizedBox(height: 16),
+                                Text(
+                                  'Loading stories...',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              ],
+                            )
+                          : AudioPlayerWidget(),
                     ),
                   ),
                   const SizedBox(height: 16), // Reduced from 32 to save space

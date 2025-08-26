@@ -16,6 +16,9 @@ class AudioService {
   final Logger _logger = Logger('AudioService');
   final AudioPlayer _audioPlayer = AudioPlayer();
 
+  // Add index to track current position in the daily selection
+  int _currentAudioIndex = 0;
+
   List<String> _allAudioFiles = [];
   List<String> _currentAudioFiles = [];
   bool _audioLoading = true;
@@ -64,13 +67,15 @@ class AudioService {
   Future<void> _loadAudioFiles() async {
     try {
       _audioLoading = true;
-      _logger.info('AudioService initialized - audio files will be set by individual screens');
+      _logger.info(
+          'AudioService initialized - audio files will be set by individual screens');
 
       // Don't load any specific audio files here - let the screens set them
       _allAudioFiles = [];
       _audioLoading = false;
       _refreshAudioFiles();
-      _logger.info('AudioService ready - waiting for screen to set audio files');
+      _logger
+          .info('AudioService ready - waiting for screen to set audio files');
     } catch (e) {
       print('ERROR in _loadAudioFiles: $e');
       _logger.severe('Error initializing audio service: $e');
@@ -82,8 +87,10 @@ class AudioService {
   }
 
   // NEW METHOD: Set current audio files to a specific list with trial user limits
-  Future<void> setCurrentAudioFiles(List<String> audioFiles, {bool isTrialUser = false, int? trialLimit, String? audioType}) async {
-    _logger.info('Setting current audio files. Total available: ${audioFiles.length}, Trial user: $isTrialUser, Limit: $trialLimit');
+  Future<void> setCurrentAudioFiles(List<String> audioFiles,
+      {bool isTrialUser = false, int? trialLimit, String? audioType}) async {
+    _logger.info(
+        'Setting current audio files. Total available: ${audioFiles.length}, Trial user: $isTrialUser, Limit: $trialLimit');
 
     // Stop current audio if playing when switching audio sources
     if (_isPlaying || _currentAudioPath != null) {
@@ -93,24 +100,32 @@ class AudioService {
     }
 
     // Apply trial user limits if applicable
-    if (isTrialUser && trialLimit != null && trialLimit > 0 && audioType != null) {
+    if (isTrialUser &&
+        trialLimit != null &&
+        trialLimit > 0 &&
+        audioType != null) {
       try {
         // Get daily random selection for trial users
-        final dailySelection = await DailyAudioSelectionService.getDailyRandomSelection(
+        final dailySelection =
+            await DailyAudioSelectionService.getDailyRandomSelection(
           allAudioFiles: audioFiles,
           audioType: audioType,
           selectionLimit: trialLimit,
         );
-        
+
         _allAudioFiles = dailySelection;
-        _logger.info('Trial user daily random selection applied: ${_allAudioFiles.length} audios available for $audioType');
+        _logger.info(
+            'Trial user daily random selection applied: ${_allAudioFiles.length} audios available for $audioType');
         _audioLoading = false;
-        _refreshAudioFiles(shouldShuffle: false); // Don't shuffle the daily selection
+        _refreshAudioFiles(
+            shouldShuffle: false); // Don't shuffle the daily selection
       } catch (e) {
-        _logger.severe('Error getting daily selection, falling back to first N audios: $e');
+        _logger.severe(
+            'Error getting daily selection, falling back to first N audios: $e');
         // Fallback to original behavior if daily selection fails
         _allAudioFiles = audioFiles.take(trialLimit).toList();
-        _logger.info('Fallback: Trial user limit applied: ${_allAudioFiles.length} audios available');
+        _logger.info(
+            'Fallback: Trial user limit applied: ${_allAudioFiles.length} audios available');
         _audioLoading = false;
         _refreshAudioFiles(shouldShuffle: false);
       }
@@ -127,16 +142,25 @@ class AudioService {
       if (shouldShuffle) {
         _allAudioFiles.shuffle();
       }
+      // Reset index when refreshing
+      _currentAudioIndex = 0;
       _currentAudioFiles = _allAudioFiles.isNotEmpty
           ? _allAudioFiles.sublist(0, 1) // Show one audio file at a time
           : _allAudioFiles;
     } else {
       _currentAudioFiles = [];
+      _currentAudioIndex = 0;
     }
   }
 
   void refreshCurrentAudioFiles() {
-    _refreshAudioFiles();
+    if (_allAudioFiles.isNotEmpty) {
+      // Cycle to the next audio in the daily selection
+      _currentAudioIndex = (_currentAudioIndex + 1) % _allAudioFiles.length;
+      _currentAudioFiles = [_allAudioFiles[_currentAudioIndex]];
+      _logger.info(
+          'Cycled to next audio: ${_currentAudioFiles.first} (index: $_currentAudioIndex/${_allAudioFiles.length})');
+    }
   }
 
   Future<void> playAudio(String filePath) async {

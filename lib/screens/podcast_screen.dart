@@ -20,6 +20,7 @@ class _PodcastScreenState extends State<PodcastScreen> {
   final Logger _logger = Logger('PodcastScreen');
   // Obtain the singleton AudioService instance. It's initialized in main.dart.
   final AudioService _audioService = AudioService();
+  bool _isInitializing = true;
 
   @override
   void initState() {
@@ -31,6 +32,10 @@ class _PodcastScreenState extends State<PodcastScreen> {
 
   Future<void> _initializeAudioWithSubscriptionCheck() async {
     try {
+      setState(() {
+        _isInitializing = true;
+      });
+
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         // No user logged in, treat as trial
@@ -40,16 +45,21 @@ class _PodcastScreenState extends State<PodcastScreen> {
           trialLimit: AppConfig.trialUserPodcastLimit,
           audioType: 'podcast',
         );
+        setState(() {
+          _isInitializing = false;
+        });
         return;
       }
 
-      final subscriptionStatus = await SubscriptionService.getSubscriptionStatus(user.uid);
-      final isTrialUser = subscriptionStatus == SubscriptionStatus.trial || 
-                         subscriptionStatus == SubscriptionStatus.trialExpired ||
-                         subscriptionStatus == SubscriptionStatus.expired;
+      final subscriptionStatus =
+          await SubscriptionService.getSubscriptionStatus(user.uid);
+      final isTrialUser = subscriptionStatus == SubscriptionStatus.trial ||
+          subscriptionStatus == SubscriptionStatus.trialExpired ||
+          subscriptionStatus == SubscriptionStatus.expired;
 
       if (isTrialUser) {
-        _logger.info('Trial user detected - limiting podcast access to ${AppConfig.trialUserPodcastLimit} audios');
+        _logger.info(
+            'Trial user detected - limiting podcast access to ${AppConfig.trialUserPodcastLimit} audios');
         await _audioService.setCurrentAudioFiles(
           AppAssets.podcastAssets,
           isTrialUser: true,
@@ -63,6 +73,10 @@ class _PodcastScreenState extends State<PodcastScreen> {
           isTrialUser: false,
         );
       }
+
+      setState(() {
+        _isInitializing = false;
+      });
     } catch (e) {
       _logger.severe('Error checking subscription status: $e');
       // Fallback to trial limits on error
@@ -72,6 +86,9 @@ class _PodcastScreenState extends State<PodcastScreen> {
         trialLimit: AppConfig.trialUserPodcastLimit,
         audioType: 'podcast',
       );
+      setState(() {
+        _isInitializing = false;
+      });
     }
   }
 
@@ -99,10 +116,25 @@ class _PodcastScreenState extends State<PodcastScreen> {
             style: TextStyle(fontSize: 18),
           ),
           const SizedBox(height: 32),
-          // Centered AudioPlayerWidget
+          // Show loading indicator while initializing, then AudioPlayerWidget
           Expanded(
             child: Center(
-              child: AudioPlayerWidget(),
+              child: _isInitializing
+                  ? const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white70),
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'Loading podcasts...',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    )
+                  : AudioPlayerWidget(),
             ),
           ),
           const SizedBox(height: 32),
