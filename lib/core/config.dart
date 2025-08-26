@@ -31,7 +31,7 @@ class AppConfig {
   static const int trialUserStoryLimit = 2;    // First 2 story audios only
   
   // Violation threshold configuration
-  static const int violationThresholdForBan = 3;  // Number of violations before user gets banned
+  static const int violationThresholdForBan = 5;  // Number of violations before user gets banned
   
   // Daily reset configuration
   // Reset happens at 24:00 (midnight) in user's local timezone

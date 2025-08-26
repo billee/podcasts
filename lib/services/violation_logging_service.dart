@@ -23,7 +23,7 @@ class ViolationLoggingService {
         'llmResponse': llmResponse,
         'timestamp': FieldValue.serverTimestamp(),
         'date': _getTodayString(),
-        'resolved': false,
+        'resolved': false
       };
 
       await _firestore

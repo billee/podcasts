@@ -26,15 +26,16 @@ class ViolationWarningScreen extends StatelessWidget {
           .where('resolved', isEqualTo: false)
           .get();
 
-      // Update all violations that don't have showed_at field
+      // Update all violations that don't have warning_shown field or have it set to false
       final batch = FirebaseFirestore.instance.batch();
       int updatedCount = 0;
       
       for (final doc in violationQuery.docs) {
         final data = doc.data();
-        if (!data.containsKey('showed_at')) {
+        if (!data.containsKey('shown_at')) {
           batch.update(doc.reference, {
-            'showed_at': FieldValue.serverTimestamp(),
+            'shown_at': FieldValue.serverTimestamp(),
+            'resolved': true, // Mark as resolved when user acknowledges warning
           });
           updatedCount++;
         }

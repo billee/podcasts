@@ -570,6 +570,81 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
+  /// Perform post-message checks for ban status and unshown violations
+  Future<void> _performPostMessageChecks({bool skipViolationCheck = false}) async {
+    if (widget.userId == null) return;
+
+    try {
+      _logger.info('Performing post-message checks for user ${widget.userId} (skipViolationCheck: $skipViolationCheck)');
+
+      // 1. Check if user is banned (for both trial and subscription users)
+      final isBanned = await BanService.isUserBanned(widget.userId!);
+      if (isBanned) {
+        _logger.warning('User ${widget.userId} is banned - showing banned screen');
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => BannedUserScreen(
+                userId: widget.userId!,
+              ),
+            ),
+          );
+        }
+        return; // Exit early if banned
+      }
+
+      // 2. Check for unshown violation warnings (for both trial and subscription users)
+      // Skip this check if a violation was just detected in the current message
+      if (!skipViolationCheck) {
+        await _checkForUnshownViolations();
+      } else {
+        _logger.info('Skipping unshown violation check because violation was detected in current message');
+      }
+    } catch (e) {
+      _logger.severe('Error in post-message checks for user ${widget.userId}: $e');
+    }
+  }
+
+  /// Check for violations that haven't been shown as warnings yet
+  Future<void> _checkForUnshownViolations() async {
+    if (widget.userId == null) return;
+
+    try {
+      // Get violations that haven't been shown to user yet (don't have shown_at field)
+      final allViolationsQuery = await FirebaseFirestore.instance
+          .collection('user_violations')
+          .where('userId', isEqualTo: widget.userId!)
+          .where('resolved', isEqualTo: false)
+          .get();
+
+      // Filter for violations that don't have shown_at field
+      final unshownViolations = allViolationsQuery.docs.where((doc) {
+        final data = doc.data();
+        return !data.containsKey('shown_at');
+      }).toList();
+
+      if (unshownViolations.isNotEmpty) {
+        _logger.info('User ${widget.userId} has ${unshownViolations.length} unshown violations - showing warning screen');
+        if (mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => ViolationWarningScreen(
+                userId: widget.userId!,
+                onContinue: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ),
+          );
+        }
+      } else {
+        _logger.info('No unshown violations found for user ${widget.userId}');
+      }
+    } catch (e) {
+      _logger.severe('Error checking unshown violations for user ${widget.userId}: $e');
+    }
+  }
+
   Future<void> _sendMessage(String message) async {
     if (message.trim().isEmpty) return;
 
@@ -610,6 +685,9 @@ class _ChatScreenState extends State<ChatScreen>
     _logger.info(
         'User message added to UI and local buffer. Current local messages count: ${_messages.length}');
 
+    // Track violation detection across try/catch/finally blocks
+    bool violationDetected = false;
+
     try {
       final llmCallResult = await _callLLMWithTokenTracking(message);
       var llmResponse = llmCallResult['response'] as String;
@@ -623,7 +701,7 @@ class _ChatScreenState extends State<ChatScreen>
       _logger.info('Raw LLM response: "$llmResponse"');
 
       // Check for violation flags and log them
-      final violationDetected =
+      violationDetected =
           await _checkAndLogViolations(message, llmResponse);
 
       // Remove violation flags from response before showing to user
@@ -697,6 +775,13 @@ class _ChatScreenState extends State<ChatScreen>
             widget.userId!, userInputTokens);
         _logger.info(
             'Recorded $userInputTokens tokens for user ${widget.userId} (despite LLM error)');
+      }
+    } finally {
+      // Post-message checks for all users (trial and subscription)
+      if (widget.userId != null) {
+        // Only check for old unshown violations if no violation was detected in current message
+        // If a violation was detected, the user already saw the warning
+        await _performPostMessageChecks(skipViolationCheck: violationDetected);
       }
     }
   }
