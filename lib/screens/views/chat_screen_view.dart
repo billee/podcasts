@@ -11,16 +11,13 @@ class ChatScreenView extends StatelessWidget {
   final ScrollController scrollController;
   final List<Map<String, dynamic>> messages;
   final bool isTyping;
-  final List<String> currentSuggestions;
-  final bool suggestionsLoading;
   final Function(String) onSendMessage;
   final Function() onClearChat;
   final int conversationPairs;
   final String assistantName;
-  final String? username; // Pass username to ChatBubble if needed
-  final int lastExchangeTokens; // Tokens used in the most recent exchange
-  final Function(String) onSuggestionSelected; // <--- ADD THIS LINE
-  final String? userId; // Add userId for token usage widget
+  final String? username;
+  final int lastExchangeTokens;
+  final String? userId;
 
   const ChatScreenView({
     super.key,
@@ -28,51 +25,14 @@ class ChatScreenView extends StatelessWidget {
     required this.scrollController,
     required this.messages,
     required this.isTyping,
-    required this.currentSuggestions,
-    required this.suggestionsLoading,
     required this.onSendMessage,
     required this.onClearChat,
     required this.conversationPairs,
     required this.assistantName,
     this.username,
-    required this.onSuggestionSelected, // <--- ADD THIS LINE to the constructor
-    this.userId, // Add userId parameter
-    required this.lastExchangeTokens, // Add lastExchangeTokens parameter
+    this.userId,
+    required this.lastExchangeTokens,
   });
-
-  Widget _buildSuggestionChips() {
-    if (suggestionsLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (currentSuggestions.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Row(
-        children: currentSuggestions.map((suggestion) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: ActionChip(
-              label: Text(suggestion),
-              onPressed: () {
-                onSuggestionSelected(
-                    suggestion); // <--- ENSURE THIS CALLS THE PASSED FUNCTION
-              },
-              backgroundColor: Colors.teal[600], // Nice teal color - professional yet friendly
-              labelStyle: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
-              ),
-              elevation: 2,
-              shadowColor: Colors.teal[200],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,74 +45,73 @@ class ChatScreenView extends StatelessWidget {
               child: ListView.builder(
                 controller: scrollController,
                 padding: const EdgeInsets.all(8.0),
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final message = messages[index];
-                if (message['role'] == 'user' ||
-                    message['role'] == 'assistant') {
-                  return ChatBubble(
-                    message: message['content'],
-                    isUser: message['role'] == 'user',
-                    senderName:
-                        message['role'] == 'user' ? username : assistantName,
-                  );
-                }
-                return const SizedBox.shrink();
-              },
+                itemCount: messages.length,
+                itemBuilder: (context, index) {
+                  final message = messages[index];
+                  if (message['role'] == 'user' ||
+                      message['role'] == 'assistant') {
+                    return ChatBubble(
+                      message: message['content'],
+                      isUser: message['role'] == 'user',
+                      senderName:
+                          message['role'] == 'user' ? username : assistantName,
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
             ),
-          ),
-          // Typing indicator now appears above suggestions
-          isTyping ? const TypingIndicator() : const SizedBox.shrink(),
-          _buildSuggestionChips(),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: messageController,
-                        decoration: InputDecoration(
-                          hintText: 'Type your message...',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20.0),
-                            borderSide: BorderSide.none,
+            // Typing indicator
+            isTyping ? const TypingIndicator() : const SizedBox.shrink(),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: messageController,
+                          decoration: InputDecoration(
+                            hintText: 'Type your message...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20.0),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[800],
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 20.0, vertical: 10.0),
                           ),
-                          filled: true,
-                          fillColor: Colors.grey[800],
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20.0, vertical: 10.0),
+                          onSubmitted: (value) {
+                            // Dismiss keyboard when user presses enter
+                            FocusScope.of(context).unfocus();
+                            onSendMessage(value);
+                          },
                         ),
-                        onSubmitted: (value) {
-                          // Dismiss keyboard when user presses enter
-                          FocusScope.of(context).unfocus();
-                          onSendMessage(value);
-                        },
                       ),
-                    ),
-                    const SizedBox(width: 8.0),
-                    FloatingActionButton(
-                      onPressed: () {
-                        // Dismiss keyboard when user taps send button
-                        FocusScope.of(context).unfocus();
-                        onSendMessage(messageController.text);
-                      },
-                      backgroundColor: Colors.blue[800],
-                      mini: true,
-                      child: const Icon(Icons.send, color: Colors.white),
-                    ),
-                  ],
-                ),
-                // Token usage widget underneath the chatbox
-                TokenUsageWidget(
-                  userId: userId,
-                  lastExchangeTokens: lastExchangeTokens,
-                ),
-              ],
+                      const SizedBox(width: 8.0),
+                      FloatingActionButton(
+                        onPressed: () {
+                          // Dismiss keyboard when user taps send button
+                          FocusScope.of(context).unfocus();
+                          onSendMessage(messageController.text);
+                        },
+                        backgroundColor: Colors.blue[800],
+                        mini: true,
+                        child: const Icon(Icons.send, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  // Token usage widget underneath the chatbox
+                  TokenUsageWidget(
+                    userId: userId,
+                    lastExchangeTokens: lastExchangeTokens,
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );

@@ -14,7 +14,7 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   static final Logger _logger = Logger('PaymentScreen');
-  
+
   bool _isLoading = false;
   List<PaymentMethod> _availablePaymentMethods = [];
   PaymentMethod? _selectedPaymentMethod;
@@ -28,9 +28,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Future<void> _loadAvailablePaymentMethods() async {
     try {
       setState(() => _isLoading = true);
-      
+
       final methods = await PaymentService.getAvailablePaymentMethods();
-      
+
       setState(() {
         _availablePaymentMethods = methods;
         _selectedPaymentMethod = methods.isNotEmpty ? methods.first : null;
@@ -39,7 +39,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     } catch (e) {
       _logger.severe('Error loading payment methods: $e');
       setState(() => _isLoading = false);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -170,7 +170,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             children: [
                               Text('• Access to all features',
                                   style: TextStyle(color: Colors.white70)),
-                              Text('• Premium content and suggestions',
+                              Text('• Premium content and support',
                                   style: TextStyle(color: Colors.white70)),
                               Text('• Priority customer support',
                                   style: TextStyle(color: Colors.white70)),
@@ -182,9 +182,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Payment method selection
                   if (_availablePaymentMethods.isNotEmpty) ...[
                     const Text(
@@ -196,41 +196,41 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
-                    ..._availablePaymentMethods.map((method) => Card(
-                      color: _selectedPaymentMethod == method 
-                          ? Colors.blue[800] 
-                          : Colors.grey[800],
-                      child: ListTile(
-                        leading: Icon(
-                          _getPaymentMethodIcon(method),
-                          color: Colors.white,
-                        ),
-                        title: Text(
-                          _getPaymentMethodDisplayName(method),
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        trailing: Radio<PaymentMethod>(
-                          value: method,
-                          groupValue: _selectedPaymentMethod,
-                          onChanged: (PaymentMethod? value) {
-                            setState(() {
-                              _selectedPaymentMethod = value;
-                            });
-                          },
-                          activeColor: Colors.blue,
-                        ),
-                        onTap: () {
-                          setState(() {
-                            _selectedPaymentMethod = method;
-                          });
-                        },
-                      ),
-                    )).toList(),
-                    
+                    ..._availablePaymentMethods
+                        .map((method) => Card(
+                              color: _selectedPaymentMethod == method
+                                  ? Colors.blue[800]
+                                  : Colors.grey[800],
+                              child: ListTile(
+                                leading: Icon(
+                                  _getPaymentMethodIcon(method),
+                                  color: Colors.white,
+                                ),
+                                title: Text(
+                                  _getPaymentMethodDisplayName(method),
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                                trailing: Radio<PaymentMethod>(
+                                  value: method,
+                                  groupValue: _selectedPaymentMethod,
+                                  onChanged: (PaymentMethod? value) {
+                                    setState(() {
+                                      _selectedPaymentMethod = value;
+                                    });
+                                  },
+                                  activeColor: Colors.blue,
+                                ),
+                                onTap: () {
+                                  setState(() {
+                                    _selectedPaymentMethod = method;
+                                  });
+                                },
+                              ),
+                            ))
+                        .toList(),
                     const SizedBox(height: 32),
                   ],
-                  
+
                   // Payment button
                   ElevatedButton(
                     onPressed: _isLoading ? null : _processPayment,
@@ -248,7 +248,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
                         : const Text(
@@ -259,9 +260,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             ),
                           ),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // No payment methods available message
                   if (_availablePaymentMethods.isEmpty)
                     Card(
@@ -294,9 +295,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ),
                       ),
                     ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Terms and security info
                   const Text(
                     'By subscribing, you agree to our Terms of Service and Privacy Policy. Your payment information is processed securely and we never store your payment details.',

@@ -110,66 +110,54 @@ class FirebaseMockFactory {
       'subscriptionEndDate': DateTime.now().add(const Duration(days: 30)),
       'monthlyPrice': 3.0,
     });
-
-    // Add test suggestions
-    firestore.collection('suggestions').doc('suggestion-1').set({
-      'title': 'Complete Your Profile',
-      'description': 'Add your skills to get better job matches',
-      'category': 'onboarding',
-      'targetAudience': 'new_users',
-      'language': 'en',
-      'actionType': 'navigate',
-      'actionData': {'route': '/profile'},
-      'priority': 1,
-      'isActive': true,
-      'createdAt': DateTime.now(),
-    });
   }
 }
 
 /// Common Firebase exception scenarios for testing
 class FirebaseExceptionScenarios {
   static FirebaseAuthException get userNotFound => FirebaseAuthException(
-    code: 'user-not-found',
-    message: 'No user found for that email.',
-  );
+        code: 'user-not-found',
+        message: 'No user found for that email.',
+      );
 
   static FirebaseAuthException get wrongPassword => FirebaseAuthException(
-    code: 'wrong-password',
-    message: 'Wrong password provided for that user.',
-  );
+        code: 'wrong-password',
+        message: 'Wrong password provided for that user.',
+      );
 
   static FirebaseAuthException get emailAlreadyInUse => FirebaseAuthException(
-    code: 'email-already-in-use',
-    message: 'The account already exists for that email.',
-  );
+        code: 'email-already-in-use',
+        message: 'The account already exists for that email.',
+      );
 
   static FirebaseAuthException get weakPassword => FirebaseAuthException(
-    code: 'weak-password',
-    message: 'The password provided is too weak.',
-  );
+        code: 'weak-password',
+        message: 'The password provided is too weak.',
+      );
 
   static FirebaseAuthException get invalidEmail => FirebaseAuthException(
-    code: 'invalid-email',
-    message: 'The email address is not valid.',
-  );
+        code: 'invalid-email',
+        message: 'The email address is not valid.',
+      );
 
-  static FirebaseAuthException get networkRequestFailed => FirebaseAuthException(
-    code: 'network-request-failed',
-    message: 'A network error has occurred.',
-  );
+  static FirebaseAuthException get networkRequestFailed =>
+      FirebaseAuthException(
+        code: 'network-request-failed',
+        message: 'A network error has occurred.',
+      );
 
   static FirebaseException get firestorePermissionDenied => FirebaseException(
-    plugin: 'cloud_firestore',
-    code: 'permission-denied',
-    message: 'The caller does not have permission to execute the specified operation.',
-  );
+        plugin: 'cloud_firestore',
+        code: 'permission-denied',
+        message:
+            'The caller does not have permission to execute the specified operation.',
+      );
 
   static FirebaseException get firestoreUnavailable => FirebaseException(
-    plugin: 'cloud_firestore',
-    code: 'unavailable',
-    message: 'The service is currently unavailable.',
-  );
+        plugin: 'cloud_firestore',
+        code: 'unavailable',
+        message: 'The service is currently unavailable.',
+      );
 }
 
 /// Helper class for creating fake query snapshots

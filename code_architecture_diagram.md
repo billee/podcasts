@@ -64,8 +64,6 @@ graph TB
         subgraph "💬 Conversation Services"
             CONV_SVC[conversation_service.dart<br/>Chat Management<br/>Summarization]
             SYSTEM_PROMPT[system_prompt_service.dart<br/>Optimized Prompts]
-            SUGGESTION_SVC[suggestion_service.dart<br/>Chat Suggestions]
-            ENHANCED_SUG[enhanced_suggestion_service.dart]
             VIOLATION_LOG[violation_logging_service.dart<br/>Content Moderation]
         end
         
@@ -114,7 +112,7 @@ graph TB
         subgraph "💬 Chat Widgets"
             CHAT_BUBBLE[chat_bubble.dart<br/>Message Display]
             TYPING_IND[typing_indicator.dart<br/>Loading Animation]
-            SUGGESTION_CHIP[suggestion_chip.dart<br/>Quick Replies]
+
         end
         
         subgraph "💳 Subscription Widgets"

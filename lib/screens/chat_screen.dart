@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async'; // Import for TimeoutException
-import 'package:kapwa_companion_basic/services/suggestion_service.dart';
+
 import 'package:logging/logging.dart';
 import 'package:kapwa_companion_basic/services/audio_service.dart'; // Keep import
 import 'package:kapwa_companion_basic/services/system_prompt_service.dart';
@@ -63,7 +63,8 @@ class _ChatScreenState extends State<ChatScreen>
 
   /// Check for violation flags in LLM response and log them
   /// Returns true if violation was detected and conversation should be reset
-  Future<bool> _checkAndLogViolations(String userMessage, String llmResponse) async {
+  Future<bool> _checkAndLogViolations(
+      String userMessage, String llmResponse) async {
     if (widget.userId == null) {
       _logger.warning('Cannot check violations: userId is null');
       return false;
@@ -71,23 +72,24 @@ class _ChatScreenState extends State<ChatScreen>
 
     _logger.info('🔍 SCANNING for violation flags in response...');
     _logger.info('Response length: ${llmResponse.length} characters');
-    
+
     // Check for any bracket patterns first
     final anyBrackets = RegExp(r'\[[^\]]*\]');
     final allBrackets = anyBrackets.allMatches(llmResponse);
-    _logger.info('Found ${allBrackets.length} bracket patterns: ${allBrackets.map((m) => m.group(0)).toList()}');
+    _logger.info(
+        'Found ${allBrackets.length} bracket patterns: ${allBrackets.map((m) => m.group(0)).toList()}');
 
     final flagPattern = RegExp(r'\[FLAG:([A-Z_]+)\]');
     final match = flagPattern.firstMatch(llmResponse);
-    
+
     if (match != null) {
       final violationType = match.group(1)!;
       final fullFlag = match.group(0)!;
-      
+
       _logger.warning('🚨 VIOLATION FLAG DETECTED: $fullFlag');
       _logger.warning('🚨 Violation type: $violationType');
       _logger.warning('🚨 Flag position: ${match.start}-${match.end}');
-      
+
       try {
         await ViolationLoggingService.logViolation(
           userId: widget.userId!,
@@ -96,18 +98,19 @@ class _ChatScreenState extends State<ChatScreen>
           llmResponse: llmResponse,
         );
         _logger.warning('✅ Violation successfully logged to Firestore');
-        
+
         // Handle violation by removing inappropriate messages and showing warning
         await _handleViolationMessage();
         _logger.warning('🚨 Violation handled: inappropriate messages removed');
-        
+
         return true; // Violation detected
       } catch (e) {
         _logger.severe('❌ Failed to log violation to Firestore: $e');
         return false;
       }
     } else {
-      _logger.info('❌ NO VIOLATION FLAGS FOUND - LLM did not flag this message');
+      _logger
+          .info('❌ NO VIOLATION FLAGS FOUND - LLM did not flag this message');
       _logger.info('This might indicate:');
       _logger.info('1. Message was not actually inappropriate');
       _logger.info('2. LLM is not following flag instructions');
@@ -131,26 +134,27 @@ class _ChatScreenState extends State<ChatScreen>
           _messages.removeLast(); // Remove LLM's flagged response
           _messages.removeLast(); // Remove user's inappropriate message
         }
-        
+
         // Add a warning message from the assistant
         _messages.add({
           "role": "assistant",
-          "content": "You violated our terms and conditions po. Please keep our conversation respectful and appropriate. Let's continue with a different topic.",
+          "content":
+              "You violated our terms and conditions po. Please keep our conversation respectful and appropriate. Let's continue with a different topic.",
           "senderName": _assistantName,
-          "isWarning": true, // Mark this as a warning message for potential styling
+          "isWarning":
+              true, // Mark this as a warning message for potential styling
         });
       });
-      
-      _logger.info('🚨 Violation handled: Inappropriate messages removed and warning shown');
+
+      _logger.info(
+          '🚨 Violation handled: Inappropriate messages removed and warning shown');
     } catch (e) {
       _logger.severe('❌ Error handling violation message: $e');
     }
   }
-  String? _currentSummary;
+
   String _assistantName = "Maria";
-  bool _suggestionsLoading = true;
-  List<String> _allSuggestions = [];
-  List<String> _currentSuggestions = [];
+  String? _currentSummary;
 
   final int _summaryThreshold = 20; // TEMPORARILY SET TO 6 FOR MANUAL TESTING
   int _conversationPairs = 0;
@@ -174,7 +178,6 @@ class _ChatScreenState extends State<ChatScreen>
     _logger.info('ChatScreen initState called.');
     _checkViolationStatus();
     _loadLatestSummary();
-    _loadSuggestions();
     // IMPORTANT: Removed _initializeAudioService() call, as it's handled globally in main.dart
   }
 
@@ -188,12 +191,15 @@ class _ChatScreenState extends State<ChatScreen>
     }
 
     try {
-      final shouldShowWarning = await ViolationCheckService.shouldShowViolationWarning(widget.userId!);
+      final shouldShowWarning =
+          await ViolationCheckService.shouldShowViolationWarning(
+              widget.userId!);
       setState(() {
         _violationCheckComplete = true;
         _showViolationWarning = shouldShowWarning;
       });
-      _logger.info('Violation check complete. Show warning: $shouldShowWarning');
+      _logger
+          .info('Violation check complete. Show warning: $shouldShowWarning');
     } catch (e) {
       _logger.severe('Error checking violation status: $e');
       setState(() {
@@ -294,32 +300,38 @@ class _ChatScreenState extends State<ChatScreen>
           'ChatScreen: Sending messages for summarization: ${messagesForSummary.length} messages');
 
       // Use ConversationService method with token tracking
-      final newCumulativeSummary = await ConversationService.generateSummaryWithTokenTracking(
-        messagesForSummary, 
-        null // Don't record tokens here, we'll handle it manually
-      );
+      final newCumulativeSummary =
+          await ConversationService.generateSummaryWithTokenTracking(
+              messagesForSummary,
+              null // Don't record tokens here, we'll handle it manually
+              );
 
       if (newCumulativeSummary != null) {
         // Calculate summarization tokens
-        final summaryInputTokens = TokenCounter.countRealInputTokens(messagesForSummary);
-        final summaryOutputTokens = TokenCounter.countOutputTokens(newCumulativeSummary);
+        final summaryInputTokens =
+            TokenCounter.countRealInputTokens(messagesForSummary);
+        final summaryOutputTokens =
+            TokenCounter.countOutputTokens(newCumulativeSummary);
         final totalSummaryTokens = summaryInputTokens + summaryOutputTokens;
-        
+
         // Calculate total tokens for this complete exchange (main + summarization)
         final totalExchangeTokens = mainExchangeTokens + totalSummaryTokens;
-        
-        _logger.info('Complete exchange tokens - Main: $mainExchangeTokens, Summary: $totalSummaryTokens, Total: $totalExchangeTokens');
+
+        _logger.info(
+            'Complete exchange tokens - Main: $mainExchangeTokens, Summary: $totalSummaryTokens, Total: $totalExchangeTokens');
 
         // Record the additional summarization tokens
         if (widget.userId != null) {
-          await TokenLimitService.recordTokenUsage(widget.userId!, totalSummaryTokens);
-          
+          await TokenLimitService.recordTokenUsage(
+              widget.userId!, totalSummaryTokens);
+
           // Update the UI state to show complete exchange total
           setState(() {
             _lastExchangeTokens = totalExchangeTokens;
           });
-          
-          _logger.info('Updated display to show complete exchange tokens: $totalExchangeTokens');
+
+          _logger.info(
+              'Updated display to show complete exchange tokens: $totalExchangeTokens');
         }
 
         _logger.info('New cumulative summary generated: $newCumulativeSummary');
@@ -381,10 +393,9 @@ class _ChatScreenState extends State<ChatScreen>
           'ChatScreen: Sending messages for summarization: ${messagesForSummary.length} messages');
 
       // Use ConversationService method with token tracking
-      final newCumulativeSummary = await ConversationService.generateSummaryWithTokenTracking(
-        messagesForSummary, 
-        widget.userId
-      );
+      final newCumulativeSummary =
+          await ConversationService.generateSummaryWithTokenTracking(
+              messagesForSummary, widget.userId);
 
       if (newCumulativeSummary != null) {
         _logger.info('New cumulative summary generated: $newCumulativeSummary');
@@ -452,45 +463,9 @@ class _ChatScreenState extends State<ChatScreen>
             'Trimmed messages to ${_messages.length} after summarization');
       }
     }
-    
+
     // Scroll to bottom after trimming messages
     _scrollToBottom();
-  }
-
-  Future<void> _loadSuggestions() async {
-    setState(() {
-      _suggestionsLoading = true;
-    });
-    try {
-      List<String> suggestions = await SuggestionService.getSuggestions();
-      List<String> cleanSuggestions =
-          suggestions.where((s) => s.isNotEmpty).toSet().toList();
-      setState(() {
-        _allSuggestions = cleanSuggestions;
-        _suggestionsLoading = false;
-      });
-      _refreshSuggestions();
-    } catch (e) {
-      _logger.severe('Error loading suggestions: $e');
-      setState(() {
-        _suggestionsLoading = false;
-        _allSuggestions = ["Hello!", "How are you?", "Tell me more."];
-      });
-    }
-  }
-
-  void _refreshSuggestions() {
-    setState(() {
-      if (_allSuggestions.isNotEmpty) {
-        _allSuggestions.shuffle();
-        _currentSuggestions = _allSuggestions.length >= 3
-            ? _allSuggestions.sublist(0, 3)
-            : _allSuggestions;
-      } else {
-        _currentSuggestions = [];
-      }
-      _logger.info('Refreshed suggestions. Current: $_currentSuggestions');
-    });
   }
 
   Future<void> _sendMessage(String message) async {
@@ -539,18 +514,19 @@ class _ChatScreenState extends State<ChatScreen>
       _logger.info('=== VIOLATION CHECK START ===');
       _logger.info('User message: "$message"');
       _logger.info('Raw LLM response: "$llmResponse"');
-      
+
       // Check for violation flags and log them
-      final violationDetected = await _checkAndLogViolations(message, llmResponse);
-      
+      final violationDetected =
+          await _checkAndLogViolations(message, llmResponse);
+
       // Remove violation flags from response before showing to user
       final cleanResponse = _cleanViolationFlags(llmResponse);
       _logger.info('Clean response (shown to user): "$cleanResponse"');
       _logger.info('Violation detected: $violationDetected');
       _logger.info('=== VIOLATION CHECK END ===');
-      
+
       llmResponse = cleanResponse;
-      
+
       setState(() {
         _messages.last = {
           "role": "assistant",
@@ -558,7 +534,7 @@ class _ChatScreenState extends State<ChatScreen>
           "senderName": _assistantName
         };
         _isTyping = false;
-        
+
         // Only increment conversation pairs if no violation was detected
         // If violation was detected, conversation was already reset
         if (!violationDetected) {
@@ -569,8 +545,9 @@ class _ChatScreenState extends State<ChatScreen>
       // Record REAL total token usage (input + output tokens)
       if (widget.userId != null) {
         await TokenLimitService.recordTokenUsage(widget.userId!, totalTokens);
-        _logger.info('Recorded REAL tokens for user ${widget.userId}: Input: $realInputTokens, Output: $outputTokens, Total: $totalTokens');
-        
+        _logger.info(
+            'Recorded REAL tokens for user ${widget.userId}: Input: $realInputTokens, Output: $outputTokens, Total: $totalTokens');
+
         // Update the UI state to show tokens used in this exchange
         setState(() {
           _lastExchangeTokens = totalTokens;
@@ -584,14 +561,16 @@ class _ChatScreenState extends State<ChatScreen>
       _scrollToBottom();
 
       // Only trigger summarization if no violation was detected
-      if (!violationDetected && _conversationPairs >= 6) { // OPTIMIZED: 6 pairs for aggressive summarization
+      if (!violationDetected && _conversationPairs >= 6) {
+        // OPTIMIZED: 6 pairs for aggressive summarization
         _logger.info(
             'Conversation pair threshold reached ($_conversationPairs >= 6). Triggering summarization in background.');
         _generateSummaryAndUpdateTokens(totalTokens).catchError((error) {
           _logger.severe('Background summarization failed: $error');
         });
       } else if (violationDetected) {
-        _logger.info('Skipping summarization due to violation - conversation was reset');
+        _logger.info(
+            'Skipping summarization due to violation - conversation was reset');
       }
     } catch (e) {
       _logger.severe('Error sending message or getting LLM response: $e');
@@ -603,15 +582,16 @@ class _ChatScreenState extends State<ChatScreen>
         };
         _isTyping = false;
       });
-      
+
       // Still record token usage even if LLM call fails, since user input was processed
       if (widget.userId != null) {
         // For errors, we can only count the user input tokens since we don't have the full context
-        await TokenLimitService.recordTokenUsage(widget.userId!, userInputTokens);
-        _logger.info('Recorded $userInputTokens tokens for user ${widget.userId} (despite LLM error)');
+        await TokenLimitService.recordTokenUsage(
+            widget.userId!, userInputTokens);
+        _logger.info(
+            'Recorded $userInputTokens tokens for user ${widget.userId} (despite LLM error)');
       }
     }
-    _refreshSuggestions();
   }
 
   Future<Map<String, dynamic>> _callLLMWithTokenTracking(String message) async {
@@ -654,7 +634,8 @@ class _ChatScreenState extends State<ChatScreen>
       // Count REAL input tokens (everything sent to OpenAI)
       final realInputTokens = TokenCounter.countRealInputTokens(messagesForLLM);
       _logger.info('REAL input tokens sent to OpenAI: $realInputTokens');
-      _logger.info('System prompt being sent: ${messagesForLLM.first['content']}');
+      _logger
+          .info('System prompt being sent: ${messagesForLLM.first['content']}');
 
       final response = await http
           .post(
@@ -667,11 +648,11 @@ class _ChatScreenState extends State<ChatScreen>
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final llmResponse = data['response'] as String;
-        
+
         // Count output tokens (LLM response)
         final outputTokens = TokenCounter.countOutputTokens(llmResponse);
         _logger.info('Output tokens from OpenAI: $outputTokens');
-        
+
         return {
           'response': llmResponse,
           'inputTokens': realInputTokens,
@@ -783,10 +764,11 @@ class _ChatScreenState extends State<ChatScreen>
   /// Show dialog when user reaches daily token limit
   void _showTokenLimitReachedDialog() async {
     if (widget.userId == null) return;
-    
+
     try {
-      final usageInfo = await TokenLimitService.getUserUsageInfo(widget.userId!);
-      
+      final usageInfo =
+          await TokenLimitService.getUserUsageInfo(widget.userId!);
+
       if (mounted) {
         await ChatLimitDialog.show(
           context,
@@ -806,7 +788,8 @@ class _ChatScreenState extends State<ChatScreen>
           builder: (BuildContext context) {
             return AlertDialog(
               title: const Text('Daily Token Limits'),
-              content: const Text('You have reached your daily chat limit. Please try again tomorrow.'),
+              content: const Text(
+                  'You have reached your daily chat limit. Please try again tomorrow.'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
@@ -823,7 +806,7 @@ class _ChatScreenState extends State<ChatScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    
+
     // Show loading while checking violation status
     if (!_violationCheckComplete) {
       return Scaffold(
@@ -843,7 +826,7 @@ class _ChatScreenState extends State<ChatScreen>
         ),
       );
     }
-    
+
     // Show violation warning if needed
     if (_showViolationWarning && widget.userId != null) {
       return ViolationWarningScreen(
@@ -855,26 +838,20 @@ class _ChatScreenState extends State<ChatScreen>
         },
       );
     }
-    
+
     // Show normal chat screen
     return ChatScreenView(
       messageController: _messageController,
       scrollController: _scrollController,
       messages: _messages,
       isTyping: _isTyping,
-      currentSuggestions: _currentSuggestions,
-      suggestionsLoading: _suggestionsLoading,
       onSendMessage: _sendMessage,
       onClearChat: clearChat,
       conversationPairs: _conversationPairs,
       assistantName: _assistantName,
       username: widget.username,
       userId: widget.userId,
-      lastExchangeTokens: _lastExchangeTokens, // Pass the real-time token count
-      onSuggestionSelected: (suggestion) {
-        _messageController.text = suggestion;
-        _sendMessage(suggestion);
-      },
+      lastExchangeTokens: _lastExchangeTokens,
     );
   }
 }
