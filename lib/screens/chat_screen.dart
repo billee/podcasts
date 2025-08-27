@@ -444,7 +444,7 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   void _trimMessagesAfterSummarization() {
-    if (_messages.length <= 11) return;
+    if (_messages.length <= 7) return;
 
     int systemMessageIndex = _messages.indexWhere((msg) =>
         msg['role'] == 'system' &&
@@ -456,9 +456,9 @@ class _ChatScreenState extends State<ChatScreen>
           .where((msg) => msg['role'] == 'user' || msg['role'] == 'assistant')
           .toList();
 
-      if (conversationMessages.length > 10) {
+      if (conversationMessages.length > 6) {
         List<Map<String, dynamic>> recentConversation =
-            conversationMessages.sublist(conversationMessages.length - 10);
+            conversationMessages.sublist(conversationMessages.length - 6);
 
         _messages = [_messages[systemMessageIndex], ...recentConversation];
 
@@ -955,7 +955,10 @@ class _ChatScreenState extends State<ChatScreen>
           .post(
             Uri.parse('${AppConfig.backendBaseUrl}/chat'),
             headers: {'Content-Type': 'application/json'},
-            body: json.encode({'messages': messagesForLLM}),
+            body: json.encode({
+              'messages': messagesForLLM,
+              'max_tokens': 60  // Limit response to ~60 tokens for optimization
+            }),
           )
           .timeout(const Duration(seconds: 60));
 

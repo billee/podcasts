@@ -466,7 +466,7 @@ def get_subscription_health():
 # CHAT AND AI ROUTES (from your existing app.py)
 # ============================================================================
 
-def call_openai_llm(messages_for_llm):
+def call_openai_llm(messages_for_llm, max_tokens=800):
     try:
         start_time = time.time()
         
@@ -476,11 +476,13 @@ def call_openai_llm(messages_for_llm):
             if 'FLAG:' in system_content:
                 app.logger.info("🔍 System prompt contains FLAG instructions")
         
+        app.logger.info(f"🔧 Using max_tokens: {max_tokens} for response optimization")
+        
         chat_completion = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages_for_llm,
             temperature=0.1,  # Very low temperature for consistent violation detection
-            max_tokens=800,   # Increased to prevent response cutoff
+            max_tokens=max_tokens,   # Dynamic max_tokens for optimization
         )
         llm_response = chat_completion.choices[0].message.content
         end_time = time.time()
@@ -509,6 +511,8 @@ def call_openai_llm(messages_for_llm):
 def chat():
     data = request.json
     messages = data.get('messages')
+    max_tokens = data.get('max_tokens', 800)  # Default to 800 if not specified
+    
     if not messages:
         return jsonify({"error": "No messages provided"}), 400
 
@@ -522,7 +526,7 @@ def chat():
     if not openai_messages:
         return jsonify({"error": "No valid messages for LLM"}), 400
 
-    llm_response = call_openai_llm(openai_messages)
+    llm_response = call_openai_llm(openai_messages, max_tokens)
     return jsonify({"response": llm_response})
 
 @app.route('/health')
@@ -594,7 +598,7 @@ Focus only on emotional state and main topics discussed."""}
     if not previous_summary_content and not conversation_messages_for_llm:
         return jsonify({"summary": "No sufficient conversation to summarize."})
 
-    summary = call_openai_llm(summary_prompt_messages)
+    summary = call_openai_llm(summary_prompt_messages, max_tokens=100)  # Limit summary to ~100 tokens
     summary = summary.replace('\n', ' ').strip()
     
     print("\n--- LLM RETURNED CUMULATIVE SUMMARY (CLEANED) ---")
