@@ -35,7 +35,7 @@ class ViolationWarningScreen extends StatelessWidget {
         if (!data.containsKey('shown_at')) {
           batch.update(doc.reference, {
             'shown_at': FieldValue.serverTimestamp(),
-            'resolved': true, // Mark as resolved when user acknowledges warning
+            // Do NOT mark as resolved - violations should remain unresolved to count towards ban threshold
           });
           updatedCount++;
         }
@@ -57,11 +57,10 @@ class ViolationWarningScreen extends StatelessWidget {
 
   Future<void> _checkAndBanFromRenewals() async {
     try {
-      // Get total violation count for this user
+      // Get total violation count for this user (all violations, not just unresolved)
       final allViolationsQuery = await FirebaseFirestore.instance
           .collection('user_violations')
           .where('userId', isEqualTo: userId)
-          .where('resolved', isEqualTo: false)
           .get();
 
       final violationCount = allViolationsQuery.docs.length;

@@ -472,8 +472,9 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   /// Check if trial user has reached violation threshold and ban them
-  Future<void> _checkTrialViolationsBeforeSending() async {
-    if (widget.userId == null) return;
+  /// Returns true if user was banned, false otherwise
+  Future<bool> _checkTrialViolationsBeforeSending() async {
+    if (widget.userId == null) return false;
 
     try {
       // Check if user is in trial period
@@ -482,10 +483,14 @@ class _ChatScreenState extends State<ChatScreen>
       
       if (subscriptionStatus != SubscriptionStatus.trial) {
         _logger.info('User ${widget.userId} is not in trial period, skipping violation check');
-        return; // Only check violations for trial users
+        return false; // Only check violations for trial users
       }
 
       // Get violation count for trial user
+      _logger.info('🔍 QUERYING user_violations collection for userId: ${widget.userId}');
+      _logger.info('🔍 UserId type: ${widget.userId.runtimeType}');
+      _logger.info('🔍 UserId length: ${widget.userId!.length}');
+      
       final violationQuery = await FirebaseFirestore.instance
           .collection('user_violations')
           .where('userId', isEqualTo: widget.userId!)
@@ -493,7 +498,37 @@ class _ChatScreenState extends State<ChatScreen>
           .get();
 
       final violationCount = violationQuery.docs.length;
-      _logger.info('Trial user ${widget.userId} has $violationCount violations');
+      _logger.info('🔍 VIOLATION COUNT CHECK: Trial user ${widget.userId} has $violationCount violations');
+      
+      // Debug: Show all violations found
+      _logger.info('🔍 VIOLATIONS FOUND: ${violationQuery.docs.length} documents');
+      for (int i = 0; i < violationQuery.docs.length; i++) {
+        final doc = violationQuery.docs[i];
+        final data = doc.data();
+        _logger.info('🔍 Violation $i: ${data['violationType']} - ${data['userMessage']} - resolved: ${data['resolved']}');
+      }
+      
+      // Also check ALL violations for this user (including resolved ones)
+      final allViolationsQuery = await FirebaseFirestore.instance
+          .collection('user_violations')
+          .where('userId', isEqualTo: widget.userId!)
+          .get();
+      _logger.info('🔍 TOTAL VIOLATIONS (including resolved): ${allViolationsQuery.docs.length}');
+      
+      // Debug: Let's also check what violations exist in the entire collection
+      final allViolationsInDb = await FirebaseFirestore.instance
+          .collection('user_violations')
+          .limit(10)
+          .get();
+      _logger.info('🔍 SAMPLE VIOLATIONS IN DATABASE: ${allViolationsInDb.docs.length} documents');
+      for (int i = 0; i < allViolationsInDb.docs.length; i++) {
+        final doc = allViolationsInDb.docs[i];
+        final data = doc.data();
+        _logger.info('🔍 Sample violation $i: userId="${data['userId']}" (type: ${data['userId'].runtimeType}) - violationType: ${data['violationType']} - resolved: ${data['resolved']}');
+      }
+      
+      _logger.info('🔍 THRESHOLD: ${AppConfig.violationThresholdForBan}');
+      _logger.info('🔍 SHOULD BAN: ${violationCount >= AppConfig.violationThresholdForBan}');
 
       if (violationCount >= AppConfig.violationThresholdForBan) {
         _logger.warning('Trial user ${widget.userId} has $violationCount violations (threshold: ${AppConfig.violationThresholdForBan}) - banning user and showing banned screen');
@@ -509,18 +544,27 @@ class _ChatScreenState extends State<ChatScreen>
         await _markTrialAsBanned(widget.userId!);
         
         // Show banned user screen
+        _logger.warning('🚨 ATTEMPTING TO SHOW BANNED SCREEN - mounted: $mounted');
         if (mounted) {
-          Navigator.of(context).pushReplacement(
+          _logger.warning('🚨 NAVIGATING TO BANNED SCREEN NOW');
+          await Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (context) => BannedUserScreen(
                 userId: widget.userId!,
               ),
             ),
           );
+          _logger.warning('🚨 NAVIGATION TO BANNED SCREEN COMPLETED');
+        } else {
+          _logger.severe('🚨 CANNOT NAVIGATE - WIDGET NOT MOUNTED');
         }
+        return true; // User was banned
       }
+      
+      return false; // User was not banned
     } catch (e) {
       _logger.severe('Error checking trial violations for user ${widget.userId}: $e');
+      return false;
     }
   }
 
@@ -593,7 +637,10 @@ class _ChatScreenState extends State<ChatScreen>
         return; // Exit early if banned
       }
 
-      // 2. Check for unshown violation warnings (for both trial and subscription users)
+      // 2. Check if trial user should be banned due to violation threshold
+      await _checkTrialViolationThresholdForBan();
+
+      // 3. Check for unshown violation warnings (for both trial and subscription users)
       // Skip this check if a violation was just detected in the current message
       if (!skipViolationCheck) {
         await _checkForUnshownViolations();
@@ -602,6 +649,69 @@ class _ChatScreenState extends State<ChatScreen>
       }
     } catch (e) {
       _logger.severe('Error in post-message checks for user ${widget.userId}: $e');
+    }
+  }
+
+  /// Check if trial user has reached violation threshold and should be banned
+  Future<void> _checkTrialViolationThresholdForBan() async {
+    if (widget.userId == null) return;
+
+    try {
+      // Check if user is in trial period
+      final subscriptionStatus = await SubscriptionService.getSubscriptionStatus(widget.userId!);
+      _logger.info('Checking ban threshold for user ${widget.userId} with subscription status: $subscriptionStatus');
+      
+      if (subscriptionStatus != SubscriptionStatus.trial) {
+        _logger.info('User ${widget.userId} is not in trial period, skipping violation threshold check');
+        return; // Only check violations for trial users
+      }
+
+      // Get violation count for trial user
+      _logger.info('🔍 POST-CHECK: QUERYING user_violations collection for userId: ${widget.userId}');
+      final violationQuery = await FirebaseFirestore.instance
+          .collection('user_violations')
+          .where('userId', isEqualTo: widget.userId!)
+          .where('resolved', isEqualTo: false)
+          .get();
+
+      final violationCount = violationQuery.docs.length;
+      _logger.info('🔍 POST-CHECK: Trial user ${widget.userId} has $violationCount violations (threshold: ${AppConfig.violationThresholdForBan})');
+      
+      // Debug: Show all violations found
+      _logger.info('🔍 POST-CHECK: VIOLATIONS FOUND: ${violationQuery.docs.length} documents');
+      for (int i = 0; i < violationQuery.docs.length; i++) {
+        final doc = violationQuery.docs[i];
+        final data = doc.data();
+        _logger.info('🔍 POST-CHECK: Violation $i: ${data['violationType']} - ${data['userMessage']} - resolved: ${data['resolved']}');
+      }
+
+      if (violationCount >= AppConfig.violationThresholdForBan) {
+        _logger.warning('Trial user ${widget.userId} has reached violation threshold ($violationCount >= ${AppConfig.violationThresholdForBan}) - banning user and showing banned screen');
+        
+        // Ban the user
+        await BanService.banUser(
+          widget.userId!, 
+          'Automatic ban due to $violationCount violations during trial period',
+          adminId: 'system'
+        );
+        
+        // Mark trial history as banned
+        await _markTrialAsBanned(widget.userId!);
+        
+        // Show banned user screen
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => BannedUserScreen(
+                userId: widget.userId!,
+              ),
+            ),
+          );
+        }
+        return; // Exit early after banning
+      }
+    } catch (e) {
+      _logger.severe('Error checking trial violation threshold for user ${widget.userId}: $e');
     }
   }
 
@@ -646,11 +756,19 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   Future<void> _sendMessage(String message) async {
+    _logger.info('🚀 _sendMessage called with message: "$message", userId: ${widget.userId}');
     if (message.trim().isEmpty) return;
 
     // Check for violations if user is in trial period
     if (widget.userId != null) {
-      await _checkTrialViolationsBeforeSending();
+      _logger.info('🔍 CHECKING VIOLATIONS BEFORE SENDING MESSAGE for user ${widget.userId}');
+      final userWasBanned = await _checkTrialViolationsBeforeSending();
+      _logger.info('🔍 BAN CHECK RESULT: userWasBanned = $userWasBanned');
+      if (userWasBanned) {
+        _logger.warning('🚨 USER WAS BANNED - STOPPING MESSAGE PROCESSING');
+        return; // Stop processing if user was banned
+      }
+      _logger.info('✅ USER NOT BANNED - CONTINUING WITH MESSAGE PROCESSING');
     }
 
     // Pre-chat validation: Check if user can send messages
@@ -712,20 +830,24 @@ class _ChatScreenState extends State<ChatScreen>
 
       llmResponse = cleanResponse;
 
-      setState(() {
-        _messages.last = {
-          "role": "assistant",
-          "content": llmResponse,
-          "senderName": _assistantName
-        };
-        _isTyping = false;
-
-        // Only increment conversation pairs if no violation was detected
-        // If violation was detected, conversation was already reset
-        if (!violationDetected) {
+      // Only update UI if no violation was detected
+      // If violation was detected, _handleViolationMessage() already handled the UI
+      if (!violationDetected) {
+        setState(() {
+          _messages.last = {
+            "role": "assistant",
+            "content": llmResponse,
+            "senderName": _assistantName
+          };
+          _isTyping = false;
           _conversationPairs++;
-        }
-      });
+        });
+      } else {
+        // For violations, just stop the typing indicator
+        setState(() {
+          _isTyping = false;
+        });
+      }
 
       // Record REAL total token usage (input + output tokens)
       if (widget.userId != null) {
