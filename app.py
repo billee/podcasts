@@ -469,15 +469,35 @@ def get_subscription_health():
 def call_openai_llm(messages_for_llm):
     try:
         start_time = time.time()
+        
+        # Log the system prompt for debugging
+        if messages_for_llm and messages_for_llm[0].get('role') == 'system':
+            system_content = messages_for_llm[0].get('content', '')
+            if 'FLAG:' in system_content:
+                app.logger.info("🔍 System prompt contains FLAG instructions")
+        
         chat_completion = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages_for_llm,
-            temperature=0.7,
-            max_tokens=500,
+            temperature=0.1,  # Very low temperature for consistent violation detection
+            max_tokens=800,   # Increased to prevent response cutoff
         )
         llm_response = chat_completion.choices[0].message.content
         end_time = time.time()
         app.logger.info(f"OpenAI LLM call took {end_time - start_time:.2f} seconds.")
+        
+        # Log if response contains FLAG patterns for debugging
+        if "FLAG:" in llm_response:
+            app.logger.info(f"🚨 VIOLATION DETECTED: {llm_response}")
+        else:
+            # Check if the user message might have been a violation
+            user_messages = [msg for msg in messages_for_llm if msg.get('role') == 'user']
+            if user_messages:
+                last_user_msg = user_messages[-1].get('content', '').lower()
+                violation_keywords = ['stupid', 'idiot', 'hate', 'kill', 'die', 'fuck', 'shit']
+                if any(keyword in last_user_msg for keyword in violation_keywords):
+                    app.logger.warning(f"⚠️ Potential violation not flagged: {last_user_msg}")
+        
         return llm_response
     except Exception as e:
         app.logger.error(f"Error calling OpenAI LLM: {e}")
