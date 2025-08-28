@@ -18,6 +18,7 @@ import 'package:kapwa_companion_basic/services/conversation_service.dart';
 import 'package:kapwa_companion_basic/services/violation_logging_service.dart';
 import 'package:kapwa_companion_basic/services/violation_check_service.dart';
 import 'package:kapwa_companion_basic/screens/violation_warning_screen.dart';
+import 'package:kapwa_companion_basic/services/input_validation_service.dart';
 import 'package:kapwa_companion_basic/screens/banned_user_screen.dart';
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
 import 'package:kapwa_companion_basic/services/ban_service.dart';
@@ -179,6 +180,11 @@ class _ChatScreenState extends State<ChatScreen>
   void initState() {
     super.initState();
     _logger.info('ChatScreen initState called.');
+    
+    // One-time fix for existing violations (remove this after running once)
+    // Uncomment the next line to fix existing violations, then comment it back out
+    // _fixExistingViolations();
+    
     _checkViolationStatus();
     _loadLatestSummary();
     // IMPORTANT: Removed _initializeAudioService() call, as it's handled globally in main.dart
@@ -194,21 +200,48 @@ class _ChatScreenState extends State<ChatScreen>
     }
 
     try {
+      _logger.info('Starting violation status check for user: ${widget.userId}');
+      
       final shouldShowWarning =
           await ViolationCheckService.shouldShowViolationWarning(
               widget.userId!);
+      
+      _logger.info('Violation check result: shouldShowWarning = $shouldShowWarning');
+      
       setState(() {
         _violationCheckComplete = true;
         _showViolationWarning = shouldShowWarning;
       });
-      _logger
-          .info('Violation check complete. Show warning: $shouldShowWarning');
+      
+      _logger.info('Violation check complete. Show warning: $shouldShowWarning');
     } catch (e) {
       _logger.severe('Error checking violation status: $e');
       setState(() {
         _violationCheckComplete = true;
         _showViolationWarning = false;
       });
+    }
+  }
+
+  /// Temporary method to fix existing violations (can be called once to fix the issue)
+  Future<void> _fixExistingViolations() async {
+    if (widget.userId == null) return;
+    
+    _logger.info('Fixing existing violations for user: ${widget.userId}');
+    await ViolationCheckService.markAllExistingViolationsAsShown(widget.userId!);
+    
+    // Re-check violation status after fixing
+    await _checkViolationStatus();
+  }
+
+  /// System-wide fix for all users (call this once to fix the issue globally)
+  Future<void> _fixAllExistingViolations() async {
+    _logger.info('Starting system-wide violation fix...');
+    await ViolationCheckService.fixAllExistingViolations();
+    
+    // Re-check violation status after fixing
+    if (widget.userId != null) {
+      await _checkViolationStatus();
     }
   }
 
@@ -759,6 +792,25 @@ class _ChatScreenState extends State<ChatScreen>
     _logger.info('🚀 _sendMessage called with message: "$message", userId: ${widget.userId}');
     if (message.trim().isEmpty) return;
 
+    // 🛡️ SECURITY: Validate and sanitize input first
+    if (widget.userId != null) {
+      final validationResult = InputValidationService.validateAndSanitize(message, widget.userId!);
+      if (!validationResult.isValid) {
+        _logger.warning('❌ Input validation failed for user ${widget.userId}: ${validationResult.errorMessage}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(validationResult.errorMessage ?? 'Invalid message'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+      // Use sanitized message from here on
+      message = validationResult.message;
+      _logger.info('✅ Input validation passed, using sanitized message: "$message"');
+    }
+
     // Check for violations if user is in trial period
     if (widget.userId != null) {
       _logger.info('🔍 CHECKING VIOLATIONS BEFORE SENDING MESSAGE for user ${widget.userId}');
@@ -957,7 +1009,8 @@ class _ChatScreenState extends State<ChatScreen>
             headers: {'Content-Type': 'application/json'},
             body: json.encode({
               'messages': messagesForLLM,
-              'max_tokens': 60  // Limit response to ~60 tokens for optimization
+              'max_tokens': 60,  // Limit response to ~60 tokens for optimization
+              'user_id': widget.userId  // Send user ID for backend rate limiting
             }),
           )
           .timeout(const Duration(seconds: 60));

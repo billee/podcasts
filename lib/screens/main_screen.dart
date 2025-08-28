@@ -14,6 +14,7 @@ import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:kapwa_companion_basic/services/subscription_service.dart';
 import 'package:kapwa_companion_basic/services/payment_service.dart';
 import 'package:kapwa_companion_basic/services/ban_service.dart';
+import 'package:kapwa_companion_basic/services/input_validation_service.dart';
 import 'package:kapwa_companion_basic/screens/banned_user_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show compute;
@@ -46,6 +47,11 @@ class MainScreenState extends State<MainScreen> {
       _logger.info('Initializing services...');
       await PaymentService.initialize();
       _logger.info('Payment service initialized successfully');
+      
+      // Initialize input validation periodic cleanup
+      InputValidationService.initializePeriodicCleanup();
+      _logger.info('Input validation service initialized');
+      
       await initializeUserAndScreens();
     } catch (e) {
       _logger.severe('Error initializing services: $e');

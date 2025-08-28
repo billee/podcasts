@@ -28,6 +28,13 @@ class AppConfig {
   
   // Audio content limits for trial users
   static const int trialUserPodcastLimit = 2;  // First 2 podcast audios only
+  
+  // Input validation configuration
+  static const int maxMessageLength = 2000;
+  static const int minMessageLength = 1;
+  static const int maxMessagesPerMinute = 10;
+  static const Duration rateLimitWindow = Duration(minutes: 1);
+  static const bool inputValidationEnabled = true;
   static const int trialUserStoryLimit = 2;    // First 2 story audios only
   
   // Violation threshold configuration

@@ -512,21 +512,21 @@ def chat():
     data = request.json
     messages = data.get('messages')
     max_tokens = data.get('max_tokens', 800)  # Default to 800 if not specified
+    user_id = data.get('user_id')  # Optional user ID for rate limiting
     
     if not messages:
         return jsonify({"error": "No messages provided"}), 400
 
-    openai_messages = []
-    for msg in messages:
-        role = msg.get('role')
-        content = msg.get('content')
-        if role and content:
-            openai_messages.append({"role": role, "content": content})
+    # 🛡️ SECURITY: Validate and sanitize input
+    is_valid, sanitized_messages, error_message = validate_and_sanitize_input(messages, user_id)
+    if not is_valid:
+        app.logger.warning(f"Input validation failed: {error_message}")
+        return jsonify({"error": error_message}), 400
 
-    if not openai_messages:
+    if not sanitized_messages:
         return jsonify({"error": "No valid messages for LLM"}), 400
 
-    llm_response = call_openai_llm(openai_messages, max_tokens)
+    llm_response = call_openai_llm(sanitized_messages, max_tokens)
     return jsonify({"response": llm_response})
 
 @app.route('/health')
@@ -608,6 +608,134 @@ Focus only on emotional state and main topics discussed."""}
     return jsonify({"summary": summary})
 
 
+
+# ============================================================================
+# INPUT VALIDATION AND SECURITY FUNCTIONS
+# ============================================================================
+
+import re
+import html
+from datetime import datetime, timedelta
+
+# Rate limiting storage (in production, use Redis)
+user_message_times = {}
+
+def validate_and_sanitize_input(messages, user_id=None):
+    """
+    Validate and sanitize input messages for security
+    Returns (is_valid, sanitized_messages, error_message)
+    """
+    try:
+        # Configuration
+        MAX_MESSAGE_LENGTH = 2000
+        MAX_MESSAGES_PER_MINUTE = 10
+        RATE_LIMIT_WINDOW = timedelta(minutes=1)
+        
+        # Suspicious patterns
+        suspicious_patterns = [
+            # HTML/Script injection
+            re.compile(r'<script[^>]*>.*?</script>', re.IGNORECASE),
+            re.compile(r'<iframe[^>]*>.*?</iframe>', re.IGNORECASE),
+            re.compile(r'javascript:', re.IGNORECASE),
+            re.compile(r'vbscript:', re.IGNORECASE),
+            re.compile(r'onload\s*=', re.IGNORECASE),
+            re.compile(r'onerror\s*=', re.IGNORECASE),
+            
+            # SQL injection patterns
+            re.compile(r'(union\s+select|drop\s+table|delete\s+from)', re.IGNORECASE),
+            re.compile(r'(insert\s+into|update\s+set|alter\s+table)', re.IGNORECASE),
+            
+            # Prompt injection attempts
+            re.compile(r'ignore\s+(previous|all)\s+instructions?', re.IGNORECASE),
+            re.compile(r'system\s*:\s*you\s+are', re.IGNORECASE),
+            re.compile(r'forget\s+(everything|all|your\s+role)', re.IGNORECASE),
+            re.compile(r'act\s+as\s+(if\s+you\s+are|a)', re.IGNORECASE),
+            
+            # Excessive special characters
+            re.compile(r'[<>{}[\]\\]{5,}'),
+            re.compile(r'[%]{3,}'),
+            re.compile(r'[&]{3,}'),
+        ]
+        
+        # Rate limiting check
+        if user_id:
+            now = datetime.now()
+            user_times = user_message_times.get(user_id, [])
+            
+            # Remove old timestamps
+            user_times = [t for t in user_times if now - t <= RATE_LIMIT_WINDOW]
+            
+            if len(user_times) >= MAX_MESSAGES_PER_MINUTE:
+                app.logger.warning(f"Rate limit exceeded for user: {user_id}")
+                return False, [], "Rate limit exceeded. Please wait before sending another message."
+            
+            # Record current message time
+            user_times.append(now)
+            user_message_times[user_id] = user_times
+        
+        sanitized_messages = []
+        
+        for msg in messages:
+            content = msg.get('content', '')
+            role = msg.get('role', '')
+            
+            # Skip system messages from validation (they're controlled by us)
+            if role == 'system':
+                sanitized_messages.append(msg)
+                continue
+            
+            # Length validation
+            if len(content) > MAX_MESSAGE_LENGTH:
+                app.logger.warning(f"Message too long: {len(content)} characters")
+                return False, [], f"Message too long. Maximum {MAX_MESSAGE_LENGTH} characters allowed."
+            
+            # Check for suspicious patterns
+            for pattern in suspicious_patterns:
+                if pattern.search(content):
+                    app.logger.warning(f"Suspicious pattern detected: {pattern.pattern}")
+                    return False, [], "Message contains prohibited content. Please rephrase."
+            
+            # Sanitize content
+            sanitized_content = sanitize_message_content(content)
+            
+            sanitized_messages.append({
+                "role": role,
+                "content": sanitized_content
+            })
+        
+        app.logger.info(f"Input validation successful for {len(messages)} messages")
+        return True, sanitized_messages, None
+        
+    except Exception as e:
+        app.logger.error(f"Error during input validation: {e}")
+        return False, [], "Input validation failed. Please try again."
+
+def sanitize_message_content(content):
+    """Sanitize message content by escaping dangerous characters"""
+    # HTML escape
+    sanitized = html.escape(content)
+    
+    # Remove null bytes and control characters
+    sanitized = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', sanitized)
+    
+    # Normalize whitespace
+    sanitized = re.sub(r'\s+', ' ', sanitized).strip()
+    
+    return sanitized
+
+def cleanup_rate_limit_data():
+    """Clean up old rate limit data to prevent memory leaks"""
+    now = datetime.now()
+    rate_limit_window = timedelta(minutes=1)
+    
+    for user_id in list(user_message_times.keys()):
+        user_times = user_message_times[user_id]
+        user_times = [t for t in user_times if now - t <= rate_limit_window]
+        
+        if user_times:
+            user_message_times[user_id] = user_times
+        else:
+            del user_message_times[user_id]
 
 # ============================================================================
 # HELPER FUNCTIONS FOR ADMIN DASHBOARD
@@ -2787,5 +2915,18 @@ def calculate_subscription_growth_trends(subscriptions):
         return []
 
 if __name__ == '__main__':
+    # Start periodic cleanup task for rate limiting data
+    import threading
+    import time
+    
+    def periodic_cleanup():
+        while True:
+            time.sleep(300)  # Clean up every 5 minutes
+            cleanup_rate_limit_data()
+            app.logger.info("Rate limit data cleanup completed")
+    
+    cleanup_thread = threading.Thread(target=periodic_cleanup, daemon=True)
+    cleanup_thread.start()
+    
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
