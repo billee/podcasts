@@ -1,0 +1,17 @@
+title: Your Book Title
+author: Your Name
+publisher: Your Imprint
+language: en
+subject: Fiction
+rights: "© 2025 Your Name. All rights reserved."
+description: >-
+  A short description that appears in the Kindle store and metadata.
+isbn: ""
+cover-image: assets/images/cover.jpg
+
+toc-title: Contents
+css: styles/ebook.css
+
+
+
+

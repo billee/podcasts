@@ -25,6 +25,8 @@ Language Detection: Ensure messages are in expected languages
 Prompt Injection Detection: Specifically look for LLM manipulation attempts
 Encoding Detection: Check for base64, URL encoding, or other obfuscation
 
+==============
+
 3. LLM Security (Prompt Injection Protection)
 System Prompt Security:
 Prompt Isolation: Clearly separate system instructions from user input

@@ -74,27 +74,199 @@ class _ChatScreenState extends State<ChatScreen>
       return false;
     }
 
-    _logger.info('🔍 SCANNING for violation flags in response...');
-    _logger.info('Response length: ${llmResponse.length} characters');
-
-    // Check for any bracket patterns first
-    final anyBrackets = RegExp(r'\[[^\]]*\]');
-    final allBrackets = anyBrackets.allMatches(llmResponse);
+    _logger.info('=== VIOLATION CHECK DEBUG ===');
+    _logger.info('User message: "$userMessage"');
+    _logger.info('LLM Response: "$llmResponse"');
+    _logger.info('Response length: ${llmResponse.length}');
+    _logger.info('Response contains "Sorry": ${llmResponse.contains('Sorry')}');
     _logger.info(
-        'Found ${allBrackets.length} bracket patterns: ${allBrackets.map((m) => m.group(0)).toList()}');
+        'Response contains "flagged": ${llmResponse.contains('flagged')}');
+    _logger.info(
+        'Response starts with warning: ${llmResponse.startsWith('⚠️ Sorry')}');
+    _logger.info(
+        'Contains sexual: ${llmResponse.toLowerCase().contains('sexual')}');
+    _logger
+        .info('Contains abuse: ${llmResponse.toLowerCase().contains('abuse')}');
 
-    final flagPattern = RegExp(r'\[FLAG:([A-Z_]+)\]');
-    final match = flagPattern.firstMatch(llmResponse);
+    // Check if the response indicates the message was flagged by moderation
+    // More robust checking that handles potential encoding differences
+    bool isFlagged = llmResponse.contains(
+            'Sorry, I can\'t continue because the message was flagged') ||
+        llmResponse.contains(
+            '⚠️ Sorry, I can\'t continue because the message was flagged') ||
+        llmResponse.startsWith('⚠️ Sorry, I can\'t continue') ||
+        llmResponse.startsWith('Sorry, I can\'t continue') ||
+        (llmResponse.contains('flagged') && llmResponse.contains('Sorry'));
 
-    if (match != null) {
-      final violationType = match.group(1)!;
-      final fullFlag = match.group(0)!;
+    _logger.info('Is flagged response: $isFlagged');
 
-      _logger.warning('🚨 VIOLATION FLAG DETECTED: $fullFlag');
-      _logger.warning('🚨 Violation type: $violationType');
-      _logger.warning('🚨 Flag position: ${match.start}-${match.end}');
+    // ADDING FRONTEND PRELIMINARY MODERATION CHECK AS BACKUP
+    // This provides an additional layer of protection if backend fails
+    _logger.info('=== FRONTEND PRELIMINARY MODERATION CHECK ===');
+    String userMessageLower = userMessage.toLowerCase().trim();
+    _logger.info('Frontend check - User message lower: "$userMessageLower"');
+
+    // Mental health crisis expressions (suicide/self-harm intentions)
+    List<String> mentalHealthKeywords = [
+      // English keywords indicating suicide/self-harm intent
+      'i want to kill myself', 'i want to die', 'i am going to kill myself',
+      'i am going to die', 'kill myself', 'end my life', 'end it all',
+      'suicide', 'commit suicide', 'take my own life', 'no reason to live',
+      'want to die', 'going to end it', 'self harm', 'cut myself',
+      // Tagalog keywords indicating suicide/self-harm intent
+      'gusto kong mamatay', 'gusto kong patayin ang sarili ko',
+      'papatayin ko ang sarili ko', 'wala nang kwenta ang buhay ko',
+      'wala akong pakialam', 'puputulin ko ang aking braso',
+      'gagawin ko ang suicide', 'patay na ako', 'wala na akong buhay'
+    ];
+
+    bool frontendMentalHealthViolation = false;
+    for (String keyword in mentalHealthKeywords) {
+      if (userMessageLower.contains(keyword)) {
+        _logger.warning(
+            'FRONTEND CHECK - MENTAL_HEALTH violation detected: "$keyword" found in "$userMessage"');
+        frontendMentalHealthViolation = true;
+        break;
+      }
+    }
+
+    // If mental health violation detected, handle it with special care
+    if (frontendMentalHealthViolation) {
+      _logger.warning(
+          'FRONTEND CHECK - ⚠️ Message flagged by frontend preliminary check: MENTAL_HEALTH');
 
       try {
+        // Log the violation to Firestore
+        await ViolationLoggingService.logViolation(
+          userId: widget.userId!,
+          violationType: 'MENTAL_HEALTH',
+          userMessage: userMessage,
+          llmResponse: llmResponse,
+        );
+        _logger.warning(
+            '✅ Mental health violation successfully logged to Firestore by frontend check');
+
+        // Handle mental health violation with special message
+        await _handleMentalHealthViolation();
+        _logger.warning('🚨 Mental health violation handled by frontend check');
+
+        return true; // Violation detected
+      } catch (e) {
+        _logger.severe(
+            '❌ Failed to log mental health violation to Firestore in frontend check: $e');
+        return false;
+      }
+    }
+
+    // Obvious sexual content requests (English and Tagalog)
+    List<String> sexualKeywords = [
+      // English keywords
+      'send me nudes', 'send nudes', 'nudes please', 'naked pics',
+      'sex pics', 'sexy photos', 'explicit photos',
+      // Tagalog keywords for sexual content
+      'ipakita mo sa akin ang iyong katawan',
+      'magpadala ng mga larawan ng katawan',
+      'larawan ng hubad', 'larawan ng sekso', 'ipakita ang iyong mga nudes'
+    ];
+
+    bool frontendSexualViolation = false;
+    for (String keyword in sexualKeywords) {
+      if (userMessageLower.contains(keyword)) {
+        _logger.warning(
+            'FRONTEND CHECK - SEXUAL violation detected: "$keyword" found in "$userMessage"');
+        frontendSexualViolation = true;
+        break;
+      }
+    }
+
+    // Obvious abuse/hate speech (English and Tagalog)
+    List<String> abuseKeywords = [
+      // English keywords
+      'fuck you', 'shit head', 'stupid idiot', 'die idiot',
+      'you are stupid', 'i hate you', 'hate you', 'you suck',
+      'idiot', 'stupid', 'dumb', 'worthless',
+      // Tagalog keywords for abuse/hate speech
+      'gago ka', 'gago ka talaga', 'tanga ka', 'bobo ka', 'ulol ka',
+      'hindot ka', 'puta ka', 'tang ina mo', 'fuck you', 'shit ka',
+      'walang kwenta', 'bubu mo', 'bobo mo', 'tanga mo', 'gaga mo',
+      'hinayupak ka', 'pucha ka', 'pokpok ka', 'lintek ka'
+    ];
+
+    bool frontendAbuseViolation = false;
+    // Check for exact match first
+    if (abuseKeywords.contains(userMessageLower)) {
+      _logger.warning(
+          'FRONTEND CHECK - ABUSE violation detected: exact match "$userMessageLower"');
+      frontendAbuseViolation = true;
+    } else {
+      // Check for word boundaries to avoid partial matches
+      for (String keyword in abuseKeywords) {
+        if (userMessageLower.contains(" $keyword ") ||
+            userMessageLower.startsWith("$keyword ") ||
+            userMessageLower.endsWith(" $keyword")) {
+          _logger.warning(
+              'FRONTEND CHECK - ABUSE violation detected: "$keyword" found in "$userMessage"');
+          frontendAbuseViolation = true;
+          break;
+        }
+      }
+    }
+
+    // If frontend detects a violation, handle it even if backend didn't flag it
+    if (frontendSexualViolation || frontendAbuseViolation) {
+      String violationType = frontendSexualViolation ? 'SEXUAL' : 'ABUSE';
+      _logger.warning(
+          'FRONTEND CHECK - ⚠️ Message flagged by frontend preliminary check: $violationType');
+
+      try {
+        // Log the violation to Firestore
+        await ViolationLoggingService.logViolation(
+          userId: widget.userId!,
+          violationType: violationType,
+          userMessage: userMessage,
+          llmResponse: llmResponse,
+        );
+        _logger.warning(
+            '✅ Violation successfully logged to Firestore by frontend check');
+
+        // Handle violation by showing appropriate message
+        await _handleViolationMessage();
+        _logger.warning(
+            '🚨 Violation handled by frontend check: inappropriate messages removed');
+
+        return true; // Violation detected
+      } catch (e) {
+        _logger.severe(
+            '❌ Failed to log violation to Firestore in frontend check: $e');
+        return false;
+      }
+    }
+
+    _logger.info(
+        'FRONTEND CHECK - No violations detected in frontend preliminary check');
+
+    if (isFlagged) {
+      _logger.warning('🚨 Message flagged by moderation: $llmResponse');
+
+      try {
+        // Extract violation type from the message
+        String violationType = 'MODERATION';
+        if (llmResponse.contains('MENTAL_HEALTH') ||
+            llmResponse.toLowerCase().contains('mental health')) {
+          violationType = 'MENTAL_HEALTH';
+        } else if (llmResponse.contains('SEXUAL') ||
+            llmResponse.toLowerCase().contains('sexual')) {
+          violationType = 'SEXUAL';
+        } else if (llmResponse.contains('ABUSE') ||
+            llmResponse.toLowerCase().contains('abuse')) {
+          violationType = 'ABUSE';
+        } else if (llmResponse.contains('inappropriate')) {
+          violationType = 'INAPPROPRIATE';
+        }
+
+        _logger.info('Extracted violation type: $violationType');
+
+        // Log the violation to Firestore
         await ViolationLoggingService.logViolation(
           userId: widget.userId!,
           violationType: violationType,
@@ -103,8 +275,12 @@ class _ChatScreenState extends State<ChatScreen>
         );
         _logger.warning('✅ Violation successfully logged to Firestore');
 
-        // Handle violation by removing inappropriate messages and showing warning
-        await _handleViolationMessage();
+        // Handle violation by showing appropriate message
+        if (violationType == 'MENTAL_HEALTH') {
+          await _handleMentalHealthViolation();
+        } else {
+          await _handleViolationMessage();
+        }
         _logger.warning('🚨 Violation handled: inappropriate messages removed');
 
         return true; // Violation detected
@@ -113,19 +289,15 @@ class _ChatScreenState extends State<ChatScreen>
         return false;
       }
     } else {
-      _logger
-          .info('❌ NO VIOLATION FLAGS FOUND - LLM did not flag this message');
-      _logger.info('This might indicate:');
-      _logger.info('1. Message was not actually inappropriate');
-      _logger.info('2. LLM is not following flag instructions');
-      _logger.info('3. Flag format is incorrect');
+      _logger.info('✅ No violations detected by moderation');
       return false; // No violation detected
     }
   }
 
   /// Remove violation flags from LLM response before showing to user
   String _cleanViolationFlags(String response) {
-    return response.replaceAll(RegExp(r'\[FLAG:[A-Z_]+\]'), '').trim();
+    // No need to clean flags since we're using OpenAI's moderation
+    return response;
   }
 
   /// Handle violation by removing the inappropriate message and showing warning
@@ -157,6 +329,35 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
+  /// Handle mental health crisis by removing the message and showing appropriate resources
+  /// This removes the user's concerning message and LLM's response from conversation
+  /// and provides mental health resources
+  Future<void> _handleMentalHealthViolation() async {
+    try {
+      setState(() {
+        // Remove the last two messages (user's concerning message + LLM's response)
+        if (_messages.length >= 2) {
+          _messages.removeLast(); // Remove LLM's response
+          _messages.removeLast(); // Remove user's concerning message
+        }
+
+        // Add a caring message from the assistant with mental health resources
+        _messages.add({
+          "role": "assistant",
+          "content":
+              "I'm really concerned about you po. Please reach out for professional help immediately. Here are some resources: National Center for Mental Health Crisis Hotline: 0917-888-8888 or call 911. You are not alone, and help is available.",
+          "senderName": _assistantName,
+          "isWarning": true,
+        });
+      });
+
+      _logger.info(
+          '🚨 Mental health violation handled: Concerning messages removed and resources provided');
+    } catch (e) {
+      _logger.severe('❌ Error handling mental health violation message: $e');
+    }
+  }
+
   String _assistantName = "Maria";
   String? _currentSummary;
 
@@ -180,11 +381,11 @@ class _ChatScreenState extends State<ChatScreen>
   void initState() {
     super.initState();
     _logger.info('ChatScreen initState called.');
-    
+
     // One-time fix for existing violations (remove this after running once)
     // Uncomment the next line to fix existing violations, then comment it back out
     // _fixExistingViolations();
-    
+
     _checkViolationStatus();
     _loadLatestSummary();
     // IMPORTANT: Removed _initializeAudioService() call, as it's handled globally in main.dart
@@ -200,20 +401,23 @@ class _ChatScreenState extends State<ChatScreen>
     }
 
     try {
-      _logger.info('Starting violation status check for user: ${widget.userId}');
-      
+      _logger
+          .info('Starting violation status check for user: ${widget.userId}');
+
       final shouldShowWarning =
           await ViolationCheckService.shouldShowViolationWarning(
               widget.userId!);
-      
-      _logger.info('Violation check result: shouldShowWarning = $shouldShowWarning');
-      
+
+      _logger.info(
+          'Violation check result: shouldShowWarning = $shouldShowWarning');
+
       setState(() {
         _violationCheckComplete = true;
         _showViolationWarning = shouldShowWarning;
       });
-      
-      _logger.info('Violation check complete. Show warning: $shouldShowWarning');
+
+      _logger
+          .info('Violation check complete. Show warning: $shouldShowWarning');
     } catch (e) {
       _logger.severe('Error checking violation status: $e');
       setState(() {
@@ -226,10 +430,11 @@ class _ChatScreenState extends State<ChatScreen>
   /// Temporary method to fix existing violations (can be called once to fix the issue)
   Future<void> _fixExistingViolations() async {
     if (widget.userId == null) return;
-    
+
     _logger.info('Fixing existing violations for user: ${widget.userId}');
-    await ViolationCheckService.markAllExistingViolationsAsShown(widget.userId!);
-    
+    await ViolationCheckService.markAllExistingViolationsAsShown(
+        widget.userId!);
+
     // Re-check violation status after fixing
     await _checkViolationStatus();
   }
@@ -238,7 +443,7 @@ class _ChatScreenState extends State<ChatScreen>
   Future<void> _fixAllExistingViolations() async {
     _logger.info('Starting system-wide violation fix...');
     await ViolationCheckService.fixAllExistingViolations();
-    
+
     // Re-check violation status after fixing
     if (widget.userId != null) {
       await _checkViolationStatus();
@@ -511,19 +716,23 @@ class _ChatScreenState extends State<ChatScreen>
 
     try {
       // Check if user is in trial period
-      final subscriptionStatus = await SubscriptionService.getSubscriptionStatus(widget.userId!);
-      _logger.info('User ${widget.userId} subscription status: $subscriptionStatus');
-      
+      final subscriptionStatus =
+          await SubscriptionService.getSubscriptionStatus(widget.userId!);
+      _logger.info(
+          'User ${widget.userId} subscription status: $subscriptionStatus');
+
       if (subscriptionStatus != SubscriptionStatus.trial) {
-        _logger.info('User ${widget.userId} is not in trial period, skipping violation check');
+        _logger.info(
+            'User ${widget.userId} is not in trial period, skipping violation check');
         return false; // Only check violations for trial users
       }
 
       // Get violation count for trial user
-      _logger.info('🔍 QUERYING user_violations collection for userId: ${widget.userId}');
+      _logger.info(
+          '🔍 QUERYING user_violations collection for userId: ${widget.userId}');
       _logger.info('🔍 UserId type: ${widget.userId.runtimeType}');
       _logger.info('🔍 UserId length: ${widget.userId!.length}');
-      
+
       final violationQuery = await FirebaseFirestore.instance
           .collection('user_violations')
           .where('userId', isEqualTo: widget.userId!)
@@ -531,53 +740,60 @@ class _ChatScreenState extends State<ChatScreen>
           .get();
 
       final violationCount = violationQuery.docs.length;
-      _logger.info('🔍 VIOLATION COUNT CHECK: Trial user ${widget.userId} has $violationCount violations');
-      
+      _logger.info(
+          '🔍 VIOLATION COUNT CHECK: Trial user ${widget.userId} has $violationCount violations');
+
       // Debug: Show all violations found
-      _logger.info('🔍 VIOLATIONS FOUND: ${violationQuery.docs.length} documents');
+      _logger
+          .info('🔍 VIOLATIONS FOUND: ${violationQuery.docs.length} documents');
       for (int i = 0; i < violationQuery.docs.length; i++) {
         final doc = violationQuery.docs[i];
         final data = doc.data();
-        _logger.info('🔍 Violation $i: ${data['violationType']} - ${data['userMessage']} - resolved: ${data['resolved']}');
+        _logger.info(
+            '🔍 Violation $i: ${data['violationType']} - ${data['userMessage']} - resolved: ${data['resolved']}');
       }
-      
+
       // Also check ALL violations for this user (including resolved ones)
       final allViolationsQuery = await FirebaseFirestore.instance
           .collection('user_violations')
           .where('userId', isEqualTo: widget.userId!)
           .get();
-      _logger.info('🔍 TOTAL VIOLATIONS (including resolved): ${allViolationsQuery.docs.length}');
-      
+      _logger.info(
+          '🔍 TOTAL VIOLATIONS (including resolved): ${allViolationsQuery.docs.length}');
+
       // Debug: Let's also check what violations exist in the entire collection
       final allViolationsInDb = await FirebaseFirestore.instance
           .collection('user_violations')
           .limit(10)
           .get();
-      _logger.info('🔍 SAMPLE VIOLATIONS IN DATABASE: ${allViolationsInDb.docs.length} documents');
+      _logger.info(
+          '🔍 SAMPLE VIOLATIONS IN DATABASE: ${allViolationsInDb.docs.length} documents');
       for (int i = 0; i < allViolationsInDb.docs.length; i++) {
         final doc = allViolationsInDb.docs[i];
         final data = doc.data();
-        _logger.info('🔍 Sample violation $i: userId="${data['userId']}" (type: ${data['userId'].runtimeType}) - violationType: ${data['violationType']} - resolved: ${data['resolved']}');
+        _logger.info(
+            '🔍 Sample violation $i: userId="${data['userId']}" (type: ${data['userId'].runtimeType}) - violationType: ${data['violationType']} - resolved: ${data['resolved']}');
       }
-      
+
       _logger.info('🔍 THRESHOLD: ${AppConfig.violationThresholdForBan}');
-      _logger.info('🔍 SHOULD BAN: ${violationCount >= AppConfig.violationThresholdForBan}');
+      _logger.info(
+          '🔍 SHOULD BAN: ${violationCount >= AppConfig.violationThresholdForBan}');
 
       if (violationCount >= AppConfig.violationThresholdForBan) {
-        _logger.warning('Trial user ${widget.userId} has $violationCount violations (threshold: ${AppConfig.violationThresholdForBan}) - banning user and showing banned screen');
-        
+        _logger.warning(
+            'Trial user ${widget.userId} has $violationCount violations (threshold: ${AppConfig.violationThresholdForBan}) - banning user and showing banned screen');
+
         // Ban the user
-        await BanService.banUser(
-          widget.userId!, 
-          'Automatic ban due to $violationCount violations during trial period',
-          adminId: 'system'
-        );
-        
+        await BanService.banUser(widget.userId!,
+            'Automatic ban due to $violationCount violations during trial period',
+            adminId: 'system');
+
         // Mark trial history as banned
         await _markTrialAsBanned(widget.userId!);
-        
+
         // Show banned user screen
-        _logger.warning('🚨 ATTEMPTING TO SHOW BANNED SCREEN - mounted: $mounted');
+        _logger
+            .warning('🚨 ATTEMPTING TO SHOW BANNED SCREEN - mounted: $mounted');
         if (mounted) {
           _logger.warning('🚨 NAVIGATING TO BANNED SCREEN NOW');
           await Navigator.of(context).pushReplacement(
@@ -593,10 +809,11 @@ class _ChatScreenState extends State<ChatScreen>
         }
         return true; // User was banned
       }
-      
+
       return false; // User was not banned
     } catch (e) {
-      _logger.severe('Error checking trial violations for user ${widget.userId}: $e');
+      _logger.severe(
+          'Error checking trial violations for user ${widget.userId}: $e');
       return false;
     }
   }
@@ -609,20 +826,22 @@ class _ChatScreenState extends State<ChatScreen>
           .collection('users')
           .doc(userId)
           .get();
-      
+
       if (!userDoc.exists) {
-        _logger.warning('User document not found for $userId, cannot mark trial as banned');
+        _logger.warning(
+            'User document not found for $userId, cannot mark trial as banned');
         return;
       }
-      
+
       final userData = userDoc.data() as Map<String, dynamic>;
       final userEmail = userData['email'] as String?;
-      
+
       if (userEmail == null) {
-        _logger.warning('User email not found for $userId, cannot mark trial as banned');
+        _logger.warning(
+            'User email not found for $userId, cannot mark trial as banned');
         return;
       }
-      
+
       // Find and update the trial history record
       final trialQuery = await FirebaseFirestore.instance
           .collection('trial_history')
@@ -630,17 +849,20 @@ class _ChatScreenState extends State<ChatScreen>
           .where('email', isEqualTo: userEmail)
           .limit(1)
           .get();
-      
+
       if (trialQuery.docs.isNotEmpty) {
         final trialDoc = trialQuery.docs.first;
         await trialDoc.reference.update({
           'banned_at': FieldValue.serverTimestamp(),
-          'ban_reason': 'Automatic ban due to ${AppConfig.violationThresholdForBan}+ violations during trial period',
+          'ban_reason':
+              'Automatic ban due to ${AppConfig.violationThresholdForBan}+ violations during trial period',
         });
-        
-        _logger.info('Marked trial history as banned for user $userId (email: $userEmail)');
+
+        _logger.info(
+            'Marked trial history as banned for user $userId (email: $userEmail)');
       } else {
-        _logger.warning('No trial history found for user $userId (email: $userEmail), cannot mark as banned');
+        _logger.warning(
+            'No trial history found for user $userId (email: $userEmail), cannot mark as banned');
       }
     } catch (e) {
       _logger.severe('Error marking trial as banned for user $userId: $e');
@@ -648,16 +870,19 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   /// Perform post-message checks for ban status and unshown violations
-  Future<void> _performPostMessageChecks({bool skipViolationCheck = false}) async {
+  Future<void> _performPostMessageChecks(
+      {bool skipViolationCheck = false}) async {
     if (widget.userId == null) return;
 
     try {
-      _logger.info('Performing post-message checks for user ${widget.userId} (skipViolationCheck: $skipViolationCheck)');
+      _logger.info(
+          'Performing post-message checks for user ${widget.userId} (skipViolationCheck: $skipViolationCheck)');
 
       // 1. Check if user is banned (for both trial and subscription users)
       final isBanned = await BanService.isUserBanned(widget.userId!);
       if (isBanned) {
-        _logger.warning('User ${widget.userId} is banned - showing banned screen');
+        _logger
+            .warning('User ${widget.userId} is banned - showing banned screen');
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
@@ -678,10 +903,12 @@ class _ChatScreenState extends State<ChatScreen>
       if (!skipViolationCheck) {
         await _checkForUnshownViolations();
       } else {
-        _logger.info('Skipping unshown violation check because violation was detected in current message');
+        _logger.info(
+            'Skipping unshown violation check because violation was detected in current message');
       }
     } catch (e) {
-      _logger.severe('Error in post-message checks for user ${widget.userId}: $e');
+      _logger
+          .severe('Error in post-message checks for user ${widget.userId}: $e');
     }
   }
 
@@ -691,16 +918,20 @@ class _ChatScreenState extends State<ChatScreen>
 
     try {
       // Check if user is in trial period
-      final subscriptionStatus = await SubscriptionService.getSubscriptionStatus(widget.userId!);
-      _logger.info('Checking ban threshold for user ${widget.userId} with subscription status: $subscriptionStatus');
-      
+      final subscriptionStatus =
+          await SubscriptionService.getSubscriptionStatus(widget.userId!);
+      _logger.info(
+          'Checking ban threshold for user ${widget.userId} with subscription status: $subscriptionStatus');
+
       if (subscriptionStatus != SubscriptionStatus.trial) {
-        _logger.info('User ${widget.userId} is not in trial period, skipping violation threshold check');
+        _logger.info(
+            'User ${widget.userId} is not in trial period, skipping violation threshold check');
         return; // Only check violations for trial users
       }
 
       // Get violation count for trial user
-      _logger.info('🔍 POST-CHECK: QUERYING user_violations collection for userId: ${widget.userId}');
+      _logger.info(
+          '🔍 POST-CHECK: QUERYING user_violations collection for userId: ${widget.userId}');
       final violationQuery = await FirebaseFirestore.instance
           .collection('user_violations')
           .where('userId', isEqualTo: widget.userId!)
@@ -708,29 +939,31 @@ class _ChatScreenState extends State<ChatScreen>
           .get();
 
       final violationCount = violationQuery.docs.length;
-      _logger.info('🔍 POST-CHECK: Trial user ${widget.userId} has $violationCount violations (threshold: ${AppConfig.violationThresholdForBan})');
-      
+      _logger.info(
+          '🔍 POST-CHECK: Trial user ${widget.userId} has $violationCount violations (threshold: ${AppConfig.violationThresholdForBan})');
+
       // Debug: Show all violations found
-      _logger.info('🔍 POST-CHECK: VIOLATIONS FOUND: ${violationQuery.docs.length} documents');
+      _logger.info(
+          '🔍 POST-CHECK: VIOLATIONS FOUND: ${violationQuery.docs.length} documents');
       for (int i = 0; i < violationQuery.docs.length; i++) {
         final doc = violationQuery.docs[i];
         final data = doc.data();
-        _logger.info('🔍 POST-CHECK: Violation $i: ${data['violationType']} - ${data['userMessage']} - resolved: ${data['resolved']}');
+        _logger.info(
+            '🔍 POST-CHECK: Violation $i: ${data['violationType']} - ${data['userMessage']} - resolved: ${data['resolved']}');
       }
 
       if (violationCount >= AppConfig.violationThresholdForBan) {
-        _logger.warning('Trial user ${widget.userId} has reached violation threshold ($violationCount >= ${AppConfig.violationThresholdForBan}) - banning user and showing banned screen');
-        
+        _logger.warning(
+            'Trial user ${widget.userId} has reached violation threshold ($violationCount >= ${AppConfig.violationThresholdForBan}) - banning user and showing banned screen');
+
         // Ban the user
-        await BanService.banUser(
-          widget.userId!, 
-          'Automatic ban due to $violationCount violations during trial period',
-          adminId: 'system'
-        );
-        
+        await BanService.banUser(widget.userId!,
+            'Automatic ban due to $violationCount violations during trial period',
+            adminId: 'system');
+
         // Mark trial history as banned
         await _markTrialAsBanned(widget.userId!);
-        
+
         // Show banned user screen
         if (mounted) {
           Navigator.of(context).pushReplacement(
@@ -744,7 +977,8 @@ class _ChatScreenState extends State<ChatScreen>
         return; // Exit early after banning
       }
     } catch (e) {
-      _logger.severe('Error checking trial violation threshold for user ${widget.userId}: $e');
+      _logger.severe(
+          'Error checking trial violation threshold for user ${widget.userId}: $e');
     }
   }
 
@@ -767,7 +1001,8 @@ class _ChatScreenState extends State<ChatScreen>
       }).toList();
 
       if (unshownViolations.isNotEmpty) {
-        _logger.info('User ${widget.userId} has ${unshownViolations.length} unshown violations - showing warning screen');
+        _logger.info(
+            'User ${widget.userId} has ${unshownViolations.length} unshown violations - showing warning screen');
         if (mounted) {
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -784,19 +1019,23 @@ class _ChatScreenState extends State<ChatScreen>
         _logger.info('No unshown violations found for user ${widget.userId}');
       }
     } catch (e) {
-      _logger.severe('Error checking unshown violations for user ${widget.userId}: $e');
+      _logger.severe(
+          'Error checking unshown violations for user ${widget.userId}: $e');
     }
   }
 
   Future<void> _sendMessage(String message) async {
-    _logger.info('🚀 _sendMessage called with message: "$message", userId: ${widget.userId}');
+    _logger.info(
+        '🚀 _sendMessage called with message: "$message", userId: ${widget.userId}');
     if (message.trim().isEmpty) return;
 
     // 🛡️ SECURITY: Validate and sanitize input first
     if (widget.userId != null) {
-      final validationResult = InputValidationService.validateAndSanitize(message, widget.userId!);
+      final validationResult =
+          InputValidationService.validateAndSanitize(message, widget.userId!);
       if (!validationResult.isValid) {
-        _logger.warning('❌ Input validation failed for user ${widget.userId}: ${validationResult.errorMessage}');
+        _logger.warning(
+            '❌ Input validation failed for user ${widget.userId}: ${validationResult.errorMessage}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(validationResult.errorMessage ?? 'Invalid message'),
@@ -808,12 +1047,14 @@ class _ChatScreenState extends State<ChatScreen>
       }
       // Use sanitized message from here on
       message = validationResult.message;
-      _logger.info('✅ Input validation passed, using sanitized message: "$message"');
+      _logger.info(
+          '✅ Input validation passed, using sanitized message: "$message"');
     }
 
     // Check for violations if user is in trial period
     if (widget.userId != null) {
-      _logger.info('🔍 CHECKING VIOLATIONS BEFORE SENDING MESSAGE for user ${widget.userId}');
+      _logger.info(
+          '🔍 CHECKING VIOLATIONS BEFORE SENDING MESSAGE for user ${widget.userId}');
       final userWasBanned = await _checkTrialViolationsBeforeSending();
       _logger.info('🔍 BAN CHECK RESULT: userWasBanned = $userWasBanned');
       if (userWasBanned) {
@@ -870,9 +1111,18 @@ class _ChatScreenState extends State<ChatScreen>
       _logger.info('User message: "$message"');
       _logger.info('Raw LLM response: "$llmResponse"');
 
+      // Additional debugging
+      _logger.info('Response length: ${llmResponse.length}');
+      _logger
+          .info('Response contains "Sorry": ${llmResponse.contains("Sorry")}');
+      _logger.info(
+          'Response contains "flagged": ${llmResponse.contains("flagged")}');
+      _logger.info(
+          'Response starts with warning: ${llmResponse.startsWith("⚠️ Sorry")}');
+      _logger.info('Full response data: $llmCallResult');
+
       // Check for violation flags and log them
-      violationDetected =
-          await _checkAndLogViolations(message, llmResponse);
+      violationDetected = await _checkAndLogViolations(message, llmResponse);
 
       // Remove violation flags from response before showing to user
       final cleanResponse = _cleanViolationFlags(llmResponse);
@@ -1009,15 +1259,26 @@ class _ChatScreenState extends State<ChatScreen>
             headers: {'Content-Type': 'application/json'},
             body: json.encode({
               'messages': messagesForLLM,
-              'max_tokens': 60,  // Limit response to ~60 tokens for optimization
-              'user_id': widget.userId  // Send user ID for backend rate limiting
+              'max_tokens': 60, // Limit response to ~60 tokens for optimization
+              'user_id': widget.userId // Send user ID for backend rate limiting
             }),
           )
           .timeout(const Duration(seconds: 60));
 
+      _logger.info('=== HTTP RESPONSE DEBUG ===');
+      _logger.info('Status code: ${response.statusCode}');
+      _logger.info('Response headers: ${response.headers}');
+      _logger.info('Response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final llmResponse = data['response'] as String;
+
+        // Debug logging
+        _logger.info('Parsed response data: $data');
+        _logger.info('LLM response: "$llmResponse"');
+        _logger.info(
+            'Response contains flagged indicator: ${llmResponse.contains('Sorry, I can\'t continue')}');
 
         // Count output tokens (LLM response)
         final outputTokens = TokenCounter.countOutputTokens(llmResponse);

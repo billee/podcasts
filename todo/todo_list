@@ -1,7 +1,9 @@
 
 firestore pervious rules has to be brought back
 
-payment system
+use IAP for payment
+
+login use the password magic
 
 when registering, check if the email is banned.
  
