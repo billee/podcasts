@@ -2821,7 +2821,7 @@ def calculate_subscription_growth_trends(subscriptions):
     except Exception as e:
         app.logger.error(f"Error calculating subscription growth trends: {e}")
         return []
-}
+
 
 def calculate_revenue_growth_rate(revenue_trends):
     """Calculate revenue growth rate from trends"""
