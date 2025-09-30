@@ -2285,7 +2285,7 @@ def calculate_user_behavior_analytics(users, trials, subscriptions):
     except Exception as e:
         app.logger.error(f"Error calculating user behavior analytics: {e}")
         return {}
-}
+
 
 def calculate_user_engagement_score(user_data, trial_data, subscription_data):
     """Calculate engagement score for a user (0-100)"""
@@ -2577,7 +2577,7 @@ def calculate_revenue_trends(subscriptions):
     except Exception as e:
         app.logger.error(f"Error calculating revenue trends: {e}")
         return []
-}
+
 
 def calculate_retention_metrics(users):
     """Calculate user retention metrics"""
