@@ -858,7 +858,7 @@ def summarize_chat():
             sender_name = msg.get('senderName', 'Participant')
             if role and content:
                 if role == 'user':
-                    conversation_messages_for_llm.append({"role": "user", "content": f"{sender_name}: {content}"})
+                    conversation_messages_for_llm.append({"role": "user", "content": f"{senderName}: {content}"})
                 elif role == 'assistant':
                     conversation_messages_for_llm.append({"role": "assistant", "content": content})
 
@@ -1686,42 +1686,6 @@ def calculate_user_activity_metrics():
         users_ref = db.collection('users')
         all_users = list(users_ref.stream())
         
-    except Exception as e:
-        app.logger.error(f"Error in calculate_user_activity_metrics: {e}")
-        return None
-
-@app.route('/get_subscription_health')
-def get_subscription_health():
-    """Retrieve subscription health"""
-    try:
-        health_metrics = {
-            'active_subscriptions': calculate_simulated_errors(),
-            'cancelled_subscriptions': calculate_simulated_errors(),
-            'error_rate': calculate_simulated_error_rate(),
-        }
-
-        growth_trends = {
-            'monthly_growth': round(health_metrics['active_subscriptions'] * random.uniform(0.1, 0.3), 2),
-            'yearly_growth': round(health_metrics['active_subscriptions'] * random.uniform(0.2, 0.5), 2),
-            'average_subscription_value': round(random.uniform(10.0, 50.0), 2),
-        }
-
-        return jsonify({
-            'success': True,
-            'subscription_health': {
-                **health_metrics,
-                'growth_trends': growth_trends
-            }
-        })
-        
-    except Exception as e:
-        app.logger.error(f"Error in get_subscription_health: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-# ============================================================================
         now = datetime.now()
         active_today = 0
         active_week = 0
@@ -2321,6 +2285,7 @@ def calculate_user_behavior_analytics(users, trials, subscriptions):
     except Exception as e:
         app.logger.error(f"Error calculating user behavior analytics: {e}")
         return {}
+}
 
 def calculate_user_engagement_score(user_data, trial_data, subscription_data):
     """Calculate engagement score for a user (0-100)"""
@@ -2612,6 +2577,7 @@ def calculate_revenue_trends(subscriptions):
     except Exception as e:
         app.logger.error(f"Error calculating revenue trends: {e}")
         return []
+}
 
 def calculate_retention_metrics(users):
     """Calculate user retention metrics"""
@@ -2855,6 +2821,7 @@ def calculate_subscription_growth_trends(subscriptions):
     except Exception as e:
         app.logger.error(f"Error calculating subscription growth trends: {e}")
         return []
+}
 
 def calculate_revenue_growth_rate(revenue_trends):
     """Calculate revenue growth rate from trends"""
@@ -2917,320 +2884,6 @@ def calculate_total_revenue(subscriptions):
     except Exception as e:
         app.logger.error(f"Error calculating total revenue: {e}")
         return 0
-
-def calculate_revenue_growth_rate(revenue_trends):
-    """Calculate month-over-month revenue growth rate"""
-    try:
-        if len(revenue_trends) < 2:
-            return 0
-        
-        current_revenue = revenue_trends[-1]['revenue']
-        previous_revenue = revenue_trends[-2]['revenue']
-        
-        if previous_revenue == 0:
-            return 100 if current_revenue > 0 else 0
-        
-        growth_rate = ((current_revenue - previous_revenue) / previous_revenue) * 100
-        return growth_rate
-        
-    except Exception as e:
-        app.logger.error(f"Error calculating revenue growth rate: {e}")
-        return 0
-
-def calculate_retention_metrics(users):
-    """Calculate user retention metrics"""
-    try:
-        now = datetime.now()
-        
-        # Calculate 7-day retention
-        week_ago = now - timedelta(days=7)
-        users_week_ago = []
-        users_still_active = []
-        
-        for user_doc in users:
-            user_data = user_data = user_doc.to_dict()
-            created_at = user_data.get('createdAt')
-            last_login = user_data.get('lastLoginAt')
-            
-            if not created_at:
-                continue
-            
-            # Parse creation date
-            if hasattr(created_at, 'seconds'):
-                created_dt = datetime.fromtimestamp(created_at.seconds)
-            else:
-                created_dt = datetime.fromisoformat(str(created_at).replace('Z', '+00:00')).replace(tzinfo=None)
-            
-            # Users who registered a week ago
-            if created_dt <= week_ago:
-                users_week_ago.append(user_doc.id)
-                
-                # Check if they're still active (logged in within last 7 days)
-                if last_login:
-                    if hasattr(last_login, 'seconds'):
-                        last_login_dt = datetime.fromtimestamp(last_login.seconds)
-                    else:
-                        last_login_dt = datetime.fromisoformat(str(last_login).replace('Z', '+00:00')).replace(tzinfo=None)
-                    
-                    if last_login_dt >= week_ago:
-                        users_still_active.append(user_doc.id)
-        
-        # Calculate 30-day retention
-        month_ago = now - timedelta(days=30)
-        users_month_ago = []
-        users_still_active_month = []
-        
-        for user_doc in users:
-            user_data = user_doc.to_dict()
-            created_at = user_data.get('createdAt')
-            last_login = user_data.get('lastLoginAt')
-            
-            if not created_at:
-                continue
-            
-            # Parse creation date
-            if hasattr(created_at, 'seconds'):
-                created_dt = datetime.fromtimestamp(created_at.seconds)
-            else:
-                created_dt = datetime.fromisoformat(str(created_at).replace('Z', '+00:00')).replace(tzinfo=None)
-            
-            # Users who registered a month ago
-            if created_dt <= month_ago:
-                users_month_ago.append(user_doc.id)
-                
-                # Check if they're still active (logged in within last 30 days)
-                if last_login:
-                    if hasattr(last_login, 'seconds'):
-                        last_login_dt = datetime.fromtimestamp(last_login.seconds)
-                    else:
-                        last_login_dt = datetime.fromisoformat(str(last_login).replace('Z', '+00:00')).replace(tzinfo=None)
-                    
-                    if last_login_dt >= month_ago:
-                        users_still_active_month.append(user_doc.id)
-        
-        # Calculate retention rates
-        retention_7_day = (len(users_still_active) / len(users_week_ago) * 100) if len(users_week_ago) > 0 else 0
-        retention_30_day = (len(users_still_active_month) / len(users_month_ago) * 100) if len(users_month_ago) > 0 else 0
-        
-        return {
-            'retention_7_day': round(retention_7_day, 2),
-            'retention_30_day': round(retention_30_day, 2),
-            'users_week_ago': len(users_week_ago),
-            'users_still_active_week': len(users_still_active),
-            'users_month_ago': len(users_month_ago),
-            'users_still_active_month': len(users_still_active_month)
-        }
-        
-    except Exception as e:
-        app.logger.error(f"Error calculating retention metrics: {e}")
-        return {
-            'retention_7_day': 0,
-            'retention_30_day': 0,
-            'users_week_ago': 0,
-            'users_still_active_week': 0,
-            'users_month_ago': 0,
-            'users_still_active_month': 0
-        }
-
-def calculate_churn_metrics():
-    """Calculate churn rate metrics"""
-    try:
-        # Get cancelled subscriptions
-        subscription_ref = db.collection('subscriptions')
-        all_subscriptions = list(subscription_ref.stream())
-        
-        total_subscriptions = len(all_subscriptions)
-        cancelled_subscriptions = len([sub for sub in all_subscriptions if sub.to_dict().get('cancelled', False)])
-        active_subscriptions = len([sub for sub in all_subscriptions if sub.to_dict().get('status') == 'active'])
-        
-        # Calculate churn rate
-        churn_rate = (cancelled_subscriptions / total_subscriptions * 100) if total_subscriptions > 0 else 0
-        
-        # Calculate monthly churn (subscriptions cancelled in last 30 days)
-        now = datetime.now()
-        month_ago = now - timedelta(days=30)
-        recent_cancellations = 0
-        
-        for sub_doc in all_subscriptions:
-            sub_data = sub_doc.to_dict()
-            if sub_data.get('cancelled'):
-                will_expire_at = sub_data.get('willExpireAt')
-                if will_expire_at:
-                    if hasattr(will_expire_at, 'seconds'):
-                        expire_dt = datetime.fromtimestamp(will_expire_at.seconds)
-                    else:
-                        expire_dt = datetime.fromisoformat(str(will_expire_at).replace('Z', '+00:00')).replace(tzinfo=None)
-                    
-                    if expire_dt >= month_ago:
-                        recent_cancellations += 1
-        
-        monthly_churn_rate = (recent_cancellations / active_subscriptions * 100) if active_subscriptions > 0 else 0
-        
-        return {
-            'overall_churn_rate': round(churn_rate, 2),
-            'monthly_churn_rate': round(monthly_churn_rate, 2),
-            'total_cancellations': cancelled_subscriptions,
-            'recent_cancellations': recent_cancellations
-        }
-        
-    except Exception as e:
-        app.logger.error(f"Error calculating churn metrics: {e}")
-        return {
-            'overall_churn_rate': 0,
-            'monthly_churn_rate': 0,
-            'total_cancellations': 0,
-            'recent_cancellations': 0
-        }
-
-def calculate_subscription_health_metrics(subscriptions):
-    """Calculate subscription growth and health metrics"""
-    try:
-        total_subscriptions = len(subscriptions)
-        active_subscriptions = len([sub for sub in subscriptions if sub.to_dict().get('status') == 'active'])
-        cancelled_subscriptions = len([sub for sub in subscriptions if sub.to_dict().get('cancelled', False)])
-        
-        # Calculate subscription health score (0-100)
-        if total_subscriptions == 0:
-            health_score = 0
-        else:
-            active_ratio = active_subscriptions / total_subscriptions
-            health_score = active_ratio * 100
-        
-        # Calculate average subscription duration
-        avg_duration = calculate_average_subscription_duration(subscriptions)
-        
-        # Calculate customer lifetime value (CLV)
-        clv = avg_duration * 3.0  # $3/month * average months
-        
-        return {
-            'total_subscriptions': total_subscriptions,
-            'active_subscriptions': active_subscriptions,
-            'cancelled_subscriptions': cancelled_subscriptions,
-            'health_score': round(health_score, 2),
-            'average_duration_months': round(avg_duration, 2),
-            'customer_lifetime_value': round(clv, 2)
-        }
-        
-    except Exception as e:
-        app.logger.error(f"Error calculating subscription health metrics: {e}")
-        return {
-            'total_subscriptions': 0,
-            'active_subscriptions': 0,
-            'cancelled_subscriptions': 0,
-            'health_score': 0,
-            'average_duration_months': 0,
-            'customer_lifetime_value': 0
-        }
-
-def calculate_average_subscription_duration(subscriptions):
-    """Calculate average subscription duration in months"""
-    try:
-        total_duration = 0
-        count = 0
-        now = datetime.now()
-        
-        for sub_doc in subscriptions:
-            sub_data = sub_doc.to_dict()
-            start_date = sub_data.get('startDate')
-            
-            if not start_date:
-                continue
-            
-            # Parse start date
-            if hasattr(start_date, 'seconds'):
-                start_dt = datetime.fromtimestamp(start_date.seconds)
-            else:
-                start_dt = datetime.fromisoformat(str(start_date).replace('Z', '+00:00')).replace(tzinfo=None)
-            
-            # Determine end date
-            if sub_data.get('cancelled'):
-                end_date = sub_data.get('willExpireAt')
-                if end_date:
-                    if hasattr(end_date, 'seconds'):
-                        end_dt = datetime.fromtimestamp(end_date.seconds)
-                    else:
-                        end_dt = datetime.fromisoformat(str(end_date).replace('Z', '+00:00')).replace(tzinfo=None)
-                else:
-                    end_dt = now
-            else:
-                end_dt = now  # Still active
-            
-            # Calculate duration in months
-            duration_months = (end_dt.year - start_dt.year) * 12 + end_dt.month - start_dt.month
-            if duration_months <= 0:
-                duration_months = 1  # At least 1 month
-            
-            total_duration += duration_months
-            count += 1
-        
-        return total_duration / count if count > 0 else 0
-        
-    except Exception as e:
-        app.logger.error(f"Error calculating average subscription duration: {e}")
-        return 0
-
-def calculate_subscription_growth_trends(subscriptions):
-    """Calculate subscription growth trends over last 6 months"""
-    try:
-        now = datetime.now()
-        trends = []
-        
-        for i in range(6):
-            # Calculate month start and end
-            month_date = now - timedelta(days=30 * i)
-            month_start = month_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            
-            if month_date.month == 12:
-                next_month = month_date.replace(year=month_date.year + 1, month=1, day=1)
-            else:
-                next_month = month_date.replace(month=month_date.month + 1, day=1)
-            
-            month_end = next_month - timedelta(seconds=1)
-            
-            # Count new subscriptions in this month
-            new_subscriptions = 0
-            cancelled_in_month = 0
-            
-            for sub_doc in subscriptions:
-                sub_data = sub_doc.to_dict()
-                
-                # Check for new subscriptions
-                start_date = sub_data.get('startDate')
-                if start_date:
-                    if hasattr(start_date, 'seconds'):
-                        start_dt = datetime.fromtimestamp(start_date.seconds)
-                    else:
-                        start_dt = datetime.fromisoformat(str(start_date).replace('Z', '+00:00')).replace(tzinfo=None)
-                    
-                    if month_start <= start_dt <= month_end:
-                        new_subscriptions += 1
-                
-                # Check for cancellations
-                if sub_data.get('cancelled'):
-                    expire_date = sub_data.get('willExpireAt')
-                    if expire_date:
-                        if hasattr(expire_date, 'seconds'):
-                            expire_dt = datetime.fromtimestamp(expire_date.seconds)
-                        else:
-                            expire_dt = datetime.fromisoformat(str(expire_date).replace('Z', '+00:00')).replace(tzinfo=None)
-                        
-                        if month_start <= expire_dt <= month_end:
-                            cancelled_in_month += 1
-            
-            net_growth = new_subscriptions - cancelled_in_month
-            
-            trends.append({
-                'month': month_date.strftime('%Y-%m'),
-                'new_subscriptions': new_subscriptions,
-                'cancelled_subscriptions': cancelled_in_month,
-                'net_growth': net_growth
-            })
-        
-        return list(reversed(trends))  # Return chronological order
-        
-    except Exception as e:
-        app.logger.error(f"Error calculating subscription growth trends: {e}")
-        return []
 
 if __name__ == '__main__':
     # Start periodic cleanup task for rate limiting data
