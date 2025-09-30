@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:kapwa_companion_basic/screens/payment/mock_payment_screen.dart';
+import 'package:kapwa_companion_basic/screens/payment/payment_screen.dart';
 import 'package:kapwa_companion_basic/screens/auth/auth_wrapper.dart';
 import 'package:kapwa_companion_basic/services/terms_acceptance_service.dart';
 import 'package:kapwa_companion_basic/core/config.dart';
@@ -65,13 +65,12 @@ class _TrialTermsConditionsScreenState extends State<TrialTermsConditionsScreen>
   void _continueToPayment() {
     if (!_isPaymentFlow) return;
     
+    _logger.info('Trial terms accepted, proceeding to IAP payment');
+    print('🛒 DEBUG: Navigating from trial terms to IAP payment screen');
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => MockPaymentScreen(
-          amount: widget.amount!,
-          planType: widget.planType!,
-        ),
+        builder: (context) => const PaymentScreen(),
       ),
     );
   }

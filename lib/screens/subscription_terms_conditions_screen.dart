@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:kapwa_companion_basic/screens/payment/mock_payment_screen.dart';
+import 'package:kapwa_companion_basic/screens/payment/payment_screen.dart';
 import 'package:kapwa_companion_basic/core/config.dart';
 import 'package:logging/logging.dart';
 
@@ -22,14 +22,12 @@ class _SubscriptionTermsConditionsScreenState extends State<SubscriptionTermsCon
   static final Logger _logger = Logger('SubscriptionTermsConditionsScreen');
 
   void _continueToPayment() {
-    _logger.info('User agreed to subscription terms, proceeding to payment');
+    _logger.info('User agreed to subscription terms, proceeding to IAP payment');
+    print('🛒 DEBUG: Navigating from terms to IAP payment screen');
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => MockPaymentScreen(
-          amount: widget.amount,
-          planType: widget.planType,
-        ),
+        builder: (context) => const PaymentScreen(),
       ),
     );
   }

@@ -32,6 +32,7 @@ dependencies:
   flutter_widget_from_html: ^0.10.0+1
   url_launcher: ^6.2.1  # Added missing dependency
   pay: ^2.0.0  # Google Pay and Apple Pay
+  in_app_purchase: ^3.2.0  # In-app purchases for both platforms
   crypto: ^3.0.3  # For secure data handling
 
 dev_dependencies:

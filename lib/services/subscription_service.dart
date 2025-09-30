@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logging/logging.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import '../core/config.dart';
+import 'in_app_purchase_service.dart';
 
 enum SubscriptionStatus { trial, active, expired, cancelled, trialExpired }
 
@@ -498,6 +500,134 @@ class SubscriptionService {
     } catch (e) {
       _logger.severe('Error getting subscription stats: $e');
       return {};
+    }
+  }
+
+  // ========================= IN-APP PURCHASE METHODS =========================
+
+  /// Purchase subscription using in-app purchase
+  static Future<bool> purchaseSubscriptionWithInAppPurchase() async {
+    try {
+      _logger.info('Initiating in-app purchase subscription');
+      
+      // Load available products
+      final products = await InAppPurchaseService.loadProducts();
+      if (products.isEmpty) {
+        _logger.warning('No products available for purchase');
+        return false;
+      }
+
+      // Find the monthly subscription product
+      final monthlyProduct = products.firstWhere(
+        (product) => product.id == InAppPurchaseService.monthlySubscriptionProductId,
+        orElse: () => throw Exception('Monthly subscription product not found'),
+      );
+
+      // Initiate purchase
+      await InAppPurchaseService.purchaseProduct(monthlyProduct);
+      return true;
+    } catch (e) {
+      _logger.severe('Error purchasing subscription with in-app purchase: $e');
+      return false;
+    }
+  }
+
+  /// Restore previous purchases
+  static Future<bool> restoreInAppPurchases() async {
+    try {
+      _logger.info('Restoring in-app purchases');
+      await InAppPurchaseService.restorePurchases();
+      return true;
+    } catch (e) {
+      _logger.severe('Error restoring in-app purchases: $e');
+      return false;
+    }
+  }
+
+  /// Check subscription status including in-app purchases
+  static Future<SubscriptionStatus> getSubscriptionStatusWithInAppPurchase(String userId) async {
+    try {
+      // First check using existing logic
+      final currentStatus = await getSubscriptionStatus(userId);
+      
+      // If already active or trial, return current status
+      if (currentStatus == SubscriptionStatus.active || 
+          currentStatus == SubscriptionStatus.trial ||
+          currentStatus == SubscriptionStatus.cancelled) {
+        return currentStatus;
+      }
+
+      // Check if user has active in-app purchase subscription
+      final hasInAppSubscription = await InAppPurchaseService.hasActiveSubscription();
+      if (hasInAppSubscription) {
+        return SubscriptionStatus.active;
+      }
+
+      return currentStatus;
+    } catch (e) {
+      _logger.severe('Error getting subscription status with in-app purchase: $e');
+      return SubscriptionStatus.expired;
+    }
+  }
+
+  /// Get available subscription products for in-app purchase
+  static Future<List<ProductDetails>> getAvailableProducts() async {
+    try {
+      return await InAppPurchaseService.loadProducts();
+    } catch (e) {
+      _logger.severe('Error getting available products: $e');
+      return [];
+    }
+  }
+
+  /// Handle in-app purchase completion (called by InAppPurchaseService)
+  static Future<void> handleInAppPurchaseCompletion(String userId, String productId, String purchaseId) async {
+    try {
+      _logger.info('Handling in-app purchase completion for user: $userId');
+      
+      // Activate subscription based on the purchased product
+      if (productId == InAppPurchaseService.monthlySubscriptionProductId) {
+        final now = AppConfig.currentDateTime;
+        final expiryDate = now.add(const Duration(days: 30));
+
+        await _firestore.collection('subscriptions').doc(userId).set({
+          'userId': userId,
+          'status': SubscriptionStatus.active.name,
+          'plan': 'monthly',
+          'amount': monthlyPrice,
+          'startDate': now,
+          'subscriptionEndDate': expiryDate,
+          'lastPayment': {
+            'purchaseId': purchaseId,
+            'productId': productId,
+            'date': now,
+            'status': 'succeeded',
+            'source': 'in_app_purchase',
+          },
+          'paymentMethod': 'in_app_purchase',
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        _logger.info('Subscription activated via in-app purchase for user: $userId');
+      }
+    } catch (e) {
+      _logger.severe('Error handling in-app purchase completion: $e');
+    }
+  }
+
+  /// Check if user has access to premium features (including in-app purchases)
+  static Future<bool> hasActiveSubscriptionWithInAppPurchase(String userId) async {
+    try {
+      // Check existing subscription status first
+      final hasSubscription = await hasActiveSubscription(userId);
+      if (hasSubscription) return true;
+
+      // Check in-app purchase subscription
+      return await InAppPurchaseService.hasActiveSubscription();
+    } catch (e) {
+      _logger.severe('Error checking active subscription with in-app purchase: $e');
+      return false;
     }
   }
 }

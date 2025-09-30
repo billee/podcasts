@@ -18,6 +18,15 @@ class AppConfig {
   static const String subscriptionCurrency = 'USD';
   static const String subscriptionPlanType = 'monthly';
   
+  // In-app purchase configuration
+  static const String monthlySubscriptionProductId = 'monthly_premium_subscription';
+  static const bool inAppPurchaseEnabled = true;
+  
+  // Product IDs for different platforms
+  static const Map<String, String> productIds = {
+    'monthly_subscription': monthlySubscriptionProductId,
+  };
+  
   /// Get formatted price string for display (e.g., "$3.00")
   static String get formattedMonthlyPrice => '\$${monthlySubscriptionPrice.toStringAsFixed(2)}';
   
