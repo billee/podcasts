@@ -1,13 +1,17 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import  // For testing purposes
+  static void setFirestoreInstance(FirebaseFirestore firestore) {
+    _firestore = firestore;
+  }
+
+  /// Initialize the serviceflutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logging/logging.dart';
 import '../core/config.dart';
 
@@ -37,7 +41,6 @@ class InAppPurchaseService {
   static final Logger _logger = Logger('InAppPurchaseService');
   static final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   static FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  static FirebaseAuth _auth = FirebaseAuth.instance;
   
   static late StreamSubscription<List<PurchaseDetails>> _subscription;
   static final StreamController<InAppPurchaseResult> _purchaseController = 
@@ -117,30 +120,17 @@ class InAppPurchaseService {
   }
 
   /// Purchase a product
-  static Future<void> purchaseProduct(ProductDetails productDetails) async {
+  static Future<void> purchaseProduct(ProductDetails productDetails, String userId) async {
     try {
       _logger.info('🛒 IAP SERVICE: Initiating purchase for product: ${productDetails.id}');
       print('🛒 DEBUG: InAppPurchaseService.purchaseProduct called');
       print('🛒 DEBUG: Product ID: ${productDetails.id}');
       print('🛒 DEBUG: Product price: ${productDetails.price}');
-      
-      final user = _auth.currentUser;
-      if (user == null) {
-        _logger.warning('🛒 IAP SERVICE: User not logged in, cannot purchase');
-        print('🛒 DEBUG: User authentication failed');
-        _purchaseController.add(InAppPurchaseResult(
-          status: InAppPurchaseStatus.error,
-          error: 'User must be logged in to make purchases',
-        ));
-        return;
-      }
-
-      _logger.info('🛒 IAP SERVICE: User authenticated: ${user.uid}');
-      print('🛒 DEBUG: User ID: ${user.uid}');
+      print('🛒 DEBUG: User ID: $userId');
 
       PurchaseParam purchaseParam = PurchaseParam(
         productDetails: productDetails,
-        applicationUserName: user.uid,
+        applicationUserName: userId,
       );
 
       bool success;
@@ -325,11 +315,14 @@ class InAppPurchaseService {
   /// Record purchase in Firestore
   static Future<void> _recordPurchase(PurchaseDetails purchase) async {
     try {
-      final user = _auth.currentUser;
-      if (user == null) return;
+      final userId = purchase.applicationUserName;
+      if (userId == null || userId.isEmpty) {
+        _logger.warning('No user ID provided for purchase recording');
+        return;
+      }
 
       await _firestore.collection('in_app_purchases').doc(purchase.purchaseID).set({
-        'userId': user.uid,
+        'userId': userId,
         'productId': purchase.productID,
         'purchaseId': purchase.purchaseID,
         'transactionDate': purchase.transactionDate,
@@ -351,14 +344,17 @@ class InAppPurchaseService {
   /// Activate subscription after purchase
   static Future<void> _activateSubscription(PurchaseDetails purchase) async {
     try {
-      final user = _auth.currentUser;
-      if (user == null) return;
+      final userId = purchase.applicationUserName;
+      if (userId == null || userId.isEmpty) {
+        _logger.warning('No user ID provided for subscription activation');
+        return;
+      }
 
       final now = AppConfig.currentDateTime;
       final expiryDate = now.add(const Duration(days: 30)); // 30-day subscription
 
-      await _firestore.collection('subscriptions').doc(user.uid).set({
-        'userId': user.uid,
+      await _firestore.collection('subscriptions').doc(userId).set({
+        'userId': userId,
         'status': 'active',
         'plan': 'monthly',
         'purchaseId': purchase.purchaseID,
@@ -374,19 +370,16 @@ class InAppPurchaseService {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      _logger.info('Subscription activated for user: ${user.uid}');
+      _logger.info('Subscription activated for user: $userId');
     } catch (e) {
       _logger.severe('Error activating subscription: $e');
     }
   }
 
   /// Check if user has active subscription
-  static Future<bool> hasActiveSubscription() async {
+  static Future<bool> hasActiveSubscription(String userId) async {
     try {
-      final user = _auth.currentUser;
-      if (user == null) return false;
-
-      final subscriptionDoc = await _firestore.collection('subscriptions').doc(user.uid).get();
+      final subscriptionDoc = await _firestore.collection('subscriptions').doc(userId).get();
       if (!subscriptionDoc.exists) return false;
 
       final subscription = subscriptionDoc.data() as Map<String, dynamic>;

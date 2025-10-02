@@ -11,8 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_web_plugins:
-    sdk: flutter
-  web: ^1.1.1     
+    sdk: flutter     
   logging: ^1.2.0
   flutter_dotenv: ^5.1.0
   http: ^1.2.0
@@ -20,20 +19,10 @@ dependencies:
   intl: ^0.20.2
   cupertino_icons: ^1.0.6
   firebase_core: ^3.13.0
-  firebase_auth: ^5.6.1
   cloud_firestore: ^5.6.0
   audioplayers: ^6.0.0
-  flutter_svg: ^2.0.7
-  socket_io_client: ^3.1.2
-  shared_preferences: ^2.2.2
-  webview_flutter: ^4.9.0
-  permission_handler: ^11.0.0
   path_provider: ^2.1.1
-  flutter_widget_from_html: ^0.10.0+1
-  url_launcher: ^6.2.1  # Added missing dependency
-  pay: ^2.0.0  # Google Pay and Apple Pay
-  in_app_purchase: ^3.2.0  # In-app purchases for both platforms
-  crypto: ^3.0.3  # For secure data handling
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   dwds: ^24.4.0
@@ -42,13 +31,7 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   build_runner: ^2.4.6
   freezed: ^2.4.4
-  # Testing dependencies
-  mockito: ^5.4.4
-  fake_cloud_firestore: ^3.0.3
-  firebase_auth_mocks: ^0.14.1
-  mocktail: ^1.0.4
-  integration_test:
-    sdk: flutter
+
 
 dependency_overrides:
   js: 0.7.2
@@ -61,6 +44,4 @@ flutter:
   # Assets are now loaded conditionally based on environment
   assets:
     - .env
-    - assets/images/typing_dots.gif
     - assets/podcast_sources/
-    - assets/story_sources/

@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logging/logging.dart';
 import '../core/config.dart';
 import '../models/daily_token_usage.dart';
-import 'subscription_service.dart';
 
 /// Service for managing automated daily token limit resets
 /// Handles timezone-aware reset scheduling and database updates
@@ -188,24 +187,10 @@ class DailyResetService {
     await _performDailyReset();
   }
 
-  /// Get user type based on subscription status
+  /// Get user type - since we removed subscriptions, everyone is a full user
   static Future<String> _getUserType(String userId) async {
-    try {
-      final subscriptionStatus = await SubscriptionService.getSubscriptionStatus(userId);
-      
-      switch (subscriptionStatus) {
-        case SubscriptionStatus.active:
-        case SubscriptionStatus.cancelled:
-          return 'subscribed';
-        case SubscriptionStatus.trial:
-        case SubscriptionStatus.trialExpired:
-        case SubscriptionStatus.expired:
-          return 'trial';
-      }
-    } catch (e) {
-      _logger.warning('Error determining user type for $userId: $e');
-      return 'trial'; // Default to trial on error
-    }
+    _logger.info('Getting user type for $userId - all users have full access');
+    return 'subscribed'; // Everyone gets full access
   }
 
   /// Get token limit based on user type
@@ -225,9 +210,5 @@ class DailyResetService {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
-  /// Get yesterday's date string in YYYY-MM-DD format
-  static String _getYesterdayString() {
-    final yesterday = AppConfig.currentDateTime.subtract(const Duration(days: 1)); // Use local time instead of UTC
-    return '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
-  }
+
 }

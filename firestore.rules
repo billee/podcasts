@@ -4,50 +4,32 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Daily token usage collection
     match /daily_token_usage/{documentId} {
-      // Users can only read/write their own token usage data
-      // Document ID format: {userId}_{date}
-      allow read, write: if request.auth != null 
-        && request.auth.uid == resource.data.userId;
-      
-      // Allow creation if the document ID starts with the user's ID
-      allow create: if request.auth != null 
-        && documentId.matches('^' + request.auth.uid + '_[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-        && request.resource.data.userId == request.auth.uid;
+      // Allow read/write access to all users since we removed authentication
+      allow read, write: if true;
       
       // Validate data structure on write
-      allow write: if request.auth != null 
-        && request.auth.uid == request.resource.data.userId
-        && request.resource.data.keys().hasAll(['userId', 'date', 'tokensUsed', 'tokenLimit', 'userType', 'lastUpdated', 'resetAt'])
+      allow write: if request.resource.data.keys().hasAll(['date', 'tokensUsed', 'tokenLimit', 'lastUpdated', 'resetAt'])
         && request.resource.data.tokensUsed is int
         && request.resource.data.tokensUsed >= 0
         && request.resource.data.tokenLimit is int
-        && request.resource.data.tokenLimit > 0
-        && request.resource.data.userType in ['trial', 'subscribed'];
+        && request.resource.data.tokenLimit > 0;
     }
 
     // Token usage history collection for monthly reporting
     match /token_usage_history/{documentId} {
-      // Users can only read their own usage history
-      // Document ID format: {userId}_{year}_{month}
-      allow read: if request.auth != null 
-        && request.auth.uid == resource.data.userId;
+      allow read: if true;
       
       // Only allow system/admin writes for historical data aggregation
-      // In practice, this would be handled by Cloud Functions or admin SDK
       allow write: if false; // Prevent direct client writes
       
       // Allow creation with proper document ID format
-      allow create: if request.auth != null 
-        && documentId.matches('^' + request.auth.uid + '_[0-9]{4}_[0-9]{2}$')
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasAll(['userId', 'year', 'month', 'dailyUsage', 'totalMonthlyTokens', 'averageDailyUsage', 'peakUsageDate', 'peakUsageTokens', 'userType', 'createdAt', 'updatedAt'])
+      allow create: if request.resource.data.keys().hasAll(['year', 'month', 'dailyUsage', 'totalMonthlyTokens', 'averageDailyUsage', 'peakUsageDate', 'peakUsageTokens', 'createdAt', 'updatedAt'])
         && request.resource.data.year is int
         && request.resource.data.month is int
         && request.resource.data.month >= 1
         && request.resource.data.month <= 12
         && request.resource.data.totalMonthlyTokens is int
-        && request.resource.data.totalMonthlyTokens >= 0
-        && request.resource.data.userType in ['trial', 'subscribed'];
+        && request.resource.data.totalMonthlyTokens >= 0;
     }
 
     // Admin access for token usage collections

@@ -2,14 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'package:logging/logging.dart';
-import 'package:kapwa_companion_basic/screens/auth/auth_wrapper.dart';
+import 'package:kapwa_companion_basic/screens/main_screen.dart';
 import 'package:kapwa_companion_basic/core/config.dart';
 import 'package:kapwa_companion_basic/services/audio_service.dart';
-import 'package:kapwa_companion_basic/services/payment_service.dart';
-import 'package:kapwa_companion_basic/services/payment_config_service.dart';
 import 'package:kapwa_companion_basic/services/daily_reset_service.dart';
 
 void _setupLogging() {
@@ -34,20 +31,12 @@ void main() async {
   logger.info("---------------------------------------------------");
 
   try {
-    // Initialize Firebase
-    logger.info('Initializing Firebase...');
+    // Initialize Firebase Core only
+    logger.info('Initializing Firebase Core...');
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    logger.info('Firebase initialized successfully.');
-
-    // Set Firebase Auth persistence
-    try {
-      await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
-      logger.info('Firebase Auth persistence set to LOCAL');
-    } catch (e) {
-      logger.severe('Error setting Firebase Auth persistence: $e');
-    }
+    logger.info('Firebase Core initialized successfully.');
 
     // Initialize app configuration
     logger.info('Loading environment configuration...');
@@ -64,22 +53,7 @@ void main() async {
       logger.warning('AudioService initialization failed: $e', e, s);
     }
 
-    // Initialize PaymentConfigService and PaymentService with error handling
-    logger.info('Initializing PaymentConfigService...');
-    try {
-      await PaymentConfigService.initialize();
-      logger.info('PaymentConfigService initialized successfully.');
-    } catch (e, s) {
-      logger.warning('PaymentConfigService initialization failed: $e', e, s);
-    }
 
-    logger.info('Initializing PaymentService...');
-    try {
-      await PaymentService.initialize();
-      logger.info('PaymentService initialized successfully.');
-    } catch (e, s) {
-      logger.warning('PaymentService initialization failed: $e', e, s);
-    }
 
     // Initialize DailyResetService for token limit management
     logger.info('Starting DailyResetService...');
@@ -117,7 +91,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const AuthWrapper(),
+      home: const MainScreen(),
     );
   }
 }

@@ -1,8 +1,6 @@
 // lib/screens/banned_user_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:kapwa_companion_basic/services/auth_service.dart';
 import 'package:kapwa_companion_basic/services/ban_service.dart';
 import 'package:logging/logging.dart';
 import 'package:intl/intl.dart'; 
@@ -39,11 +37,8 @@ class _BannedUserScreenState extends State<BannedUserScreen> {
     try {
       if (widget.banDetails != null) {
         _banDetails = widget.banDetails;
-      } else {
-        final userId = widget.userId ?? FirebaseAuth.instance.currentUser?.uid;
-        if (userId != null) {
-          _banDetails = await BanService.getBanDetails(userId);
-        }
+      } else if (widget.userId != null) {
+        _banDetails = await BanService.getBanDetails(widget.userId!);
       }
       // Keep this for debugging if needed:
       print('Ban Details Loaded: $_banDetails'); 
@@ -55,14 +50,6 @@ class _BannedUserScreenState extends State<BannedUserScreen> {
           _isLoading = false;
         });
       }
-    }
-  }
-
-  Future<void> _signOut() async {
-    try {
-      await AuthService.signOut();
-    } catch (e) {
-      _logger.severe('Error signing out: $e');
     }
   }
 

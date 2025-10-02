@@ -1,11 +1,5 @@
 
 firestore pervious rules has to be brought back
-
-use IAP for payment
-
-login use the password magic
-
-when registering, check if the email is banned.
  
 for the PRO user, after 3 violations, they can not renew when the billing date arrives
 
@@ -14,8 +8,6 @@ for the admin, everyday the admin checks which user has to renew their subscript
 cancel trial
 
 check cancel subscription in PRO
-
-check all the scenario on flag violations
 
 check if there is duplication of emails in register
 
@@ -27,18 +19,15 @@ when terminated in the trial period,  no way to go to subscription mode
 
 saving to firestore has to be encrypted in transit
 
-suggestions will be in the podcast
-
 registering and logging in,  check if they are banned.  if they are unsubscribed.
 
-the podcast and story are overlapping when switching from one to another.
-
-check violations flags
+the podcast - information about philippines, places, food, vacation, lifestyles, people
+stories -  people, places, things.
 
 cache
-
-malicious security
 
 use deepseek LLM more cheaper?
 
 check again the moderation api to check the profanity stuff.
+
+how to setup IAP for google play and apple store
