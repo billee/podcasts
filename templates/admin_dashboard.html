@@ -368,7 +368,6 @@
     <div class="controls">
         <button class="refresh-btn" onclick="showAnalytics()" id="analyticsBtn">📊 Analytics</button>
         <button class="refresh-btn" onclick="showAdvancedAnalytics()" style="margin-left: 10px;" id="advancedAnalyticsBtn">🔬 Advanced Analytics</button>
-        <button class="refresh-btn" onclick="showTokenUsage()" style="margin-left: 10px;" id="tokenUsageBtn">🎯 Token Usage</button>
         <button class="refresh-btn" onclick="showMonitoring()" style="margin-left: 10px;" id="monitoringBtn">🚨 Monitoring</button>
         <button class="refresh-btn" onclick="showUserMonitoring()" style="margin-left: 10px;" id="userMonitoringBtn">👥 User Monitoring</button>
         <span id="lastUpdated" style="margin-left: 20px; color: #666;"></span>
@@ -678,102 +677,7 @@
         </div>
     </div>
     
-    <!-- Token Usage Section -->
-    <div id="tokenUsageSection" style="display: none;">
-        <!-- Monthly Token Usage Overview -->
-        <div class="analytics-section">
-            <div class="analytics-title">🎯 Monthly Token Usage Overview</div>
-            <div style="margin-bottom: 20px;">
-                <label for="monthSelect" style="margin-right: 10px;">Select Month:</label>
-                <select id="monthSelect" onchange="loadTokenUsageData()" style="padding: 5px; margin-right: 10px;">
-                    <!-- Options will be populated by JavaScript -->
-                </select>
-                <select id="yearSelect" onchange="loadTokenUsageData()" style="padding: 5px; margin-right: 10px;">
-                    <!-- Options will be populated by JavaScript -->
-                </select>
-                <select id="userTypeFilter" onchange="loadTokenUsageData()" style="padding: 5px;">
-                    <option value="">All Users</option>
-                    <option value="trial">Trial Users</option>
-                    <option value="subscribed">Subscribed Users</option>
-                </select>
-            </div>
-            <div class="metrics-grid">
-                <div class="metric-item">
-                    <div class="metric-value" id="totalTokensValue">-</div>
-                    <div class="metric-label">Total Tokens Used</div>
-                </div>
-                <div class="metric-item">
-                    <div class="metric-value" id="totalUsersValue">-</div>
-                    <div class="metric-label">Active Users</div>
-                </div>
-                <div class="metric-item">
-                    <div class="metric-value" id="avgTokensPerUserValue">-</div>
-                    <div class="metric-label">Avg Tokens Per User</div>
-                </div>
-                <div class="metric-item">
-                    <div class="metric-value" id="trialVsSubscribedValue">-</div>
-                    <div class="metric-label">Trial vs Subscribed</div>
-                </div>
-            </div>
-            <div class="trend-chart">
-                <h4>Top Token Users This Month</h4>
-                <div id="topTokenUsers"></div>
-            </div>
-        </div>
 
-        <!-- Token Usage Analytics -->
-        <div class="analytics-section">
-            <div class="analytics-title">📈 Token Usage Analytics & Insights</div>
-            <div class="metrics-grid">
-                <div class="metric-item">
-                    <div class="metric-value" id="tokenGrowthValue">-</div>
-                    <div class="metric-label">Token Growth (MoM)</div>
-                </div>
-                <div class="metric-item">
-                    <div class="metric-value" id="userGrowthValue">-</div>
-                    <div class="metric-label">User Growth (MoM)</div>
-                </div>
-                <div class="metric-item">
-                    <div class="metric-value" id="engagementGrowthValue">-</div>
-                    <div class="metric-label">Engagement Growth</div>
-                </div>
-                <div class="metric-item">
-                    <div class="metric-value" id="heavyUsersValue">-</div>
-                    <div class="metric-label">Heavy Users (15K+)</div>
-                </div>
-            </div>
-            <div class="trend-chart">
-                <h4>Usage Distribution</h4>
-                <div id="usageDistribution"></div>
-            </div>
-            <div class="trend-chart" style="margin-top: 15px;">
-                <h4>Business Insights</h4>
-                <div id="businessInsights"></div>
-            </div>
-        </div>
-
-        <!-- Token Usage Trends -->
-        <div class="analytics-section">
-            <div class="analytics-title">📊 Token Usage Trends (Last 6 Months)</div>
-            <div class="trend-chart">
-                <h4>Monthly Token Usage Trends</h4>
-                <div id="tokenTrends"></div>
-            </div>
-        </div>
-
-        <!-- User-Specific Token History -->
-        <div class="analytics-section">
-            <div class="analytics-title">👤 User-Specific Token History</div>
-            <div style="margin-bottom: 20px;">
-                <label for="userIdInput" style="margin-right: 10px;">User ID:</label>
-                <input type="text" id="userIdInput" placeholder="Enter user ID" style="padding: 5px; margin-right: 10px; width: 200px;">
-                <button class="refresh-btn" onclick="loadUserTokenHistory()" style="padding: 5px 15px;">Load History</button>
-            </div>
-            <div id="userTokenHistoryContent">
-                <p style="color: #666; font-style: italic;">Enter a user ID to view their token usage history</p>
-            </div>
-        </div>
-    </div>
 
     <!-- User Monitoring Section -->
     <div id="userMonitoringSection" style="display: none;">
@@ -797,7 +701,6 @@
                             <th>Subscription End</th>
                             <th>Cancellation</th>
                             <th>Current Status</th>
-                            <th>Tokens Used</th>
                             <th>Last Login</th>
                         </tr>
                     </thead>
@@ -831,12 +734,7 @@
             loadMonitoringData();
         }
         
-        function showTokenUsage() {
-            hideAllSections();
-            setActiveButton('tokenUsageBtn');
-            document.getElementById('tokenUsageSection').style.display = 'block';
-            initializeTokenUsage();
-        }
+
         
         function showUserMonitoring() {
             hideAllSections();
@@ -855,7 +753,7 @@
             document.getElementById('geographicSection').style.display = 'none';
             document.getElementById('behaviorSection').style.display = 'none';
             document.getElementById('paymentSection').style.display = 'none';
-            document.getElementById('tokenUsageSection').style.display = 'none';
+
             document.getElementById('monitoringSection').style.display = 'none';
             document.getElementById('userMonitoringSection').style.display = 'none';
         }
@@ -887,333 +785,12 @@
         function clearActiveButtons() {
             document.getElementById('analyticsBtn').classList.remove('active');
             document.getElementById('advancedAnalyticsBtn').classList.remove('active');
-            document.getElementById('tokenUsageBtn').classList.remove('active');
+
             document.getElementById('monitoringBtn').classList.remove('active');
             document.getElementById('userMonitoringBtn').classList.remove('active');
         }
         
-        // Token Usage Functions
-        function initializeTokenUsage() {
-            populateMonthYearSelectors();
-            loadTokenUsageData();
-            loadTokenAnalytics();
-            loadTokenTrends();
-        }
-        
-        function populateMonthYearSelectors() {
-            const monthSelect = document.getElementById('monthSelect');
-            const yearSelect = document.getElementById('yearSelect');
-            const now = new Date();
-            
-            // Populate months
-            const months = [
-                'January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December'
-            ];
-            
-            monthSelect.innerHTML = '';
-            months.forEach((month, index) => {
-                const option = document.createElement('option');
-                option.value = index + 1;
-                option.textContent = month;
-                if (index + 1 === now.getMonth() + 1) {
-                    option.selected = true;
-                }
-                monthSelect.appendChild(option);
-            });
-            
-            // Populate years (current year and previous 2 years)
-            yearSelect.innerHTML = '';
-            for (let year = now.getFullYear(); year >= now.getFullYear() - 2; year--) {
-                const option = document.createElement('option');
-                option.value = year;
-                option.textContent = year;
-                if (year === now.getFullYear()) {
-                    option.selected = true;
-                }
-                yearSelect.appendChild(option);
-            }
-        }
-        
-        function loadTokenUsageData() {
-            const month = document.getElementById('monthSelect').value;
-            const year = document.getElementById('yearSelect').value;
-            const userType = document.getElementById('userTypeFilter').value;
-            
-            let url = `/api/token-usage/monthly?month=${month}&year=${year}`;
-            if (userType) {
-                url += `&userType=${userType}`;
-            }
-            
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateTokenUsageMetrics(data);
-                        updateTopTokenUsers(data.userUsage);
-                    } else {
-                        console.error('Error loading token usage data:', data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching token usage data:', error);
-                });
-        }
-        
-        function updateTokenUsageMetrics(data) {
-            const summary = data.summary;
-            
-            document.getElementById('totalTokensValue').textContent = summary.totalTokens.toLocaleString();
-            document.getElementById('totalUsersValue').textContent = summary.totalUsers.toLocaleString();
-            document.getElementById('avgTokensPerUserValue').textContent = summary.averageTokensPerUser.toLocaleString();
-            
-            const trialVsSubscribed = `${summary.trialUsers}T / ${summary.subscribedUsers}S`;
-            document.getElementById('trialVsSubscribedValue').textContent = trialVsSubscribed;
-        }
-        
-        function updateTopTokenUsers(userUsage) {
-            const container = document.getElementById('topTokenUsers');
-            
-            if (!userUsage || userUsage.length === 0) {
-                container.innerHTML = '<p style="color: #666; font-style: italic;">No usage data available for this period</p>';
-                return;
-            }
-            
-            let html = '<div style="max-height: 300px; overflow-y: auto;">';
-            userUsage.slice(0, 10).forEach((user, index) => {
-                const userTypeClass = user.userType === 'trial' ? 'status-trial' : 'status-premium';
-                html += `
-                    <div class="trend-item">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-weight: bold; color: #667eea;">#${index + 1}</span>
-                            <span>${user.userId}</span>
-                            <span class="status-badge ${userTypeClass}">${user.userType}</span>
-                        </div>
-                        <div style="text-align: right;">
-                            <div class="trend-value">${user.totalTokens.toLocaleString()} tokens</div>
-                            <div style="font-size: 0.8em; color: #666;">${user.averageDailyTokens}/day avg</div>
-                        </div>
-                    </div>
-                `;
-            });
-            html += '</div>';
-            
-            container.innerHTML = html;
-        }
-        
-        function loadTokenAnalytics() {
-            fetch('/api/token-usage/analytics')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateTokenAnalytics(data);
-                        updateUsageDistribution(data.usageDistribution);
-                        updateBusinessInsights(data.insights);
-                    } else {
-                        console.error('Error loading token analytics:', data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching token analytics:', error);
-                });
-        }
-        
-        function updateTokenAnalytics(data) {
-            const growth = data.growth;
-            
-            document.getElementById('tokenGrowthValue').textContent = `${growth.tokenGrowth}%`;
-            document.getElementById('userGrowthValue').textContent = `${growth.userGrowth}%`;
-            document.getElementById('engagementGrowthValue').textContent = `${growth.averagePerUserGrowth}%`;
-            
-            const heavyUsers = data.topUsers.filter(user => user.totalTokens > 15000).length;
-            document.getElementById('heavyUsersValue').textContent = heavyUsers;
-        }
-        
-        function updateUsageDistribution(distribution) {
-            const container = document.getElementById('usageDistribution');
-            
-            const total = Object.values(distribution).reduce((sum, count) => sum + count, 0);
-            
-            let html = '';
-            Object.entries(distribution).forEach(([range, count]) => {
-                const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
-                const rangeLabels = {
-                    'light': 'Light (0-1K)',
-                    'moderate': 'Moderate (1K-5K)',
-                    'heavy': 'Heavy (5K-15K)',
-                    'extreme': 'Extreme (15K+)'
-                };
-                
-                html += `
-                    <div class="trend-item">
-                        <div class="trend-month">${rangeLabels[range]}</div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <div class="trend-value">${count} users</div>
-                            <div style="font-size: 0.9em; color: #666;">(${percentage}%)</div>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-        }
-        
-        function updateBusinessInsights(insights) {
-            const container = document.getElementById('businessInsights');
-            
-            if (!insights || insights.length === 0) {
-                container.innerHTML = '<p style="color: #666; font-style: italic;">No insights available</p>';
-                return;
-            }
-            
-            let html = '';
-            insights.forEach(insight => {
-                const iconMap = {
-                    'positive': '✅',
-                    'warning': '⚠️',
-                    'info': 'ℹ️'
-                };
-                
-                const colorMap = {
-                    'positive': '#28a745',
-                    'warning': '#ffc107',
-                    'info': '#17a2b8'
-                };
-                
-                html += `
-                    <div style="padding: 10px; margin: 5px 0; border-left: 4px solid ${colorMap[insight.type]}; background: #f8f9fa;">
-                        <div style="font-weight: bold; color: ${colorMap[insight.type]};">
-                            ${iconMap[insight.type]} ${insight.title}
-                        </div>
-                        <div style="margin-top: 5px; color: #333;">${insight.message}</div>
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-        }
-        
-        function loadTokenTrends() {
-            fetch('/api/token-usage/trends')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateTokenTrends(data.trends);
-                    } else {
-                        console.error('Error loading token trends:', data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching token trends:', error);
-                });
-        }
-        
-        function updateTokenTrends(trends) {
-            const container = document.getElementById('tokenTrends');
-            
-            if (!trends || trends.length === 0) {
-                container.innerHTML = '<p style="color: #666; font-style: italic;">No trend data available</p>';
-                return;
-            }
-            
-            let html = '<div style="max-height: 400px; overflow-y: auto;">';
-            trends.forEach(trend => {
-                html += `
-                    <div class="trend-item">
-                        <div class="trend-month">${trend.monthName} ${trend.year}</div>
-                        <div style="text-align: right;">
-                            <div class="trend-value">${trend.totalTokens.toLocaleString()} tokens</div>
-                            <div style="font-size: 0.8em; color: #666;">
-                                ${trend.totalUsers} users | ${trend.averagePerUser}/user avg
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            html += '</div>';
-            
-            container.innerHTML = html;
-        }
-        
-        function loadUserTokenHistory() {
-            const userId = document.getElementById('userIdInput').value.trim();
-            
-            if (!userId) {
-                alert('Please enter a user ID');
-                return;
-            }
-            
-            const container = document.getElementById('userTokenHistoryContent');
-            container.innerHTML = '<div class="loading">Loading user token history...</div>';
-            
-            fetch(`/api/token-usage/user/${encodeURIComponent(userId)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateUserTokenHistory(data);
-                    } else {
-                        container.innerHTML = `<div class="error">Error: ${data.error}</div>`;
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching user token history:', error);
-                    container.innerHTML = '<div class="error">Error loading user token history</div>';
-                });
-        }
-        
-        function updateUserTokenHistory(data) {
-            const container = document.getElementById('userTokenHistoryContent');
-            
-            if (!data.monthlyHistory || data.monthlyHistory.length === 0) {
-                container.innerHTML = '<p style="color: #666; font-style: italic;">No token usage history found for this user</p>';
-                return;
-            }
-            
-            let html = `
-                <div class="metrics-grid" style="margin-bottom: 20px;">
-                    <div class="metric-item">
-                        <div class="metric-value">${data.totalTokens.toLocaleString()}</div>
-                        <div class="metric-label">Total Tokens</div>
-                    </div>
-                    <div class="metric-item">
-                        <div class="metric-value">${data.totalMonths}</div>
-                        <div class="metric-label">Active Months</div>
-                    </div>
-                    <div class="metric-item">
-                        <div class="metric-value">${data.averageMonthlyTokens.toLocaleString()}</div>
-                        <div class="metric-label">Avg Monthly</div>
-                    </div>
-                    <div class="metric-item">
-                        <div class="metric-value">${data.peakMonth || 'N/A'}</div>
-                        <div class="metric-label">Peak Month</div>
-                    </div>
-                </div>
-                <div class="trend-chart">
-                    <h4>Monthly Usage History</h4>
-                    <div style="max-height: 400px; overflow-y: auto;">
-            `;
-            
-            data.monthlyHistory.forEach(month => {
-                const userTypeClass = month.userType === 'trial' ? 'status-trial' : 'status-premium';
-                html += `
-                    <div class="trend-item">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span class="trend-month">${month.monthName} ${month.year}</span>
-                            <span class="status-badge ${userTypeClass}">${month.userType}</span>
-                        </div>
-                        <div style="text-align: right;">
-                            <div class="trend-value">${month.totalTokens.toLocaleString()} tokens</div>
-                            <div style="font-size: 0.8em; color: #666;">
-                                ${month.averageDailyTokens}/day avg | ${month.activeDays} active days
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += '</div></div>';
-            container.innerHTML = html;
-        }
+
 
         function loadData() {
             // Hide all sections and clear active buttons
@@ -1286,7 +863,6 @@
                     <td class="date-cell">${formatDate(user.subscription_end_date)}</td>
                     <td class="date-cell">${formatDate(user.cancellation_date)}</td>
                     <td><span class="status-badge ${getStatusClass(user.current_status)}">${user.current_status}</span></td>
-                    <td class="cell">${user.total_monthly_tokens}</td>
                     <td class="date-cell">${formatDate(user.last_login)}</td>
                 `;
                 tbody.appendChild(row);
