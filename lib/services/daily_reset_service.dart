@@ -43,7 +43,8 @@ class DailyResetService {
       final now = AppConfig.currentDateTimeUtc;
       final duration = nextResetTime.difference(now);
 
-      _logger.info('Next reset scheduled for: ${nextResetTime.toIso8601String()} (in ${duration.inHours}h ${duration.inMinutes % 60}m)');
+      _logger.info(
+          'Next reset scheduled for: ${nextResetTime.toIso8601String()} (in ${duration.inHours}h ${duration.inMinutes % 60}m)');
 
       _resetTimer = Timer(duration, () {
         _performDailyReset().then((_) {
@@ -72,11 +73,11 @@ class DailyResetService {
       24, // 24:00 (midnight of next day)
       0,
     );
-    
+
     if (nextReset.isBefore(now) || nextReset.isAtSameMomentAs(now)) {
       nextReset = nextReset.add(const Duration(days: 1));
     }
-    
+
     return nextReset.toUtc();
   }
 
