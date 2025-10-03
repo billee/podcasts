@@ -53,8 +53,6 @@ void main() async {
       logger.warning('AudioService initialization failed: $e', e, s);
     }
 
-
-
     // Initialize DailyResetService for token limit management
     logger.info('Starting DailyResetService...');
     try {

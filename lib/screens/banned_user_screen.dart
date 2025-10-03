@@ -3,13 +3,13 @@
 import 'package:flutter/material.dart';
 import 'package:kapwa_companion_basic/services/ban_service.dart';
 import 'package:logging/logging.dart';
-import 'package:intl/intl.dart'; 
-import 'package:intl/date_symbol_data_local.dart'; 
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 class BannedUserScreen extends StatefulWidget {
   final String? userId;
   final Map<String, dynamic>? banDetails;
-  
+
   const BannedUserScreen({
     super.key,
     this.userId,
@@ -29,7 +29,7 @@ class _BannedUserScreenState extends State<BannedUserScreen> {
   void initState() {
     super.initState();
     initializeDateFormatting('fil', null).then((_) {
-    _loadBanDetails();
+      _loadBanDetails();
     });
   }
 
@@ -41,7 +41,7 @@ class _BannedUserScreenState extends State<BannedUserScreen> {
         _banDetails = await BanService.getBanDetails(widget.userId!);
       }
       // Keep this for debugging if needed:
-      print('Ban Details Loaded: $_banDetails'); 
+      print('Ban Details Loaded: $_banDetails');
     } catch (e) {
       _logger.severe('Error loading ban details: $e');
     } finally {
@@ -87,63 +87,66 @@ class _BannedUserScreenState extends State<BannedUserScreen> {
       child: Scaffold(
         backgroundColor: Colors.blue[900],
         body: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Icon(
-                            Icons.block,
-                            size: 100,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(height: 24),
-                          
-                          Container(
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: Colors.blue[800],
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.blue[600]!, width: 2),
-                            ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  'Ang inyong account ay na-suspend',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 16),
-                                
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(
+                  Icons.block,
+                  size: 100,
+                  color: Colors.white,
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[800],
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.blue[600]!, width: 2),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Ang inyong account ay na-suspend',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+
                       // Fix: Added crossAxisAlignment: CrossAxisAlignment.start to this Column
-                      Column( 
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                                if (_banDetails != null) ...[
-                                  _buildDetailColumn('Petsa ng Suspension:', _formatBanDate()),
-                                  const SizedBox(height: 12),
-                                  _buildDetailRow('Dahilan:', _banDetails!['reason'] ?? 'Paglabag sa mga tuntunin'),
-                                ] else ...[
-                                  Text(
-                                    'Dahilan: Paglabag sa mga tuntunin at kondisyon',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.white,
-                                      height: 1.4,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                      ],
+                          if (_banDetails != null) ...[
+                            _buildDetailColumn(
+                                'Petsa ng Suspension:', _formatBanDate()),
+                            const SizedBox(height: 12),
+                            _buildDetailRow(
+                                'Dahilan:',
+                                _banDetails!['reason'] ??
+                                    'Paglabag sa mga tuntunin'),
+                          ] else ...[
+                            Text(
+                              'Dahilan: Paglabag sa mga tuntunin at kondisyon',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white,
+                                height: 1.4,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ],
                       ),
-                      
+
                       const SizedBox(height: 20),
-                      
+
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -172,11 +175,10 @@ class _BannedUserScreenState extends State<BannedUserScreen> {
                       ),
                     ],
                   ),
-                          ),
-                          
-                          const SizedBox(height: 32),
-                        ],
-                      ),
+                ),
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
         ),
       ),

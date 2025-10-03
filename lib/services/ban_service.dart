@@ -1,31 +1,20 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logging/logging.dart';
 
+/// This service is kept as a placeholder in case ban functionality
+/// needs to be reimplemented in the future
 class BanService {
   static final Logger _logger = Logger('BanService');
-  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Check if a user is banned
+  /// Check if a user is banned - currently always returns false
+  /// since we removed the ban system
   static Future<bool> isUserBanned(String userId) async {
-    try {
-      final doc = await _firestore.collection('banned_users').doc(userId).get();
-      return doc.exists;
-    } catch (e) {
-      _logger.severe('Error checking if user is banned: $e');
-      return false;
-    }
+    return false;
   }
 
-  /// Get ban details for a user
+  /// Get ban details for a user - currently always returns null
+  /// since we removed the ban system
   static Future<Map<String, dynamic>?> getBanDetails(String userId) async {
-    try {
-      final doc = await _firestore.collection('banned_users').doc(userId).get();
-      if (!doc.exists) return null;
-      return doc.data();
-    } catch (e) {
-      _logger.severe('Error getting ban details: $e');
-      return null;
-    }
+    return null;
   }
 
   /// Ban a user

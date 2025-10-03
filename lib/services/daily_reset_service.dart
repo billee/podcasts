@@ -1,21 +1,13 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logging/logging.dart';
 import '../core/config.dart';
-import '../models/daily_token_usage.dart';
 
-/// Service for managing automated daily token limit resets
+/// Simple daily timer service for scheduling tasks
 /// Handles timezone-aware reset scheduling and database updates
 class DailyResetService {
   static final Logger _logger = Logger('DailyResetService');
-  static FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static Timer? _resetTimer;
   static bool _isRunning = false;
-
-  // For testing purposes - allow dependency injection
-  static void setFirestoreInstance(FirebaseFirestore firestore) {
-    _firestore = firestore;
-  }
 
   /// Start the daily reset service
   /// Schedules the next reset and sets up recurring timer
@@ -54,7 +46,8 @@ class DailyResetService {
       final now = AppConfig.currentDateTimeUtc;
       final duration = nextResetTime.difference(now);
 
-      _logger.info('Next reset scheduled for: ${nextResetTime.toIso8601String()} (in ${duration.inHours}h ${duration.inMinutes % 60}m)');
+      _logger.info(
+          'Next reset scheduled for: ${nextResetTime.toIso8601String()} (in ${duration.inHours}h ${duration.inMinutes % 60}m)');
 
       _resetTimer = Timer(duration, () {
         _performDailyReset().then((_) {
@@ -79,22 +72,22 @@ class DailyResetService {
   /// Reset happens at 24:00 (midnight) in the user's local timezone
   static DateTime _getNextResetTime() {
     final now = AppConfig.currentDateTime; // Use local time instead of UTC
-    
+
     // Calculate next reset time in local timezone (24:00 = midnight)
     DateTime nextReset = DateTime(
       now.year,
       now.month,
       now.day,
       24, // 24:00 military time (midnight of next day)
-      0,  // 0 minutes
+      0, // 0 minutes
     );
-    
+
     // If we're already past midnight today, the next reset is tomorrow at 24:00
     // Note: DateTime(year, month, day, 24, 0) automatically becomes next day at 00:00
     if (nextReset.isBefore(now) || nextReset.isAtSameMomentAs(now)) {
       nextReset = nextReset.add(const Duration(days: 1));
     }
-    
+
     // Convert to UTC for storage in Firestore
     return nextReset.toUtc();
   }
@@ -103,14 +96,13 @@ class DailyResetService {
   static Future<void> _performDailyReset() async {
     try {
       _logger.info('Starting automated daily token limit reset');
-      
+
       final resetTimestamp = AppConfig.currentDateTimeUtc;
       final today = _getTodayString();
-      
+
       // Get all token usage documents (now one per user)
-      final allUsageQuery = await _firestore
-          .collection('daily_token_usage')
-          .get();
+      final allUsageQuery =
+          await _firestore.collection('daily_token_usage').get();
 
       int processedUsers = 0;
       int newRecords = 0;
@@ -120,27 +112,30 @@ class DailyResetService {
       for (final doc in allUsageQuery.docs) {
         try {
           final usage = DailyTokenUsage.fromFirestore(doc);
-          
+
           // Only reset if the document is from a previous day
           if (usage.date != today) {
             await _resetUserTokens(usage.userId, today, resetTimestamp);
             processedUsers++;
             newRecords++;
-            _logger.fine('Reset user ${usage.userId} from ${usage.date} to $today');
+            _logger.fine(
+                'Reset user ${usage.userId} from ${usage.date} to $today');
           } else {
-            _logger.fine('User ${usage.userId} already has today\'s record, skipping');
+            _logger.fine(
+                'User ${usage.userId} already has today\'s record, skipping');
           }
         } catch (e) {
-          _logger.warning('Failed to reset tokens for user in document ${doc.id}: $e');
+          _logger.warning(
+              'Failed to reset tokens for user in document ${doc.id}: $e');
           errors++;
         }
       }
 
       // Log reset completion
-      _logger.info('Daily reset completed: $processedUsers users processed, $newRecords new records created, $errors errors');
-      
+      _logger.info(
+          'Daily reset completed: $processedUsers users processed, $newRecords new records created, $errors errors');
+
       // Reset metadata logging removed - no longer needed
-      
     } catch (e) {
       _logger.severe('Critical error during daily reset: $e');
       throw e;
@@ -148,13 +143,14 @@ class DailyResetService {
   }
 
   /// Reset tokens for a specific user
-  static Future<void> _resetUserTokens(String userId, String today, DateTime resetTimestamp) async {
+  static Future<void> _resetUserTokens(
+      String userId, String today, DateTime resetTimestamp) async {
     try {
       // Get current user type and token limit
       final userType = await _getUserType(userId);
       final tokenLimit = _getTokenLimitForUserType(userType);
       final nextResetTime = _getNextResetTime();
-      
+
       // Create new daily usage record with zero tokens
       final newUsage = DailyTokenUsage(
         userId: userId,
@@ -165,21 +161,20 @@ class DailyResetService {
         lastUpdated: resetTimestamp,
         resetAt: nextResetTime,
       );
-      
+
       final documentId = userId; // Use userId as document ID
       await _firestore
           .collection('daily_token_usage')
           .doc(documentId)
           .set(newUsage.toFirestore(), SetOptions(merge: false));
-      
-      _logger.fine('Reset tokens for user $userId: limit=$tokenLimit, type=$userType');
+
+      _logger.fine(
+          'Reset tokens for user $userId: limit=$tokenLimit, type=$userType');
     } catch (e) {
       _logger.warning('Error resetting tokens for user $userId: $e');
       throw e;
     }
   }
-
-
 
   /// Manual reset trigger for testing or emergency use
   static Future<void> performManualReset() async {
@@ -209,6 +204,4 @@ class DailyResetService {
     final now = AppConfig.currentDateTime; // Use local time instead of UTC
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
-
-
 }
